@@ -203,14 +203,31 @@
   border-radius: 4px;
 }
 
-dialog.export-dialog {
+dialog.app-dialog {
   padding: 1.5rem;
   border: 1px solid var(--border-soft);
   border-radius: 4px;
-  max-width: 720px;
-  width: 90vw;
+  max-width: min(1200px, 95vw);
+  width: 95vw;
+  max-height: 90vh;
+  overflow: auto;
 }
 
-dialog.export-dialog::backdrop {
+dialog.app-dialog::backdrop {
   background: rgba(22, 22, 22, 0.5);
+}
+
+.graph-container {
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 1rem;
+  overflow: auto;
+  background: #fff;
+  max-height: 70vh;
+}
+
+.graph-container svg {
+  max-width: none;
+  height: auto;
 }

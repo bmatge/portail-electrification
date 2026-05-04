@@ -457,47 +457,122 @@ function exportMarkdown() {
   showExport('Export Markdown', lines.join('\n'), 'arborescence.md', 'text/markdown');
 }
 
-function exportMermaid() {
-  const lines = ['flowchart TD'];
-  function safeId(id) { return id.replace(/[^a-zA-Z0-9_]/g, '_'); }
+function buildMermaidSource() {
+  const lines = ['flowchart LR'];
+  const safeId = (id) => id.replace(/[^a-zA-Z0-9_]/g, '_');
+  const escape = (s) => String(s).replace(/"/g, '#quot;');
   function rec(node) {
     const sid = safeId(node.id);
-    const label = `${node.label}\\n[${TYPES[node.type]?.label ?? node.type}]`.replace(/"/g, '\\"');
-    lines.push(`  ${sid}["${label}"]`);
+    const typeLabel = TYPES[node.type]?.label ?? node.type;
+    const label = `${escape(node.label)}<br/><i>${escape(typeLabel)}</i>`;
+    lines.push(`  ${sid}["${label}"]:::t-${node.type}`);
     for (const c of node.children ?? []) {
       lines.push(`  ${sid} --> ${safeId(c.id)}`);
       rec(c);
     }
   }
   rec(state.tree);
-  showExport('Export Mermaid', lines.join('\n'), 'arborescence.mmd', 'text/plain');
+  // Class definitions echoing the type-pill colors used in the tree.
+  lines.push(
+    'classDef t-hub         fill:#f4f4fc,stroke:#6a6af4,color:#3a3a8c;',
+    'classDef t-editorial   fill:#ffffff,stroke:#bbbbbb,color:#444444;',
+    'classDef t-service     fill:#e8edff,stroke:#8b9ed9,color:#2a3994;',
+    'classDef t-simulator   fill:#fee7fc,stroke:#d28aa3,color:#6e445a;',
+    'classDef t-map         fill:#b8fec9,stroke:#5cba7a,color:#18753c;',
+    'classDef t-external    fill:#fff6e3,stroke:#d4be91,color:#716043;',
+    'classDef t-marketplace fill:#ffe8e5,stroke:#e8a08a,color:#b34000;',
+    'classDef t-kit         fill:#fef7da,stroke:#d4c891,color:#716043;',
+    'classDef t-form        fill:#e0f3ff,stroke:#88b8e0,color:#0063cb;',
+    'classDef t-private     fill:#efeae3,stroke:#a8998a,color:#5e5045;',
+  );
+  return lines.join('\n');
 }
 
-function showExport(title, content, filename, mime) {
-  let dlg = document.getElementById('export-dialog');
-  if (dlg) dlg.remove();
-  dlg = document.createElement('dialog');
-  dlg.id = 'export-dialog';
-  dlg.className = 'export-dialog';
+let mermaidPromise = null;
+function ensureMermaid() {
+  if (!mermaidPromise) {
+    mermaidPromise = import('https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs').then(mod => {
+      const m = mod.default ?? mod;
+      m.initialize({ startOnLoad: false, securityLevel: 'loose', flowchart: { htmlLabels: true, useMaxWidth: false } });
+      return m;
+    });
+  }
+  return mermaidPromise;
+}
+
+async function viewGraph() {
+  const dlg = openDialog('Vue graphique');
+  const container = document.createElement('div');
+  container.className = 'graph-container';
+  container.textContent = 'Génération du diagramme…';
+  dlg.body.appendChild(container);
+
+  const actions = document.createElement('div');
+  actions.className = 'panel-actions';
+  dlg.body.appendChild(actions);
+
+  let svgSource = '';
+  try {
+    const mermaid = await ensureMermaid();
+    const source = buildMermaidSource();
+    const { svg } = await mermaid.render('graph-' + Date.now(), source);
+    container.innerHTML = svg;
+    svgSource = svg;
+  } catch (e) {
+    container.textContent = 'Erreur de rendu : ' + e.message;
+    return;
+  }
+
+  actions.appendChild(button('Télécharger SVG', 'fr-btn--secondary fr-icon-download-line fr-btn--icon-left', () => {
+    const blob = new Blob([svgSource], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'arborescence.svg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }));
+  actions.appendChild(button('Copier la source Mermaid', 'fr-btn--tertiary fr-icon-clipboard-line fr-btn--icon-left', async () => {
+    try { await navigator.clipboard.writeText(buildMermaidSource()); } catch {}
+  }));
+  actions.appendChild(button('Fermer', 'fr-btn--tertiary', () => dlg.dialog.close()));
+}
+
+function openDialog(title) {
+  let dialog = document.getElementById('app-dialog');
+  if (dialog) dialog.remove();
+  dialog = document.createElement('dialog');
+  dialog.id = 'app-dialog';
+  dialog.className = 'app-dialog';
 
   const h = document.createElement('h2');
   h.className = 'fr-h6';
   h.textContent = title;
-  dlg.appendChild(h);
+  dialog.appendChild(h);
+
+  const body = document.createElement('div');
+  body.className = 'app-dialog__body';
+  dialog.appendChild(body);
+
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  return { dialog, body };
+}
+
+function showExport(title, content, filename, mime) {
+  const dlg = openDialog(title);
 
   const ta = document.createElement('textarea');
   ta.className = 'export-textarea';
   ta.value = content;
   ta.readOnly = true;
-  dlg.appendChild(ta);
+  dlg.body.appendChild(ta);
 
   const actions = document.createElement('div');
   actions.className = 'panel-actions';
-
-  actions.appendChild(button('Copier', 'fr-btn--secondary fr-icon-clipboard-line', async () => {
+  actions.appendChild(button('Copier', 'fr-btn--secondary fr-icon-clipboard-line fr-btn--icon-left', async () => {
     try { await navigator.clipboard.writeText(content); } catch { ta.select(); document.execCommand('copy'); }
   }));
-  actions.appendChild(button('Télécharger', 'fr-btn--secondary fr-icon-download-line', () => {
+  actions.appendChild(button('Télécharger', 'fr-btn--secondary fr-icon-download-line fr-btn--icon-left', () => {
     const blob = new Blob([content], { type: mime });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -505,11 +580,8 @@ function showExport(title, content, filename, mime) {
     a.click();
     URL.revokeObjectURL(a.href);
   }));
-  actions.appendChild(button('Fermer', 'fr-btn--tertiary', () => dlg.close()));
-
-  dlg.appendChild(actions);
-  document.body.appendChild(dlg);
-  dlg.showModal();
+  actions.appendChild(button('Fermer', 'fr-btn--tertiary', () => dlg.dialog.close()));
+  dlg.body.appendChild(actions);
 }
 
 function importJson(file) {
@@ -557,7 +629,7 @@ document.querySelectorAll('[data-action]').forEach(btn => {
       }
       case 'export-json':     exportJson(); break;
       case 'export-markdown': exportMarkdown(); break;
-      case 'export-mermaid':  exportMermaid(); break;
+      case 'view-graph':      viewGraph(); break;
       case 'import-json':
         document.getElementById('import-file').click();
         break;

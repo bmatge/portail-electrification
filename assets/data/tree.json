@@ -95,10 +95,10 @@
     },
     {
       "id": "m",
-      "label": "Mouvement",
+      "label": "Écosystème",
       "type": "editorial",
       "format": "Pages thématiques",
-      "tldr": "Univers de mobilisation et d'écosystème partenarial. Logique de labellisation et de marketplace.",
+      "tldr": "Univers de mobilisation et de labellisation des partenaires. Logique de marketplace.",
       "url": "",
       "priority": "v1",
       "complexity": "low",
