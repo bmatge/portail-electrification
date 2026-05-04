@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Maquette d'arborescence — Hub d'info plan d'électrification</title>
-  <meta name="description" content="Prototype d'arborescence pour le hub d'info du plan d'électrification : édition de nœuds typés, export multi-format, persistance locale.">
+  <title>Dispositifs existants — Hub d'info plan d'électrification</title>
+  <meta name="description" content="Cartographie des dispositifs étatiques existants susceptibles d'être pointés ou intégrés par le hub d'info.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
   <link rel="stylesheet" href="assets/style.css">
 </head>
-<body data-page="arborescence">
+<body data-page="dispositifs">
   <header role="banner" class="fr-header">
     <div class="fr-header__body">
       <div class="fr-container">
@@ -50,8 +50,8 @@
         <div class="fr-header__menu-links"></div>
         <nav class="fr-nav" id="navigation" role="navigation" aria-label="Menu principal">
           <ul class="fr-nav__list">
-            <li class="fr-nav__item"><a class="fr-nav__link" href="./" target="_self" aria-current="page">Arborescence</a></li>
-            <li class="fr-nav__item"><a class="fr-nav__link" href="dispositifs.html" target="_self">Dispositifs existants</a></li>
+            <li class="fr-nav__item"><a class="fr-nav__link" href="./" target="_self">Arborescence</a></li>
+            <li class="fr-nav__item"><a class="fr-nav__link" href="dispositifs.html" target="_self" aria-current="page">Dispositifs existants</a></li>
             <li class="fr-nav__item"><a class="fr-nav__link" href="risques.html" target="_self">Cartographie des risques</a></li>
           </ul>
         </nav>
@@ -64,91 +64,61 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Maquette d'arborescence du hub d'info</h1>
-          <p class="fr-text--lg fr-mb-0">Outil de prototypage pour construire et faire évoluer la structure de contenus et services du futur portail.</p>
+          <h1 class="fr-h3 fr-mb-1w">Dispositifs étatiques existants</h1>
+          <p class="fr-text--lg fr-mb-0">Plateformes, simulateurs, cartes et guichets gouvernementaux susceptibles d'être pointés ou intégrés par le hub.</p>
         </div>
       </div>
 
       <section class="fr-mb-3w" aria-labelledby="toolbar-heading">
         <h2 id="toolbar-heading" class="fr-sr-only">Barre d'outils</h2>
         <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-          <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add-root">Nouvelle rubrique</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-down-s-line" data-action="expand-all">Déplier</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-right-s-line" data-action="collapse-all">Replier</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export-json">Export</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-eye-fill" data-action="view-graph">Vue graphique</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import-json">Import</button></li>
+          <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add">Nouveau dispositif</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export">Export</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import">Import</button></li>
           <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-action="reset">Réinitialiser</button></li>
           <input type="file" id="import-file" accept=".json" hidden>
         </ul>
       </section>
 
       <section class="fr-mb-3w" aria-labelledby="filter-heading">
-        <h2 id="filter-heading" class="fr-sr-only">Filtres et recherche</h2>
+        <h2 id="filter-heading" class="fr-sr-only">Filtres</h2>
         <div class="fr-grid-row fr-grid-row--gutters">
-          <div class="fr-col-12 fr-col-md-6">
+          <div class="fr-col-12 fr-col-md-4">
             <div class="fr-input-group">
-              <label class="fr-label" for="search-input">Rechercher un nœud par libellé ou TL;DR</label>
-              <input class="fr-input" type="search" id="search-input" placeholder="ex. leasing, carte, simulateur…">
+              <label class="fr-label" for="search-input">Rechercher</label>
+              <input class="fr-input" type="search" id="search-input" placeholder="ex. ANAH, simulateur, leasing…">
             </div>
           </div>
-          <div class="fr-col-12 fr-col-md-6">
+          <div class="fr-col-12 fr-col-md-4">
             <div class="fr-select-group">
-              <label class="fr-label" for="priority-filter">Filtrer par priorité de mise en œuvre</label>
-              <select class="fr-select" id="priority-filter">
-                <option value="all">Toutes les priorités</option>
-                <option value="mvp">MVP uniquement</option>
-                <option value="v1">V1 et MVP</option>
-                <option value="v2">V2 et antérieures</option>
-                <option value="v3">Toutes (V3 inclus)</option>
-                <option value="none">Sans priorité définie</option>
-              </select>
+              <label class="fr-label" for="filter-category">Catégorie</label>
+              <select class="fr-select" id="filter-category"><option value="all">Toutes</option></select>
+            </div>
+          </div>
+          <div class="fr-col-12 fr-col-md-4">
+            <div class="fr-select-group">
+              <label class="fr-label" for="filter-audience">Audience</label>
+              <select class="fr-select" id="filter-audience"><option value="all">Toutes</option></select>
             </div>
           </div>
         </div>
       </section>
 
       <div class="fr-grid-row fr-grid-row--gutters">
-
-        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="tree-heading">
+        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="list-heading">
           <div class="panel-card">
-            <h2 id="tree-heading" class="fr-h6 fr-mb-2w">Arborescence</h2>
-            <div class="tree" id="tree" role="tree" aria-label="Arborescence des nœuds"></div>
-            <div class="legend" id="legend" aria-label="Légende des types"></div>
+            <h2 id="list-heading" class="fr-h6 fr-mb-2w">Dispositifs</h2>
+            <div class="card-list" id="list" role="list"></div>
             <p class="fr-text--xs fr-mt-2w fr-mb-0" id="counter" style="color: var(--text-mention-grey);"></p>
           </div>
         </section>
-
         <section class="fr-col-12 fr-col-lg-6" aria-labelledby="detail-heading">
           <div class="panel-card panel-detail">
-            <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du nœud sélectionné</h2>
+            <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du dispositif</h2>
             <div id="panel"></div>
           </div>
         </section>
-
       </div>
-
-      <details class="fr-mt-4w">
-        <summary class="fr-text--md" style="cursor: pointer;">À propos de cette maquette</summary>
-        <div class="fr-mt-2w fr-text--sm">
-          <p>
-            <strong>Typologie de nœuds.</strong> Dix types sont prédéfinis pour qualifier chaque rubrique selon sa fonction :
-            page éditoriale, service applicatif, simulateur, carte, renvoi externe, marketplace, kit téléchargeable,
-            formulaire, espace authentifié, ou hub d'orientation. Cette typologie sert ensuite à arbitrer
-            la priorisation et l'effort technique requis.
-          </p>
-          <p>
-            <strong>Persistance.</strong> Toutes les modifications sont conservées dans le navigateur via
-            <code>localStorage</code>. Aucune donnée n'est transmise à un serveur. Pour partager votre travail,
-            exportez un fichier JSON.
-          </p>
-          <p>
-            <strong>Réutilisation.</strong> Le code source est sous licence ouverte sur
-            <a href="https://github.com/bmatge/portail-electrification" target="_blank" rel="noopener">GitHub</a>
-            et peut être adapté à d'autres projets de cadrage de portails.
-          </p>
-        </div>
-      </details>
 
     </div>
   </main>
@@ -157,14 +127,10 @@
     <div class="fr-container">
       <div class="fr-footer__body">
         <div class="fr-footer__brand fr-enlarge-link">
-          <p class="fr-logo">
-            République<br>Française
-          </p>
+          <p class="fr-logo">République<br>Française</p>
         </div>
         <div class="fr-footer__content">
-          <p class="fr-footer__content-desc">
-            Maquette d'arborescence pour le hub d'info du plan d'électrification.
-          </p>
+          <p class="fr-footer__content-desc">Prototype d'arborescence et de cartographies pour le hub d'info du plan d'électrification.</p>
           <ul class="fr-footer__content-list">
             <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="https://www.economie.gouv.fr" target="_blank" rel="noopener">economie.gouv.fr</a></li>
             <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="https://www.ecologie.gouv.fr" target="_blank" rel="noopener">ecologie.gouv.fr</a></li>
@@ -186,6 +152,6 @@
 
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
-  <script src="assets/script.js" type="module"></script>
+  <script src="assets/dispositifs.js" type="module"></script>
 </body>
 </html>

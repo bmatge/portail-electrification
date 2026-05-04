@@ -1,0 +1,481 @@
+{
+  "meta": {
+    "title": "Cartographie des risques — Hub d'info Electrifions la France",
+    "context": "Volet numérique du plan d'électrification.",
+    "date": "2026-05-04",
+    "version": 1,
+    "echelles": {
+      "probabilite": [
+        "Faible",
+        "Moyenne",
+        "Élevée",
+        "Très élevée"
+      ],
+      "impact": [
+        "Faible",
+        "Moyen",
+        "Élevé",
+        "Très élevé"
+      ],
+      "criticite": [
+        "Faible",
+        "Moyenne",
+        "Élevée",
+        "Critique"
+      ]
+    },
+    "categories": [
+      "Stratégique",
+      "Gouvernance",
+      "Technique",
+      "Opérationnel",
+      "Juridique",
+      "Politique",
+      "Impact"
+    ]
+  },
+  "risks": [
+    {
+      "id": "R-S01",
+      "category": "Stratégique",
+      "name": "Ambiguïté de la nature du dispositif",
+      "description": "Hésitation non tranchée entre site de campagne (mobilisation, signature, KPI de notoriété) et service public (parcours utilisateur, KPI de conversion vers les guichets aval). Tant que ce choix n'est pas explicite, chaque arbitrage technique remonte au politique.",
+      "probability": "Élevée",
+      "impact": "Élevé",
+      "criticite": "Critique",
+      "arbitrage": "Acter formellement la nature du dispositif en copil DICOM/SIRCOM avant le brief agence. Préconisation : portail à services avec habillage de campagne, plutôt que campagne pure.",
+      "acteurs": [
+        "Cabinet PM",
+        "DICOM MTE",
+        "SIRCOM Bercy",
+        "SGPE"
+      ],
+      "echeance": "Avant le brief agence (semaine du 11 mai)",
+      "detection": "Multiplication des arbitrages contradictoires, retours d'agence ambivalents.",
+      "mitigation": "Note d'arbitrage 1 page proposant les 2 scénarios (campagne / service) avec leurs implications budgétaires et techniques."
+    },
+    {
+      "id": "R-S02",
+      "category": "Stratégique",
+      "name": "Hub-fantôme",
+      "description": "Site qui agrège des liens sortants sans valeur ajoutée par rapport à un dossier sur info.gouv.fr. Faible audience, faible conversion, justification difficile post-livraison.",
+      "probability": "Élevée",
+      "impact": "Élevé",
+      "criticite": "Critique",
+      "arbitrage": "Inclure dès le MVP au moins un service distinctif : simulateur unifié logement+mobilités, ou marketplace partenariale, ou cartographie active des projets territoriaux.",
+      "acteurs": [
+        "Mandant opérationnel",
+        "DGEC",
+        "DINUM"
+      ],
+      "echeance": "Conception du MVP",
+      "detection": "Trafic faible, taux de rebond élevé, peu de clics sortants vers les guichets aval.",
+      "mitigation": "Engagement contractuel sur au moins une brique de service intégrée dès la V0 (idéalement Mes Aides Réno en iframe)."
+    },
+    {
+      "id": "R-S03",
+      "category": "Stratégique",
+      "name": "Doublon visible avec France Rénov' et Aides-territoires",
+      "description": "Périmètre éditorial qui empiète sur deux portails matures aux notoriétés établies (France Rénov' pour les particuliers, Aides-territoires pour les collectivités). Réaction défensive de leurs porteurs (ANAH, ANCT) et enlisement en arbitrages interministériels.",
+      "probability": "Élevée",
+      "impact": "Moyen",
+      "criticite": "Élevée",
+      "arbitrage": "Définir un périmètre éditorial complémentaire et non concurrent. Intégrer explicitement ces deux briques via API et iframe plutôt que de les dupliquer.",
+      "acteurs": [
+        "ANAH",
+        "ANCT",
+        "DGALN",
+        "DICOM MTE"
+      ],
+      "echeance": "Avant validation de l'arborescence définitive",
+      "detection": "Échanges interministériels qui se tendent, demandes de retrait de pages.",
+      "mitigation": "Convention bilatérale ANAH/MEFSIN et ANCT/MEFSIN actant les renvois et l'absence de duplication."
+    },
+    {
+      "id": "R-S04",
+      "category": "Stratégique",
+      "name": "Obsolescence post-18 mois",
+      "description": "Plateforme conçue pour la campagne et abandonnée à la fin du plan de communication. Risque de site fantôme avec contenus obsolètes, mauvaise image pour l'État.",
+      "probability": "Moyenne",
+      "impact": "Élevé",
+      "criticite": "Élevée",
+      "arbitrage": "Décider dès l'amont la trajectoire de bascule : intégration France Rénov', intégration info.gouv.fr, pérennisation comme mission, ou sunset programmé avec redirections.",
+      "acteurs": [
+        "SGPE",
+        "DICOM MTE",
+        "Opérateur cible (ANAH ou ADEME)"
+      ],
+      "echeance": "Avant brief agence",
+      "detection": "Absence de mention de la trajectoire post-18 mois dans les documents de cadrage.",
+      "mitigation": "Clause de réversibilité dans tous les marchés (code source ouvert, données portables, identifiants pérennes)."
+    },
+    {
+      "id": "R-S05",
+      "category": "Stratégique",
+      "name": "Ambiguïté sur le statut de la marque Electrifions la France",
+      "description": "Signature de campagne, marque pérenne ou label utilisable par des tiers ? Le cadrage actuel mentionne un usage imposé sur les CEE et une identité visuelle libre, ce qui suggère un label sans en assumer les conséquences juridiques.",
+      "probability": "Moyenne",
+      "impact": "Moyen",
+      "criticite": "Moyenne",
+      "arbitrage": "Décider : signature, marque ou label. Si label : dépôt INPI, conditions d'usage, modération. Sinon : usage informel et révocable.",
+      "acteurs": [
+        "DAJ MEFSIN",
+        "DGEC",
+        "INPI",
+        "DICOM MTE"
+      ],
+      "echeance": "Avant la première campagne d'enrôlement de partenaires",
+      "detection": "Premiers usages détournés ou contestables détectés sur les réseaux sociaux ou dans la communication CEE.",
+      "mitigation": "Charte d'usage écrite et opposable, dépôt de marque ou de classe défensive si nécessaire."
+    },
+    {
+      "id": "R-G01",
+      "category": "Gouvernance",
+      "name": "Absence de mandant opérationnel unique",
+      "description": "Quatre ministères, plusieurs agences, comitologie politique sophistiquée mais aucun pilote SI clairement désigné. Chaque arbitrage technique remonte à un copil qui n'a pas l'expertise pour trancher.",
+      "probability": "Très élevée",
+      "impact": "Élevé",
+      "criticite": "Critique",
+      "arbitrage": "Désigner un mandant opérationnel unique (DICOM MTE, SIRCOM Bercy ou DINUM) avec délégation explicite et visible.",
+      "acteurs": [
+        "Cabinet PM",
+        "SG MEFSIN",
+        "SG MTE"
+      ],
+      "echeance": "Immédiat — avant tout brief",
+      "detection": "Aucune décision technique tranchée à 48h, échanges qui tournent en rond.",
+      "mitigation": "Note de désignation cosignée par les SG concernés, avec délégation expresse de décision technique."
+    },
+    {
+      "id": "R-G02",
+      "category": "Gouvernance",
+      "name": "Comité éditorial non opérationnel",
+      "description": "Multiplicité d'opérateurs producteurs de contenu (DGEC, DGE, DGITM, ADEME, ANAH, ANCT) sans circuit éditorial unifié. Délais de validation incompatibles avec la fraîcheur attendue d'un site d'actualité.",
+      "probability": "Élevée",
+      "impact": "Moyen",
+      "criticite": "Élevée",
+      "arbitrage": "Constituer un comité éditorial restreint (5-7 personnes), avec workflow et SLA explicites (validation sous 48h).",
+      "acteurs": [
+        "DICOM MTE",
+        "SIRCOM",
+        "DGEC",
+        "ADEME",
+        "ANAH",
+        "ANCT"
+      ],
+      "echeance": "Avant le lancement du MVP",
+      "detection": "Contenus non publiés à temps, désaccords éditoriaux remontant en arbitrage interministériel.",
+      "mitigation": "Charte éditoriale écrite, role-set explicite (rédacteur / valideur métier / valideur juridique / publication)."
+    },
+    {
+      "id": "R-G03",
+      "category": "Gouvernance",
+      "name": "Conflit de compétence avec opérateurs porteurs (ANAH, ADEME, ANCT)",
+      "description": "Les opérateurs publics qui détiennent les briques amont (Mes Aides Réno, agir.ademe.fr, Aides-territoires, mission-transition-ecologique.beta.gouv.fr) peuvent percevoir le hub comme une mise en cause de leur capacité à toucher leurs publics.",
+      "probability": "Moyenne",
+      "impact": "Élevé",
+      "criticite": "Élevée",
+      "arbitrage": "Conventions bilatérales explicitant la complémentarité, le hub étant un orchestrateur et non un substitut. Logique gagnant-gagnant : audience supplémentaire pour eux, valeur ajoutée pour le hub.",
+      "acteurs": [
+        "ANAH",
+        "ADEME",
+        "ANCT",
+        "DINUM",
+        "Tutelles"
+      ],
+      "echeance": "Avant l'intégration des briques",
+      "detection": "Refus d'API, demandes de modération sur les contenus, lenteur des réponses.",
+      "mitigation": "Saisine officielle des tutelles avec un message politique fort en amont."
+    },
+    {
+      "id": "R-T01",
+      "category": "Technique",
+      "name": "Instabilité des briques amont",
+      "description": "Mes Aides Réno : équipe ANAH a quitté le produit fin 2025, réurbanisation 2026. Aides-territoires : recentrage exclusif sur les acteurs publics depuis mars 2026. Mission Transition Écologique : produit en phase de croissance. Les API peuvent évoluer sans préavis.",
+      "probability": "Élevée",
+      "impact": "Moyen",
+      "criticite": "Élevée",
+      "arbitrage": "Stratégie API-first avec couche d'abstraction interne. Veille active sur les briques amont. Plan B (intégration en lien sortant) prévu pour chaque service.",
+      "acteurs": [
+        "MOE hub",
+        "DINUM",
+        "ANAH",
+        "ADEME"
+      ],
+      "echeance": "Architecture technique du MVP",
+      "detection": "Changements unilatéraux de schéma API, dépréciations.",
+      "mitigation": "Couche adapter par brique amont, contrats SLA si possible, code ouvert pour fork défensif."
+    },
+    {
+      "id": "R-T02",
+      "category": "Technique",
+      "name": "Non-conformité RGAA / RGESN",
+      "description": "Sites de campagne fréquemment livrés avec un niveau d'accessibilité insuffisant. RGAA niveau A/AA et RGESN sont pourtant non négociables sur un site grand public d'État.",
+      "probability": "Élevée",
+      "impact": "Élevé",
+      "criticite": "Critique",
+      "arbitrage": "Clauses RGAA et RGESN explicites dans le brief agence, recettes d'accessibilité conditionnant le paiement.",
+      "acteurs": [
+        "MOE hub",
+        "Agence retenue",
+        "Expert accessibilité (interne ou externe)"
+      ],
+      "echeance": "Brief agence",
+      "detection": "Audit d'accessibilité au-dessus de 5% non-conformités après livraison.",
+      "mitigation": "Audit RGAA tiers indépendant intégré au planning, livré avant la mise en ligne."
+    },
+    {
+      "id": "R-T03",
+      "category": "Technique",
+      "name": "Choix de socle technique inadapté",
+      "description": "CMS ou framework choisis pour la campagne incompatibles avec la trajectoire de bascule (vers Drupal ANAH, Drupal mutualisé MEFSIN, ou stack Beta.gouv).",
+      "probability": "Moyenne",
+      "impact": "Élevé",
+      "criticite": "Élevée",
+      "arbitrage": "Décider du socle en cohérence avec la trajectoire post-18 mois (R-S04). Privilégier Drupal mutualisé MEFSIN ou Astro/Next.js statique selon le scénario retenu.",
+      "acteurs": [
+        "MOE hub",
+        "DSI MEFSIN",
+        "DINUM"
+      ],
+      "echeance": "Cadrage technique du MVP",
+      "detection": "Coût de migration ou de réécriture supérieur à 30% du budget initial à la bascule.",
+      "mitigation": "POC technique sur 2 semaines avant arrêt définitif du socle."
+    },
+    {
+      "id": "R-T04",
+      "category": "Technique",
+      "name": "Authentification non maîtrisée",
+      "description": "Espace collectivités, charte d'engagement et marketplace nécessitent une authentification (ProConnect, FranceConnect+ ou AgentConnect). Mauvais choix ou intégration ratée = adoption nulle.",
+      "probability": "Moyenne",
+      "impact": "Moyen",
+      "criticite": "Moyenne",
+      "arbitrage": "Aligner chaque parcours authentifié sur le bon fournisseur d'identité : ProConnect pour les agents publics, FranceConnect+ pour les particuliers, AgentConnect pour les agents État.",
+      "acteurs": [
+        "DINUM",
+        "MOE hub"
+      ],
+      "echeance": "Conception V1 services",
+      "detection": "Taux d'authentification réussie inférieur à 80%.",
+      "mitigation": "POC d'intégration ProConnect sur l'espace collectivités avant tout autre développement authentifié."
+    },
+    {
+      "id": "R-O01",
+      "category": "Opérationnel",
+      "name": "Calendrier irréaliste",
+      "description": "Brief agence prévu en semaine du 11 mai sans cadrage technique du hub. Risque que l'agence travaille à plusieurs voix et produise une livraison à reprendre.",
+      "probability": "Élevée",
+      "impact": "Moyen",
+      "criticite": "Élevée",
+      "arbitrage": "Phasage en 3 temps : MVP éditorial à 8 semaines, V1 services à 16 semaines, V2 écosystème à 6 mois. Le brief agence ne porte que sur la couche éditoriale et la campagne mère.",
+      "acteurs": [
+        "DICOM MTE",
+        "SIRCOM",
+        "Mandant opérationnel",
+        "Agence"
+      ],
+      "echeance": "Brief agence",
+      "detection": "Demande d'extension de calendrier dès la première itération.",
+      "mitigation": "Lots fonctionnels distincts dans le marché, jalons de validation intermédiaires."
+    },
+    {
+      "id": "R-O02",
+      "category": "Opérationnel",
+      "name": "Budget non isolé pour le hub",
+      "description": "Les 3 M€ de l'enveloppe interministérielle couvrent principalement l'achat d'espaces et la création agence. Le hub n'est pas budgété distinctement, risque de sous-financement chronique.",
+      "probability": "Élevée",
+      "impact": "Élevé",
+      "criticite": "Critique",
+      "arbitrage": "Isoler un coût d'objectif spécifique pour le volet numérique (build + run sur 18 mois minimum). Estimation : 350 k€ à 800 k€ selon ambition.",
+      "acteurs": [
+        "SG MEFSIN",
+        "DAF",
+        "Mandant opérationnel"
+      ],
+      "echeance": "Avant brief agence",
+      "detection": "Estimations agence systématiquement plus élevées que la ligne budgétaire.",
+      "mitigation": "Note budgétaire dédiée avec hypothèses build/run sur 18 mois et trajectoire post-bascule."
+    },
+    {
+      "id": "R-O03",
+      "category": "Opérationnel",
+      "name": "Déficit d'animation post-livraison",
+      "description": "Site livré sans équipe d'animation éditoriale, sans modération de la marketplace ou de la charte. Décrochage rapide de la qualité perçue.",
+      "probability": "Élevée",
+      "impact": "Moyen",
+      "criticite": "Élevée",
+      "arbitrage": "Prévoir une équipe permanente (2-3 ETP) dédiée à l'animation éditoriale et la modération, hébergée chez le mandant opérationnel.",
+      "acteurs": [
+        "Mandant opérationnel",
+        "DICOM MTE",
+        "DRH"
+      ],
+      "echeance": "Avant le MVP",
+      "detection": "Délais de modération supérieurs à 5 jours, contenus non actualisés au-delà de 30 jours.",
+      "mitigation": "Convention de mise à disposition ou recrutement contractuel dès le démarrage."
+    },
+    {
+      "id": "R-O04",
+      "category": "Opérationnel",
+      "name": "Multilinguisme outre-mer non traité",
+      "description": "Plan d'électrification s'applique aux outre-mer mais le cadrage actuel ne traite pas le multilinguisme (créoles, tamoul). Absence de prise en compte = exclusion implicite.",
+      "probability": "Élevée",
+      "impact": "Faible",
+      "criticite": "Moyenne",
+      "arbitrage": "Décider du périmètre linguistique (français + outre-mer ? français langue facile FALC ?). Au minimum, FALC sur les pages clés.",
+      "acteurs": [
+        "DICOM MTE",
+        "Ministère des Outre-mer",
+        "Expert FALC"
+      ],
+      "echeance": "Conception MVP",
+      "detection": "Saisines de la HALDE ou d'associations outre-mer, signalements RGAA.",
+      "mitigation": "Intégrer FALC dès le MVP sur les pages d'orientation, plan de traduction outre-mer en V2."
+    },
+    {
+      "id": "R-J01",
+      "category": "Juridique",
+      "name": "Captation involontaire de données financières",
+      "description": "Contexte de fraude aux aides à la rénovation. Si le hub propose un simulateur sans précautions ou recueille des éléments financiers, risque d'exploitation par des tiers malveillants ou de mise en cause de la responsabilité de l'État.",
+      "probability": "Faible",
+      "impact": "Très élevé",
+      "criticite": "Élevée",
+      "arbitrage": "Pas de captation de données financières sur le hub. Tout simulateur en iframe ANAH ou redirection vers le guichet officiel. Bandeau de mise en garde anti-fraude.",
+      "acteurs": [
+        "DAJ",
+        "DGCCRF",
+        "DGEC",
+        "CNIL"
+      ],
+      "echeance": "Cadrage technique",
+      "detection": "Signalements DGCCRF, plaintes utilisateurs.",
+      "mitigation": "Audit de sécurité ANSSI préalable, RGPD by design, mention CNIL et DPO."
+    },
+    {
+      "id": "R-J02",
+      "category": "Juridique",
+      "name": "Détournement de la marque par des tiers",
+      "description": "Electrifions la France et la charte d'engagement peuvent être utilisées par des entreprises peu scrupuleuses pour obtenir un effet de caution publique sur leurs offres commerciales.",
+      "probability": "Moyenne",
+      "impact": "Moyen",
+      "criticite": "Moyenne",
+      "arbitrage": "Charte d'usage écrite, conditions de signature publiques, processus de retrait, modération active de l'annuaire des signataires.",
+      "acteurs": [
+        "DAJ",
+        "DGCCRF",
+        "DICOM MTE"
+      ],
+      "echeance": "Avant ouverture de la charte",
+      "detection": "Veille marketing et réseaux sociaux, signalements.",
+      "mitigation": "Procédure de signalement anti-greenwashing, retrait dans les 48h."
+    },
+    {
+      "id": "R-J03",
+      "category": "Juridique",
+      "name": "Non-respect du RGPD sur la mesure d'audience",
+      "description": "Recours à un outil de mesure non exempté de consentement (Google Analytics) impose un bandeau cookies et provoque un trou structurel dans les données.",
+      "probability": "Moyenne",
+      "impact": "Faible",
+      "criticite": "Faible",
+      "arbitrage": "Choisir un outil de mesure exempté (Matomo configuré CNIL, AT Internet exempté).",
+      "acteurs": [
+        "DPO",
+        "MOE hub",
+        "DICOM MTE"
+      ],
+      "echeance": "Architecture MVP",
+      "detection": "Audit CNIL ou signalement.",
+      "mitigation": "Conformité Matomo paramétré selon référentiel CNIL exemption."
+    },
+    {
+      "id": "R-P01",
+      "category": "Politique",
+      "name": "Polémique sur le coût ou la pertinence",
+      "description": "Site critiqué dans la presse ou par l'opposition comme une dépense de communication superflue, au moment où les ménages sont préoccupés par leur pouvoir d'achat.",
+      "probability": "Moyenne",
+      "impact": "Élevé",
+      "criticite": "Élevée",
+      "arbitrage": "Argumentaire de défense : valeur unitaire (coût par ménage informé), réutilisation de briques existantes (pas de double dépense), open source.",
+      "acteurs": [
+        "Cabinet PM",
+        "DICOM MTE",
+        "SIRCOM"
+      ],
+      "echeance": "Avant lancement",
+      "detection": "Articles critiques dans les premiers jours.",
+      "mitigation": "Note d'éléments de langage prête en amont, transparence sur le budget et les marchés."
+    },
+    {
+      "id": "R-P02",
+      "category": "Politique",
+      "name": "Décrochage politique du sujet",
+      "description": "Remaniement, changement de priorité, fin du quinquennat : le plan d'électrification perd son portage politique et le hub est orphelin.",
+      "probability": "Moyenne",
+      "impact": "Élevé",
+      "criticite": "Élevée",
+      "arbitrage": "Concevoir le hub pour qu'il puisse survivre à un changement de portage : marque neutralisable, contenus transférables, intégration anticipée à un opérateur (ANAH ou ADEME).",
+      "acteurs": [
+        "SGPE",
+        "Mandant opérationnel"
+      ],
+      "echeance": "Architecture du MVP",
+      "detection": "Changement de cabinet, désinvestissement budgétaire.",
+      "mitigation": "Convention de pérennisation avec ANAH ou ADEME signée dès le MVP."
+    },
+    {
+      "id": "R-P03",
+      "category": "Politique",
+      "name": "Saturation et lassitude des partenaires",
+      "description": "Multiplication des plans, chartes, mouvements et signatures aboutit à une fatigue des acteurs économiques. Faible adhésion à la charte d'engagement.",
+      "probability": "Moyenne",
+      "impact": "Moyen",
+      "criticite": "Moyenne",
+      "arbitrage": "Bénéfice tangible et différenciant pour les signataires (visibilité, mise en relation effective, accès prioritaire à des dispositifs). Sinon, signature symbolique vide.",
+      "acteurs": [
+        "DGEC",
+        "DGE",
+        "Fédérations professionnelles"
+      ],
+      "echeance": "Conception de la charte",
+      "detection": "Moins de 50 signataires significatifs à 3 mois.",
+      "mitigation": "Comité de liaison animé en présentiel, contreparties concrètes."
+    },
+    {
+      "id": "R-I01",
+      "category": "Impact",
+      "name": "Impossibilité de mesurer le changement de comportement",
+      "description": "L'objectif politique explicite changement de comportement est précisément ce qu'on mesure mal avec un site web. Risque que l'évaluation finale soit jugée non probante.",
+      "probability": "Élevée",
+      "impact": "Moyen",
+      "criticite": "Élevée",
+      "arbitrage": "Coupler le dispositif numérique à un dispositif d'enquête (baromètre ADEME existant, vague SIG dédiée). KPI proxy honnêtes : conversions vers les guichets aval, signatures, candidatures.",
+      "acteurs": [
+        "SIG",
+        "ADEME",
+        "DICOM MTE"
+      ],
+      "echeance": "Cadrage de l'évaluation",
+      "detection": "Tableaux de bord centrés sur le trafic et le temps passé, sans lien avec les KPI politiques.",
+      "mitigation": "Plan de mesure d'impact ad hoc, tracking des sorties vers les dispositifs aval, articulation avec les opérateurs (combien de candidatures issues du hub)."
+    },
+    {
+      "id": "R-I02",
+      "category": "Impact",
+      "name": "Inégalité d'accès numérique",
+      "description": "Les publics cibles les plus en difficulté énergétique (ménages modestes, seniors ruraux) sont aussi les moins connectés. Risque que le hub n'atteigne pas les bénéficiaires théoriques du leasing social ou de MaPrimeRénov'.",
+      "probability": "Élevée",
+      "impact": "Élevé",
+      "criticite": "Critique",
+      "arbitrage": "Articulation explicite avec le réseau France Services (2 865 maisons), tournée France Rénov' itinérante, fiches papier imprimables. Pas de réplication au numérique seul.",
+      "acteurs": [
+        "ANCT",
+        "ANAH",
+        "France Services",
+        "Mandant"
+      ],
+      "echeance": "Conception du MVP",
+      "detection": "Profil socio-démographique des visiteurs très éloigné de la cible.",
+      "mitigation": "Co-conception avec des conseillers France Services, pages imprimables A4, FALC sur les pages d'orientation."
+    }
+  ]
+}
