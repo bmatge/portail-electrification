@@ -1,5 +1,4 @@
-// Tree editor for the hub d'info arborescence.
-// Data is preloaded from the cadrage note; persisted in localStorage.
+// Tree editor for the hub d'info arborescence. Persisted in localStorage.
 
 const STORAGE_KEY = 'portail-electrification.tree.v1';
 const COLLAPSED_KEY = 'portail-electrification.collapsed.v1';
@@ -25,6 +24,12 @@ const PRIORITIES = {
 };
 
 const PRIORITY_RANK = { mvp: 0, v1: 1, v2: 2, v3: 3 };
+
+const COMPLEXITIES = {
+  low:    'Faible',
+  medium: 'Moyenne',
+  high:   'Élevée',
+};
 
 const DEFAULT_TREE_URL = 'assets/data/tree.json';
 
@@ -83,7 +88,7 @@ function newId() {
 }
 
 function makeNode(label = 'Nouveau nœud') {
-  return { id: newId(), label, type: 'editorial', format: '', tldr: '', url: '', priority: '', children: [] };
+  return { id: newId(), label, type: 'editorial', format: '', tldr: '', url: '', priority: '', complexity: '', auth: false, children: [] };
 }
 
 // ---- Rendering ----
@@ -167,6 +172,23 @@ function renderNode(node) {
     meta.appendChild(pri);
   }
 
+  if (node.complexity) {
+    const cx = document.createElement('span');
+    cx.className = `complexity-pill ${node.complexity}`;
+    cx.textContent = COMPLEXITIES[node.complexity];
+    cx.title = `Complexité ${COMPLEXITIES[node.complexity].toLowerCase()}`;
+    meta.appendChild(cx);
+  }
+
+  if (node.auth) {
+    const auth = document.createElement('span');
+    auth.className = 'auth-pill';
+    auth.textContent = 'Auth';
+    auth.setAttribute('aria-label', 'Authentification requise');
+    auth.title = 'Authentification requise';
+    meta.appendChild(auth);
+  }
+
   row.append(toggle, label, meta);
   row.addEventListener('click', () => {
     state.selectedId = node.id;
@@ -223,17 +245,19 @@ function renderPanel() {
   id.textContent = `id : ${node.id}`;
   panelEl.appendChild(id);
 
+  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
   panelEl.appendChild(field('label', 'Libellé', node.label, 'input'));
   panelEl.appendChild(typeField(node));
   panelEl.appendChild(priorityField(node));
+  panelEl.appendChild(complexityField(node));
+  panelEl.appendChild(authField(node));
   panelEl.appendChild(field('format', 'Format', node.format, 'input'));
   panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
-  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
 
   const actions = document.createElement('div');
   actions.className = 'panel-actions';
 
-  const addChild = button('+ Enfant', 'fr-btn--secondary fr-icon-add-line', () => {
+  const addChild = button('Ajouter un enfant', 'fr-btn--secondary fr-icon-add-line fr-btn--icon-left', () => {
     const child = makeNode();
     node.children.push(child);
     state.collapsed.delete(node.id);
@@ -243,7 +267,7 @@ function renderPanel() {
   actions.appendChild(addChild);
 
   if (parent) {
-    const del = button('Supprimer', 'fr-btn--tertiary fr-icon-delete-line', () => {
+    const del = button('Supprimer', 'fr-btn--tertiary fr-icon-delete-line fr-btn--icon-left', () => {
       if (!confirm(`Supprimer « ${node.label} » et toute sa descendance ?`)) return;
       parent.children = parent.children.filter(c => c.id !== node.id);
       state.selectedId = parent.id;
@@ -251,8 +275,8 @@ function renderPanel() {
     });
     actions.appendChild(del);
 
-    const moveUp = button('↑', 'fr-btn--tertiary', () => moveSibling(parent, node, -1));
-    const moveDown = button('↓', 'fr-btn--tertiary', () => moveSibling(parent, node, +1));
+    const moveUp = button('Monter', 'fr-btn--tertiary fr-icon-arrow-up-line fr-btn--icon-left', () => moveSibling(parent, node, -1));
+    const moveDown = button('Descendre', 'fr-btn--tertiary fr-icon-arrow-down-line fr-btn--icon-left', () => moveSibling(parent, node, +1));
     actions.appendChild(moveUp);
     actions.appendChild(moveDown);
   }
@@ -352,6 +376,53 @@ function priorityField(node) {
   return wrap;
 }
 
+function complexityField(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fr-select-group';
+  const label = document.createElement('label');
+  label.className = 'fr-label';
+  label.setAttribute('for', 'field-complexity');
+  label.textContent = 'Niveau de complexité';
+  wrap.appendChild(label);
+  const select = document.createElement('select');
+  select.className = 'fr-select';
+  select.id = 'field-complexity';
+  const options = [['', '— non défini —'], ['low', 'Faible'], ['medium', 'Moyenne'], ['high', 'Élevée']];
+  for (const [val, txt] of options) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = txt;
+    if (val === (node.complexity || '')) opt.selected = true;
+    select.appendChild(opt);
+  }
+  select.addEventListener('change', () => {
+    node.complexity = select.value;
+    save(); renderTree();
+  });
+  wrap.appendChild(select);
+  return wrap;
+}
+
+function authField(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fr-toggle fr-toggle--label-left';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.className = 'fr-toggle__input';
+  input.id = 'field-auth';
+  input.checked = !!node.auth;
+  const label = document.createElement('label');
+  label.className = 'fr-toggle__label';
+  label.setAttribute('for', 'field-auth');
+  label.textContent = 'Authentification requise (téléservice, espace privé)';
+  input.addEventListener('change', () => {
+    node.auth = input.checked;
+    save(); renderTree();
+  });
+  wrap.append(input, label);
+  return wrap;
+}
+
 function button(text, classes, onClick) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -372,8 +443,12 @@ function exportMarkdown() {
   function rec(node, depth) {
     const indent = '  '.repeat(depth);
     const typeLabel = TYPES[node.type]?.label ?? node.type;
-    const pri = node.priority ? ` [${PRIORITIES[node.priority]}]` : '';
-    lines.push(`${indent}- **${node.label}** \`${typeLabel}\`${pri}${node.format ? ` — *${node.format}*` : ''}`);
+    const tags = [];
+    if (node.priority)   tags.push(PRIORITIES[node.priority]);
+    if (node.complexity) tags.push(`Complexité ${COMPLEXITIES[node.complexity].toLowerCase()}`);
+    if (node.auth)       tags.push('Auth requise');
+    const tagStr = tags.length ? ` [${tags.join(' · ')}]` : '';
+    lines.push(`${indent}- **${node.label}** \`${typeLabel}\`${tagStr}${node.format ? ` — *${node.format}*` : ''}`);
     if (node.tldr) lines.push(`${indent}  > ${node.tldr}`);
     if (node.url)  lines.push(`${indent}  > Lien : <${node.url}>`);
     for (const c of node.children ?? []) rec(c, depth + 1);

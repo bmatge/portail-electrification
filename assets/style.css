@@ -122,6 +122,32 @@
 .priority-pill.v2  { background: #fff6e3; color: #716043; border-color: #b8a684; }
 .priority-pill.v3  { background: #f4f4fc; color: #3a3a8c; border-color: #6a6af4; }
 
+.complexity-pill {
+  font-size: 0.625rem;
+  padding: 0 0.375rem;
+  border-radius: 2px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+}
+
+.complexity-pill.low    { background: #dffee2; color: #297254; border-color: #82c8a3; }
+.complexity-pill.medium { background: #fff1d6; color: #8a6a3a; border-color: #d4b078; }
+.complexity-pill.high   { background: #ffe4dd; color: #a93f1d; border-color: #d68a72; }
+
+.auth-pill {
+  font-size: 0.625rem;
+  padding: 0 0.375rem;
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: #efeae3;
+  color: #5e5045;
+  border: 1px solid #a8998a;
+  text-transform: uppercase;
+}
+
 /* Type colors */
 .type-hub        { background: #f4f4fc; color: #3a3a8c; border-color: #6a6af4; }
 .type-editorial  { background: #fff; color: #444; border-color: #ddd; }
