@@ -69,55 +69,76 @@
         </div>
       </div>
 
-      <section class="fr-mb-3w" aria-labelledby="toolbar-heading">
-        <h2 id="toolbar-heading" class="fr-sr-only">Barre d'outils</h2>
-        <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-          <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add">Nouveau dispositif</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export">Export</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import">Import</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-action="reset">Réinitialiser</button></li>
-          <input type="file" id="import-file" accept=".json" hidden>
+      <div class="fr-tabs">
+        <ul class="fr-tabs__list" role="tablist" aria-label="Vues">
+          <li role="presentation">
+            <button id="tabpanel-list" class="fr-tabs__tab fr-tabs__tab--icon-left fr-icon-table-line" tabindex="0" role="tab" aria-selected="true" aria-controls="tabpanel-list-panel">Liste des dispositifs</button>
+          </li>
+          <li role="presentation">
+            <button id="tabpanel-decision" class="fr-tabs__tab fr-tabs__tab--icon-left fr-icon-question-line" tabindex="-1" role="tab" aria-selected="false" aria-controls="tabpanel-decision-panel">Trouver le bon dispositif pour vous</button>
+          </li>
         </ul>
-      </section>
 
-      <section class="fr-mb-3w" aria-labelledby="filter-heading">
-        <h2 id="filter-heading" class="fr-sr-only">Filtres</h2>
-        <div class="fr-grid-row fr-grid-row--gutters">
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-input-group">
-              <label class="fr-label" for="search-input">Rechercher</label>
-              <input class="fr-input" type="search" id="search-input" placeholder="ex. ANAH, simulateur, leasing…">
+        <div id="tabpanel-list-panel" class="fr-tabs__panel fr-tabs__panel--selected" role="tabpanel" aria-labelledby="tabpanel-list" tabindex="0">
+
+          <section class="fr-mb-3w" aria-labelledby="toolbar-heading">
+            <h2 id="toolbar-heading" class="fr-sr-only">Barre d'outils</h2>
+            <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
+              <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add">Nouveau dispositif</button></li>
+              <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export">Export</button></li>
+              <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import">Import</button></li>
+              <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-action="reset">Réinitialiser</button></li>
+              <input type="file" id="import-file" accept=".json" hidden>
+            </ul>
+          </section>
+
+          <section class="fr-mb-3w" aria-labelledby="filter-heading">
+            <h2 id="filter-heading" class="fr-sr-only">Filtres</h2>
+            <div class="fr-grid-row fr-grid-row--gutters">
+              <div class="fr-col-12 fr-col-md-4">
+                <div class="fr-input-group">
+                  <label class="fr-label" for="search-input">Rechercher</label>
+                  <input class="fr-input" type="search" id="search-input" placeholder="ex. ANAH, simulateur, leasing…">
+                </div>
+              </div>
+              <div class="fr-col-12 fr-col-md-4">
+                <div class="fr-select-group">
+                  <label class="fr-label" for="filter-category">Catégorie</label>
+                  <select class="fr-select" id="filter-category"><option value="all">Toutes</option></select>
+                </div>
+              </div>
+              <div class="fr-col-12 fr-col-md-4">
+                <div class="fr-select-group">
+                  <label class="fr-label" for="filter-audience">Audience</label>
+                  <select class="fr-select" id="filter-audience"><option value="all">Toutes</option></select>
+                </div>
+              </div>
             </div>
+          </section>
+
+          <div class="fr-grid-row fr-grid-row--gutters">
+            <section class="fr-col-12 fr-col-lg-6" aria-labelledby="list-heading">
+              <div class="panel-card">
+                <h2 id="list-heading" class="fr-h6 fr-mb-2w">Dispositifs</h2>
+                <div class="card-list" id="list" role="list"></div>
+                <p class="fr-text--xs fr-mt-2w fr-mb-0" id="counter" style="color: var(--text-mention-grey);"></p>
+              </div>
+            </section>
+            <section class="fr-col-12 fr-col-lg-6" aria-labelledby="detail-heading">
+              <div class="panel-card panel-detail">
+                <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du dispositif</h2>
+                <div id="panel"></div>
+              </div>
+            </section>
           </div>
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-select-group">
-              <label class="fr-label" for="filter-category">Catégorie</label>
-              <select class="fr-select" id="filter-category"><option value="all">Toutes</option></select>
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-select-group">
-              <label class="fr-label" for="filter-audience">Audience</label>
-              <select class="fr-select" id="filter-audience"><option value="all">Toutes</option></select>
-            </div>
+
+        </div>
+
+        <div id="tabpanel-decision-panel" class="fr-tabs__panel" role="tabpanel" aria-labelledby="tabpanel-decision" tabindex="0">
+          <div id="decision-root">
+            <p class="panel-empty">Chargement de l'arbre de décision…</p>
           </div>
         </div>
-      </section>
-
-      <div class="fr-grid-row fr-grid-row--gutters">
-        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="list-heading">
-          <div class="panel-card">
-            <h2 id="list-heading" class="fr-h6 fr-mb-2w">Dispositifs</h2>
-            <div class="card-list" id="list" role="list"></div>
-            <p class="fr-text--xs fr-mt-2w fr-mb-0" id="counter" style="color: var(--text-mention-grey);"></p>
-          </div>
-        </section>
-        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="detail-heading">
-          <div class="panel-card panel-detail">
-            <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du dispositif</h2>
-            <div id="panel"></div>
-          </div>
-        </section>
       </div>
 
     </div>
@@ -153,5 +174,6 @@
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
   <script src="assets/dispositifs.js" type="module"></script>
+  <script src="assets/dispositifs-decision.js" type="module"></script>
 </body>
 </html>
