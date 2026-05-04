@@ -15,11 +15,18 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=ecosystem-network
+      # HTTPS router (TLS via certresolver Traefik)
       - traefik.http.routers.portail-elec.rule=Host(`${DOMAIN:-portail-elec.matge.com}`)
-      - traefik.http.routers.portail-elec.entrypoints=websecure
+      - traefik.http.routers.portail-elec.entrypoints=${WEBSECURE_ENTRYPOINT:-websecure}
       - traefik.http.routers.portail-elec.tls=true
-      - traefik.http.routers.portail-elec.tls.certresolver=acme
+      - traefik.http.routers.portail-elec.tls.certresolver=${CERT_RESOLVER:-letsencrypt}
       - traefik.http.services.portail-elec.loadbalancer.server.port=3000
+      # HTTP → HTTPS redirect
+      - traefik.http.routers.portail-elec-http.rule=Host(`${DOMAIN:-portail-elec.matge.com}`)
+      - traefik.http.routers.portail-elec-http.entrypoints=${WEB_ENTRYPOINT:-web}
+      - traefik.http.routers.portail-elec-http.middlewares=portail-elec-redirect
+      - traefik.http.middlewares.portail-elec-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.portail-elec-redirect.redirectscheme.permanent=true
 
 networks:
   ecosystem-network:
