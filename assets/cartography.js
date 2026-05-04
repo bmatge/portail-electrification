@@ -1,4 +1,4 @@
-// Shared list+detail editor for the cartographies pages (dispositifs, risques).
+// Shared list+detail editor for the dispositifs page.
 // Each page calls setup(config) with its own data shape and field definitions.
 
 export function setup(config) {
