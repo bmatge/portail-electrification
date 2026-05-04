@@ -186,6 +186,15 @@
   border-top: 1px solid var(--border-soft);
 }
 
+.panel-actions--top {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-top: 0;
+  padding-bottom: 1rem;
+  border-top: 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
 .panel-id {
   font-family: monospace;
   font-size: 0.75rem;

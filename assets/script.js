@@ -240,24 +240,10 @@ function renderPanel() {
   const { node, parent } = found;
   panelEl.innerHTML = '';
 
-  const id = document.createElement('p');
-  id.className = 'panel-id';
-  id.textContent = `id : ${node.id}`;
-  panelEl.appendChild(id);
-
-  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
-  panelEl.appendChild(field('label', 'Libellé', node.label, 'input'));
-  panelEl.appendChild(typeField(node));
-  panelEl.appendChild(priorityField(node));
-  panelEl.appendChild(complexityField(node));
-  panelEl.appendChild(authField(node));
-  panelEl.appendChild(field('format', 'Format', node.format, 'input'));
-  panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
-
   const actions = document.createElement('div');
-  actions.className = 'panel-actions';
+  actions.className = 'panel-actions panel-actions--top';
 
-  const addChild = button('Ajouter un enfant', 'fr-btn--secondary fr-icon-add-line fr-btn--icon-left', () => {
+  const addChild = button('Sous-rubrique', 'fr-btn--secondary fr-icon-add-line fr-btn--icon-left', () => {
     const child = makeNode();
     node.children.push(child);
     state.collapsed.delete(node.id);
@@ -280,8 +266,21 @@ function renderPanel() {
     actions.appendChild(moveUp);
     actions.appendChild(moveDown);
   }
-
   panelEl.appendChild(actions);
+
+  const id = document.createElement('p');
+  id.className = 'panel-id';
+  id.textContent = `id : ${node.id}`;
+  panelEl.appendChild(id);
+
+  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
+  panelEl.appendChild(field('label', 'Libellé', node.label, 'input'));
+  panelEl.appendChild(typeField(node));
+  panelEl.appendChild(priorityField(node));
+  panelEl.appendChild(complexityField(node));
+  panelEl.appendChild(authField(node));
+  panelEl.appendChild(field('format', 'Format', node.format, 'input'));
+  panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
 }
 
 function moveSibling(parent, node, delta) {
@@ -436,25 +435,6 @@ function button(text, classes, onClick) {
 
 function exportJson() {
   showExport('Export JSON', JSON.stringify(state.tree, null, 2), 'arborescence.json', 'application/json');
-}
-
-function exportMarkdown() {
-  const lines = ['# Arborescence — Hub d\'info Plan d\'électrification', ''];
-  function rec(node, depth) {
-    const indent = '  '.repeat(depth);
-    const typeLabel = TYPES[node.type]?.label ?? node.type;
-    const tags = [];
-    if (node.priority)   tags.push(PRIORITIES[node.priority]);
-    if (node.complexity) tags.push(`Complexité ${COMPLEXITIES[node.complexity].toLowerCase()}`);
-    if (node.auth)       tags.push('Auth requise');
-    const tagStr = tags.length ? ` [${tags.join(' · ')}]` : '';
-    lines.push(`${indent}- **${node.label}** \`${typeLabel}\`${tagStr}${node.format ? ` — *${node.format}*` : ''}`);
-    if (node.tldr) lines.push(`${indent}  > ${node.tldr}`);
-    if (node.url)  lines.push(`${indent}  > Lien : <${node.url}>`);
-    for (const c of node.children ?? []) rec(c, depth + 1);
-  }
-  rec(state.tree, 0);
-  showExport('Export Markdown', lines.join('\n'), 'arborescence.md', 'text/markdown');
 }
 
 function buildMermaidSource() {
@@ -627,9 +607,8 @@ document.querySelectorAll('[data-action]').forEach(btn => {
         saveCollapsed(); renderTree();
         break;
       }
-      case 'export-json':     exportJson(); break;
-      case 'export-markdown': exportMarkdown(); break;
-      case 'view-graph':      viewGraph(); break;
+      case 'export-json': exportJson(); break;
+      case 'view-graph':  viewGraph(); break;
       case 'import-json':
         document.getElementById('import-file').click();
         break;
