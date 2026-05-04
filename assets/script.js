@@ -26,112 +26,16 @@ const PRIORITIES = {
 
 const PRIORITY_RANK = { mvp: 0, v1: 1, v2: 2, v3: 3 };
 
-const DEFAULT_TREE = {
-  id: 'root',
-  label: 'Electrifions la France',
-  type: 'hub',
-  format: "Page d'accueil avec quatre parcours par cible",
-  tldr: "Point d'entrée du hub. Porte la promesse principale (énergie moins chère, plus souveraine, plus durable) et oriente vers les quatre cibles.",
-  url: '',
-  priority: 'mvp',
-  children: [
-    {
-      id: 'p',
-      label: 'Particuliers',
-      type: 'editorial',
-      format: 'Pages éditoriales et redirections',
-      tldr: "Univers grand public (BtoC), cible principale du plan de communication. Argument central : pouvoir d'achat.",
-      url: '',
-      priority: 'mvp',
-      children: [
-        {
-          id: 'p1',
-          label: 'Mes mobilités',
-          type: 'editorial',
-          format: 'Page rubrique avec tuiles',
-          tldr: "Sous-rubrique mobilités électriques. Articule services, redirections vers les dispositifs officiels et levée des freins.",
-          url: '',
-          priority: 'mvp',
-          children: [
-            { id: 'p1a', label: 'Leasing social',     type: 'external', format: 'Lien sortant', tldr: "Renvoi vers la page officielle DGEC. Conditions d'éligibilité, modèles, ouverture mi-juillet 2026 pour 50 000 véhicules.", url: 'https://www.ecologie.gouv.fr/leasing-social', priority: 'mvp', children: [] },
-            { id: 'p1b', label: 'Prime CEE véhicule', type: 'external', format: 'Lien sortant', tldr: "Ex-bonus écologique, désormais financé par les CEE depuis juillet 2025 (fiche TRA-EQ-117). Surbonus batterie européenne.", url: 'https://www.service-public.gouv.fr/particuliers/vosdroits/F39188', priority: 'mvp', children: [] },
-            { id: 'p1c', label: 'Carte des bornes',   type: 'map',      format: 'Carte intégrée + filtre par puissance', tldr: "Carte interactive des points de recharge IRVE alimentée par la base nationale Etalab consolidée. 185 000+ points publics.", url: '', priority: 'v1', children: [] },
-            { id: 'p1d', label: 'Vrai/faux VE',       type: 'editorial',format: 'Page de questions/réponses', tldr: "Levée des freins (autonomie, recharge, prix) à partir du document de référence DGEC d'octobre 2025.", url: '', priority: 'mvp', children: [] },
-          ],
-        },
-        {
-          id: 'p2',
-          label: 'Mon logement',
-          type: 'editorial',
-          format: 'Page rubrique avec tuiles',
-          tldr: "Sous-rubrique chauffage électrique et rénovation. Complémentaire de France Rénov' (à pointer, pas à dupliquer).",
-          url: '',
-          priority: 'mvp',
-          children: [
-            { id: 'p2a', label: 'Trouver un Espace conseil', type: 'external',  format: 'Lien sortant',                  tldr: "Renvoi vers le réseau de 600+ conseillers France Rénov' et vers les 2 865 maisons France Services.", url: 'https://france-renov.gouv.fr', priority: 'mvp', children: [] },
-            { id: 'p2b', label: "Simulateur d'aides",       type: 'simulator', format: 'iframe ou API officielle',       tldr: "Intégration en iframe ou via API du simulateur Mes Aides Réno (ANAH). MaPrimeRénov', CEE, éco-PTZ, MaPrimeAdapt'.", url: '', priority: 'v1', children: [] },
-            { id: 'p2c', label: 'Pompe à chaleur',           type: 'editorial', format: 'Page guide longue',              tldr: "Guide pédagogique : types de PAC (air/air, air/eau, sol/eau), installation, économies attendues.", url: '', priority: 'mvp', children: [] },
-            { id: 'p2d', label: 'Vrai/faux PAC',             type: 'editorial', format: 'Page de questions/réponses',     tldr: "Levée des freins (bruit, esthétique, climat). À produire à partir du travail préparatoire 2025.", url: '', priority: 'mvp', children: [] },
-          ],
-        },
-        { id: 'p3', label: 'Toutes mes aides', type: 'simulator', format: 'Service à concevoir, V2', tldr: "Simulateur unifié logement + mobilités à instruire avec la DINUM (modèle Aides Simplifiées).", url: '', priority: 'v2', children: [] },
-        { id: 'p4', label: 'Témoignages',     type: 'editorial', format: 'Galerie de témoignages',  tldr: "Cas d'usage par profil : urbain en appartement, gros rouleur périurbain, copropriétaire.",          url: '', priority: 'v1', children: [] },
-      ],
-    },
-    {
-      id: 'b',
-      label: 'Pros & filières',
-      type: 'editorial',
-      format: 'Pages thématiques',
-      tldr: "Univers BtoB. Industrie, artisanat, agriculture. Démarche pour transformer les acteurs en promoteurs.",
-      url: '',
-      priority: 'v1',
-      children: [
-        { id: 'b1', label: 'Industrie',           type: 'editorial', format: 'Page rubrique',     tldr: "Décarbonation profonde des sites industriels. Renvois vers les AAP ADEME (DECARB IND) et France 2030.", url: '', priority: 'v1', children: [] },
-        { id: 'b2', label: 'Artisanat',           type: 'editorial', format: 'Page rubrique',     tldr: "Électrification des outils de travail (fours, rôtisseries, cabines de peinture). AAP CEE 16 M€ pour 1 000 projets.", url: '', priority: 'v1', children: [] },
-        { id: 'b3', label: 'Agriculture',         type: 'editorial', format: 'Page rubrique',     tldr: "Engins agricoles légers électriques. AAP étendu à 10 M€, prêt Bpifrance dédié électrification.", url: '', priority: 'v1', children: [] },
-        { id: 'b4', label: 'Aides aux pros',      type: 'external',  format: 'Lien sortant',      tldr: "Renvoi vers Tremplin ADEME (5 k€-200 k€) et le répertoire aides-entreprises.fr (2 300+ dispositifs).", url: 'https://agirpourlatransition.ademe.fr', priority: 'mvp', children: [] },
-        { id: 'b5', label: 'Devenir partenaire',  type: 'form',      format: 'Formulaire en ligne', tldr: "Formulaire d'adhésion à la charte d'engagement BtoB. Workflow de validation à définir.", url: '', priority: 'v2', children: [] },
-      ],
-    },
-    {
-      id: 'c',
-      label: 'Collectivités',
-      type: 'editorial',
-      format: 'Pages thématiques',
-      tldr: "Univers territorial. Articulation avec ANCT, Aides-territoires (recentré acteurs publics depuis mars 2026), préfets.",
-      url: '',
-      priority: 'v1',
-      children: [
-        { id: 'c1', label: '100 territoires',       type: 'editorial', format: 'Page rubrique avec calendrier',     tldr: "Présentation du programme « 100 territoires d'électrification ». Sélection annoncée pour l'été 2026.", url: '', priority: 'mvp', children: [] },
-        { id: 'c2', label: 'Candidater',            type: 'external',  format: 'Lien sortant',                       tldr: "Dépôt de candidature sur Démarches Simplifiées. Filtrage par les préfets de département.", url: 'https://www.demarches-simplifiees.fr', priority: 'mvp', children: [] },
-        { id: 'c3', label: 'Kit communication',     type: 'kit',       format: 'Bundle à télécharger',               tldr: "Téléchargement des supports adaptables : préfectures, communes, EPCI. Motion design, affiches, modèles emailing.", url: '', priority: 'v1', children: [] },
-        { id: 'c4', label: 'Cartographie projets',  type: 'map',       format: 'Carte interactive + open data',      tldr: "Visualisation des territoires retenus et de leurs projets d'électrification. Donnée à publier en open data.", url: '', priority: 'v2', children: [] },
-      ],
-    },
-    {
-      id: 'm',
-      label: 'Mouvement',
-      type: 'editorial',
-      format: 'Pages thématiques',
-      tldr: "Univers de mobilisation et d'écosystème partenarial. Logique de labellisation et de marketplace.",
-      url: '',
-      priority: 'v1',
-      children: [
-        { id: 'm1', label: "Charte d'engagement",       type: 'form',         format: 'Formulaire + workflow modération',  tldr: "Signature de la déclaration électrique. Critères d'entrée et de retrait à définir avec la DGEC.", url: '', priority: 'v1', children: [] },
-        { id: 'm2', label: 'Annuaire signataires',      type: 'service',      format: 'Service de recherche',              tldr: "Annuaire public des entreprises, associations, fédérations engagées. Recherche par filière et territoire.", url: '', priority: 'v2', children: [] },
-        { id: 'm3', label: 'Identité visuelle libre',   type: 'kit',          format: 'Bundle à télécharger (logos, charte)', tldr: "Charte graphique en accès ouvert. Marqueur officiel à imposer dans l'écosystème CEE selon la note SG/DICOM.", url: '', priority: 'mvp', children: [] },
-        { id: 'm4', label: 'Marketplace partenariale',  type: 'marketplace',  format: 'Service à concevoir, V3',           tldr: "Mise en relation apporteurs de solutions et demandeurs d'électricité. Service le plus distinctif et le plus risqué.", url: '', priority: 'v3', children: [] },
-        { id: 'm5', label: 'Comité communicants',       type: 'private',      format: 'Espace authentifié',                tldr: "Espace réservé pour le comité de liaison des communicants publics et privés. Authentification ProConnect.", url: '', priority: 'v2', children: [] },
-      ],
-    },
-  ],
-};
+const DEFAULT_TREE_URL = 'assets/data/tree.json';
+
+// Set in init() once the JSON has been fetched. Used as fallback when no
+// localStorage data exists yet, and as the source for the "Réinitialiser" action.
+let defaultTree = null;
 
 // ---- State ----
 
 const state = {
-  tree: load() ?? structuredClone(DEFAULT_TREE),
+  tree: null,
   selectedId: 'root',
   collapsed: loadCollapsed(),
   search: '',
@@ -583,8 +487,9 @@ document.querySelectorAll('[data-action]').forEach(btn => {
         document.getElementById('import-file').click();
         break;
       case 'reset':
+        if (!defaultTree) { alert('Données par défaut non chargées.'); break; }
         if (confirm('Réinitialiser l\'arborescence aux données par défaut ?')) {
-          state.tree = structuredClone(DEFAULT_TREE);
+          state.tree = structuredClone(defaultTree);
           state.selectedId = state.tree.id;
           state.collapsed.clear();
           save(); saveCollapsed(); renderTree(); renderPanel();
@@ -612,5 +517,19 @@ document.getElementById('priority-filter').addEventListener('change', (e) => {
 
 // ---- Boot ----
 
-renderTree();
-renderPanel();
+async function init() {
+  treeEl.innerHTML = '<p class="panel-empty">Chargement de l\'arborescence…</p>';
+  try {
+    const res = await fetch(DEFAULT_TREE_URL, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    defaultTree = await res.json();
+  } catch (e) {
+    treeEl.innerHTML = `<p class="panel-empty">Impossible de charger ${DEFAULT_TREE_URL} : ${e.message}. Servez le projet via un serveur HTTP (le mode <code>file://</code> bloque <code>fetch</code>).</p>`;
+    return;
+  }
+  state.tree = load() ?? structuredClone(defaultTree);
+  renderTree();
+  renderPanel();
+}
+
+init();
