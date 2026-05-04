@@ -1,0 +1,26 @@
+services:
+  app:
+    build: .
+    image: portail-electrification:latest
+    container_name: portail-electrification
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/app.db
+    volumes:
+      - ./data:/app/data
+    networks:
+      - ecosystem-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=ecosystem-network
+      - traefik.http.routers.portail-elec.rule=Host(`${DOMAIN:-portail-elec.matge.com}`)
+      - traefik.http.routers.portail-elec.entrypoints=websecure
+      - traefik.http.routers.portail-elec.tls=true
+      - traefik.http.routers.portail-elec.tls.certresolver=acme
+      - traefik.http.services.portail-elec.loadbalancer.server.port=3000
+
+networks:
+  ecosystem-network:
+    external: true

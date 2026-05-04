@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+node_modules
+server/node_modules
+data
+*.md
+.env
+.env.local
+deploy.sh

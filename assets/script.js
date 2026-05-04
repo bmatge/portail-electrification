@@ -1,6 +1,7 @@
-// Tree editor for the hub d'info arborescence. Persisted in localStorage.
+// Tree editor for the hub d'info arborescence. Persisted server-side via /api.
 
-const STORAGE_KEY = 'portail-electrification.tree.v1';
+import { collab, ensureIdentified, escapeHtml, formatDate, renderDiff } from './collab.js';
+
 const COLLAPSED_KEY = 'portail-electrification.collapsed.v1';
 
 const TYPES = {
@@ -45,17 +46,53 @@ const state = {
   collapsed: loadCollapsed(),
   search: '',
   priority: 'all',
+  commentCounts: {},
+  saveStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error' | 'conflict'
+  saveMessage: '',
 };
 
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+let saveTimer = null;
+let inFlight = false;
+let pendingSave = false;
+let pendingMessage = '';
+
+function save(message = '') {
+  // Debounced save to server. Multiple rapid edits coalesce into one PUT.
+  if (message) pendingMessage = message;
+  if (saveTimer) clearTimeout(saveTimer);
+  state.saveStatus = 'saving';
+  renderStatus();
+  saveTimer = setTimeout(flushSave, 600);
 }
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tree));
+async function flushSave() {
+  if (inFlight) { pendingSave = true; return; }
+  inFlight = true;
+  pendingSave = false;
+  const msg = pendingMessage;
+  pendingMessage = '';
+  try {
+    await collab.saveTree(state.tree, msg);
+    state.saveStatus = 'saved';
+    state.saveMessage = '';
+  } catch (e) {
+    if (e.status === 409) {
+      state.saveStatus = 'conflict';
+      state.saveMessage = `Une autre personne a modifié l'arbre (révision #${e.data?.head?.id}).`;
+    } else if (e.status === 401) {
+      state.saveStatus = 'error';
+      state.saveMessage = 'Identification expirée.';
+      await ensureIdentified();
+      pendingSave = true;
+    } else {
+      state.saveStatus = 'error';
+      state.saveMessage = e.message || 'Erreur de sauvegarde';
+    }
+  } finally {
+    inFlight = false;
+    renderStatus();
+    if (pendingSave) flushSave();
+  }
 }
 
 function loadCollapsed() {
@@ -189,6 +226,15 @@ function renderNode(node) {
     meta.appendChild(auth);
   }
 
+  const commentN = state.commentCounts[node.id] || 0;
+  if (commentN > 0) {
+    const c = document.createElement('span');
+    c.className = 'comment-pill';
+    c.textContent = `💬 ${commentN}`;
+    c.title = `${commentN} commentaire${commentN > 1 ? 's' : ''}`;
+    meta.appendChild(c);
+  }
+
   row.append(toggle, label, meta);
   row.addEventListener('click', () => {
     state.selectedId = node.id;
@@ -281,6 +327,8 @@ function renderPanel() {
   panelEl.appendChild(authField(node));
   panelEl.appendChild(field('format', 'Format', node.format, 'input'));
   panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
+
+  panelEl.appendChild(renderCommentsSection(node.id));
 }
 
 function moveSibling(parent, node, delta) {
@@ -431,6 +479,271 @@ function button(text, classes, onClick) {
   return b;
 }
 
+// ---- Status indicator ----
+
+function renderStatus() {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  const map = {
+    idle:    '',
+    saving:  'Enregistrement…',
+    saved:   `Enregistré · révision #${collab.currentRevisionId ?? '?'}`,
+    error:   `Erreur : ${state.saveMessage}`,
+    conflict:`Conflit — ${state.saveMessage}`,
+  };
+  el.textContent = map[state.saveStatus] ?? '';
+  el.className = `save-status save-status--${state.saveStatus}`;
+}
+
+function renderIdentity() {
+  const el = document.getElementById('identity-zone');
+  if (!el) return;
+  if (!collab.user) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = '';
+  const span = document.createElement('span');
+  span.className = 'identity-name';
+  span.textContent = collab.user.name;
+  const change = document.createElement('button');
+  change.type = 'button';
+  change.className = 'fr-btn fr-btn--tertiary fr-btn--sm';
+  change.textContent = 'Changer';
+  change.addEventListener('click', async () => {
+    await collab.logout();
+    await ensureIdentified();
+    renderIdentity();
+    await reloadFromServer();
+  });
+  el.append('Identifié comme ', span, ' ', change);
+}
+
+// ---- Comments ----
+
+function renderCommentsSection(nodeId) {
+  const wrap = document.createElement('div');
+  wrap.className = 'comments-section';
+  const h = document.createElement('h3');
+  h.className = 'fr-h6 fr-mt-4w';
+  h.textContent = 'Commentaires';
+  wrap.appendChild(h);
+
+  const list = document.createElement('div');
+  list.className = 'comment-list';
+  list.textContent = 'Chargement…';
+  wrap.appendChild(list);
+
+  const form = document.createElement('form');
+  form.className = 'comment-form';
+  form.innerHTML = `
+    <div class="fr-input-group">
+      <label class="fr-label" for="comment-body">Ajouter un commentaire</label>
+      <textarea class="fr-input" id="comment-body" rows="2" maxlength="4000" placeholder="Votre remarque, question, proposition…"></textarea>
+    </div>
+    <div class="panel-actions">
+      <button type="submit" class="fr-btn fr-btn--secondary fr-icon-chat-3-line fr-btn--icon-left">Publier</button>
+    </div>
+  `;
+  wrap.appendChild(form);
+
+  async function refresh() {
+    try {
+      const { comments } = await collab.fetchComments(nodeId);
+      list.innerHTML = '';
+      if (comments.length === 0) {
+        list.innerHTML = '<p class="panel-empty">Aucun commentaire.</p>';
+      } else {
+        for (const c of comments) list.appendChild(renderComment(c, refresh));
+      }
+      // refresh global counts
+      const { counts } = await collab.fetchCommentCounts();
+      state.commentCounts = counts || {};
+      renderTree();
+    } catch (e) {
+      list.innerHTML = `<p class="panel-empty">Erreur : ${escapeHtml(e.message)}</p>`;
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ta = form.querySelector('#comment-body');
+    const body = ta.value.trim();
+    if (!body) return;
+    try {
+      await collab.postComment(nodeId, body);
+      ta.value = '';
+      await refresh();
+    } catch (err) {
+      if (err.status === 401) { await ensureIdentified(); }
+      else alert('Erreur : ' + err.message);
+    }
+  });
+
+  refresh();
+  return wrap;
+}
+
+function renderComment(c, onChange) {
+  const item = document.createElement('article');
+  item.className = 'comment-item';
+  const head = document.createElement('div');
+  head.className = 'comment-head';
+  const author = document.createElement('strong');
+  author.textContent = c.author?.name || '?';
+  const date = document.createElement('span');
+  date.className = 'comment-date';
+  date.textContent = formatDate(c.created_at);
+  head.append(author, date);
+  if (collab.user && c.author?.id === collab.user.id) {
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-icon-delete-line';
+    del.title = 'Supprimer';
+    del.setAttribute('aria-label', 'Supprimer le commentaire');
+    del.addEventListener('click', async () => {
+      if (!confirm('Supprimer ce commentaire ?')) return;
+      await collab.deleteComment(c.id);
+      onChange();
+    });
+    head.appendChild(del);
+  }
+  const body = document.createElement('div');
+  body.className = 'comment-body';
+  body.textContent = c.body;
+  item.append(head, body);
+  return item;
+}
+
+// ---- History dialog ----
+
+async function openHistoryDialog() {
+  const dlg = openDialog('Historique des révisions');
+  const layout = document.createElement('div');
+  layout.className = 'history-layout';
+  dlg.body.appendChild(layout);
+
+  const left = document.createElement('div');
+  left.className = 'history-list';
+  left.textContent = 'Chargement…';
+  const right = document.createElement('div');
+  right.className = 'history-detail';
+  right.innerHTML = '<p class="panel-empty">Sélectionnez une révision pour voir le diff.</p>';
+  layout.append(left, right);
+
+  let revisions = [];
+  let headId = null;
+  try {
+    const data = await collab.fetchHistory();
+    revisions = data.revisions;
+    headId = data.head_id;
+  } catch (e) {
+    left.textContent = 'Erreur : ' + e.message;
+    return;
+  }
+
+  left.innerHTML = '';
+  for (const r of revisions) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'history-item';
+    if (r.id === headId) item.classList.add('history-item--head');
+    item.innerHTML = `
+      <div class="history-item__head">
+        <span class="history-item__id">#${r.id}${r.id === headId ? ' · HEAD' : ''}</span>
+        <span class="history-item__author">${escapeHtml(r.author?.name || '?')}</span>
+      </div>
+      <div class="history-item__msg">${escapeHtml(r.message || '(sans message)')}</div>
+      <div class="history-item__date">${escapeHtml(formatDate(r.created_at))}${r.reverts_id ? ` · revert de #${r.reverts_id}` : ''}</div>
+    `;
+    item.addEventListener('click', () => showRevisionDetail(r));
+    left.appendChild(item);
+  }
+
+  async function showRevisionDetail(r) {
+    right.innerHTML = '<p class="panel-empty">Chargement du diff…</p>';
+    try {
+      const cur = await collab.fetchRevision(r.id);
+      let parentTree = null;
+      if (r.parent_id) {
+        const p = await collab.fetchRevision(r.parent_id);
+        parentTree = p.tree;
+      }
+      right.innerHTML = '';
+
+      const meta = document.createElement('div');
+      meta.className = 'history-meta';
+      meta.innerHTML = `
+        <h3 class="fr-h6">Révision #${r.id}</h3>
+        <p class="fr-text--sm">
+          Par <strong>${escapeHtml(r.author?.name || '?')}</strong>
+          le ${escapeHtml(formatDate(r.created_at))}<br>
+          ${r.parent_id ? `Parent : <code>#${r.parent_id}</code>` : '<em>Révision initiale</em>'}
+          ${r.reverts_id ? ` · Revert de <code>#${r.reverts_id}</code>` : ''}
+        </p>
+        <p class="fr-text--sm"><strong>Message :</strong> ${escapeHtml(r.message || '(aucun)')}</p>
+      `;
+      right.appendChild(meta);
+
+      const diffWrap = document.createElement('div');
+      diffWrap.className = 'history-diff';
+      const diffTitle = document.createElement('h4');
+      diffTitle.className = 'fr-h6 fr-mt-3w';
+      diffTitle.textContent = parentTree ? 'Différences avec la révision parente' : 'Contenu initial';
+      diffWrap.appendChild(diffTitle);
+
+      const diffBody = document.createElement('div');
+      if (parentTree) {
+        renderDiff(diffBody, parentTree, cur.tree);
+      } else {
+        diffBody.innerHTML = `<p class="panel-empty">${countNodes(cur.tree)} nœuds initiaux.</p>`;
+      }
+      diffWrap.appendChild(diffBody);
+      right.appendChild(diffWrap);
+
+      const actions = document.createElement('div');
+      actions.className = 'panel-actions';
+      if (r.id !== headId) {
+        const revertBtn = button('Revenir à cette révision', 'fr-btn--secondary fr-icon-arrow-go-back-line fr-btn--icon-left', async () => {
+          if (!confirm(`Créer une nouvelle révision identique à #${r.id} ?\n\n(L'historique est conservé : c'est un revert, pas un effacement.)`)) return;
+          try {
+            await collab.revert(r.id, `Revert vers #${r.id}`);
+            await reloadFromServer();
+            dlg.dialog.close();
+          } catch (e) {
+            alert('Revert impossible : ' + e.message);
+          }
+        });
+        actions.appendChild(revertBtn);
+      }
+      const close = button('Fermer', 'fr-btn--tertiary', () => dlg.dialog.close());
+      actions.appendChild(close);
+      right.appendChild(actions);
+    } catch (e) {
+      right.innerHTML = `<p class="panel-empty">Erreur : ${escapeHtml(e.message)}</p>`;
+    }
+  }
+
+  if (revisions.length > 0) showRevisionDetail(revisions[0]);
+}
+
+function countNodes(root) {
+  let n = 0;
+  for (const _ of walk(root)) n++;
+  return n;
+}
+
+async function reloadFromServer() {
+  const { tree, revision } = await collab.fetchTree();
+  state.tree = tree;
+  collab.currentRevisionId = revision.id;
+  if (!find(state.selectedId)) state.selectedId = state.tree.id;
+  state.saveStatus = 'saved';
+  renderStatus();
+  renderTree();
+  renderPanel();
+}
+
 // ---- Exports ----
 
 function exportJson() {
@@ -572,7 +885,7 @@ function importJson(file) {
       if (!parsed.id || !parsed.label) throw new Error('Format invalide');
       state.tree = parsed;
       state.selectedId = parsed.id;
-      save();
+      save('Import JSON');
       renderTree();
       renderPanel();
     } catch (e) {
@@ -609,16 +922,17 @@ document.querySelectorAll('[data-action]').forEach(btn => {
       }
       case 'export-json': exportJson(); break;
       case 'view-graph':  viewGraph(); break;
+      case 'view-history': openHistoryDialog(); break;
       case 'import-json':
         document.getElementById('import-file').click();
         break;
       case 'reset':
         if (!defaultTree) { alert('Données par défaut non chargées.'); break; }
-        if (confirm('Réinitialiser l\'arborescence aux données par défaut ?')) {
+        if (confirm('Réinitialiser l\'arborescence aux données par défaut ?\n\nCela crée une nouvelle révision (l\'historique est conservé).')) {
           state.tree = structuredClone(defaultTree);
           state.selectedId = state.tree.id;
           state.collapsed.clear();
-          save(); saveCollapsed(); renderTree(); renderPanel();
+          save('Réinitialisation depuis tree.json'); saveCollapsed(); renderTree(); renderPanel();
         }
         break;
     }
@@ -645,17 +959,34 @@ document.getElementById('priority-filter').addEventListener('change', (e) => {
 
 async function init() {
   treeEl.innerHTML = '<p class="panel-empty">Chargement de l\'arborescence…</p>';
+  // Default tree (used by "Réinitialiser") fetched independently of history.
   try {
     const res = await fetch(DEFAULT_TREE_URL, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    defaultTree = await res.json();
+    if (res.ok) defaultTree = await res.json();
+  } catch { /* non-fatal */ }
+
+  await ensureIdentified();
+  renderIdentity();
+
+  try {
+    const { tree, revision } = await collab.fetchTree();
+    state.tree = tree;
+    collab.currentRevisionId = revision.id;
+    state.selectedId = tree.id;
+    state.saveStatus = 'saved';
   } catch (e) {
-    treeEl.innerHTML = `<p class="panel-empty">Impossible de charger ${DEFAULT_TREE_URL} : ${e.message}. Servez le projet via un serveur HTTP (le mode <code>file://</code> bloque <code>fetch</code>).</p>`;
+    treeEl.innerHTML = `<p class="panel-empty">Impossible de charger l'arborescence depuis le serveur : ${e.message}.</p>`;
     return;
   }
-  state.tree = load() ?? structuredClone(defaultTree);
+
+  try {
+    const { counts } = await collab.fetchCommentCounts();
+    state.commentCounts = counts || {};
+  } catch { /* non-fatal */ }
+
   renderTree();
   renderPanel();
+  renderStatus();
 }
 
 init();
