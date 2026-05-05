@@ -16,7 +16,7 @@ WORKDIR /app
 COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY server ./server
 COPY assets ./assets
-COPY index.html dispositifs.html ./
+COPY *.html ./
 
 RUN mkdir -p /app/data
 
