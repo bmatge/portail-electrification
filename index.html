@@ -64,10 +64,28 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Maquette d'arborescence du hub d'info</h1>
+          <h1 class="fr-h3 fr-mb-1w">Maquette du hub d'info</h1>
           <p class="fr-text--lg fr-mb-0">Outil de prototypage pour construire et faire évoluer la structure de contenus et services du futur portail.</p>
         </div>
       </div>
+
+      <div class="fr-tabs">
+        <ul class="fr-tabs__list" role="tablist" aria-label="Vues du prototype">
+          <li role="presentation">
+            <button id="tab-objectifs" class="fr-tabs__tab fr-tabs__tab--icon-left fr-icon-target-line" tabindex="0" role="tab" aria-selected="true" aria-controls="panel-objectifs">Objectifs du site</button>
+          </li>
+          <li role="presentation">
+            <button id="tab-tree" class="fr-tabs__tab fr-tabs__tab--icon-left fr-icon-flow-chart" tabindex="-1" role="tab" aria-selected="false" aria-controls="panel-tree">Arborescence</button>
+          </li>
+        </ul>
+
+        <div id="panel-objectifs" class="fr-tabs__panel fr-tabs__panel--selected" role="tabpanel" aria-labelledby="tab-objectifs" tabindex="0">
+          <div id="objectifs-root">
+            <p class="panel-empty">Chargement de la pyramide stratégique…</p>
+          </div>
+        </div>
+
+        <div id="panel-tree" class="fr-tabs__panel" role="tabpanel" aria-labelledby="tab-tree" tabindex="0">
 
       <section class="fr-mb-3w" aria-labelledby="toolbar-heading">
         <h2 id="toolbar-heading" class="fr-sr-only">Barre d'outils</h2>
@@ -153,6 +171,9 @@
         </div>
       </details>
 
+        </div>
+      </div>
+
     </div>
   </main>
 
@@ -190,5 +211,6 @@
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
   <script src="assets/script.js" type="module"></script>
+  <script src="assets/objectifs.js" type="module"></script>
 </body>
 </html>

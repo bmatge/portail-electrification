@@ -1,0 +1,122 @@
+{
+  "meta": {
+    "title": "Pyramide stratégique du hub",
+    "promise": "Avec « Electrifions la France », l'État vous montre concrètement comment passer à l'électrique en gagnant du pouvoir d'achat, et vous accompagne jusqu'au bon dispositif.",
+    "subtitle": "Pour une énergie moins chère, plus souveraine et plus durable.",
+    "note": "Seuls les moyens portés par le site sont conservés ici. Les moyens transverses (gouvernance, technique, juridique) sont suivis hors prototype."
+  },
+  "axes": [
+    {
+      "id": "A1",
+      "name": "Faire connaître le plan au grand public",
+      "description": "Démarche BtoC, cible principale du plan de communication. Argument central : pouvoir d'achat.",
+      "objectives": [
+        {
+          "id": "A1.O1",
+          "name": "Susciter l'adhésion à l'électrique",
+          "means": [
+            { "id": "A1.O1.M1", "text": "Récit unifié sous une signature unique « Electrifions la France ».", "nodes": ["root"], "dispositifs": [] },
+            { "id": "A1.O1.M2", "text": "Argumentaire pouvoir d'achat porté en page d'accueil (gain mensuel, coût total d'usage, économies).", "nodes": ["root", "p"], "dispositifs": [] },
+            { "id": "A1.O1.M3", "text": "Témoignages par profil (urbain en appartement, gros rouleur périurbain, copropriétaire).", "nodes": ["p4"], "dispositifs": [] }
+          ]
+        },
+        {
+          "id": "A1.O2",
+          "name": "Lever les freins persistants",
+          "means": [
+            { "id": "A1.O2.M1", "text": "Vrai/faux véhicule électrique adossé au document de référence.", "nodes": ["p1d"], "dispositifs": ["D-M07"] },
+            { "id": "A1.O2.M2", "text": "Vrai/faux pompes à chaleur (acoustique, climat, types de PAC).", "nodes": ["p2d"], "dispositifs": [] },
+            { "id": "A1.O2.M3", "text": "Cartes officielles des points de recharge (base IRVE, réseau autoroutier).", "nodes": ["p1c"], "dispositifs": ["D-M05", "D-M06"] }
+          ]
+        },
+        {
+          "id": "A1.O3",
+          "name": "Toucher aussi les publics éloignés du numérique",
+          "means": [
+            { "id": "A1.O3.M2", "text": "Renvoi systématique aux 600+ Espaces conseil France Rénov'.", "nodes": ["p2a"], "dispositifs": ["D-A02", "D-L01"] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Outiller la décision des bénéficiaires",
+      "description": "Service public d'orientation. Conversion vers les dispositifs aval.",
+      "objectives": [
+        {
+          "id": "A2.O1",
+          "name": "Orienter chacun vers le bon dispositif",
+          "means": [
+            { "id": "A2.O1.M1", "text": "Arbre de décision par profil (cible → projet → conditions → dispositifs).", "nodes": ["p3"], "dispositifs": [] },
+            { "id": "A2.O1.M2", "text": "Intégration en iframe ou via API du simulateur Mes Aides Réno (logement).", "nodes": ["p2b"], "dispositifs": ["D-L02"] },
+            { "id": "A2.O1.M3", "text": "Renvoi vers le simulateur d'éligibilité leasing social (service-public.gouv.fr).", "nodes": ["p1a"], "dispositifs": ["D-M01", "D-M02"] }
+          ]
+        },
+        {
+          "id": "A2.O2",
+          "name": "Couvrir les principaux parcours d'investissement",
+          "means": [
+            { "id": "A2.O2.M1", "text": "Branche mobilités : leasing social, prime CEE, recharge, vrai/faux.", "nodes": ["p1", "p1a", "p1b", "p1c", "p1d"], "dispositifs": ["D-M01", "D-M03", "D-M05"] },
+            { "id": "A2.O2.M2", "text": "Branche logement : MaPrimeRénov', Mon Accompagnateur Rénov', PAC, Coup de pouce chauffage.", "nodes": ["p2", "p2a", "p2b", "p2c", "p2d"], "dispositifs": ["D-L01", "D-L02", "D-L03", "D-L05", "D-L07"] },
+            { "id": "A2.O2.M3", "text": "Branche pros : Tremplin ADEME, Prêt Flash Électrique Bpifrance, AAP DECARB IND.", "nodes": ["b", "b1", "b2", "b3", "b4"], "dispositifs": ["D-E01", "D-E03", "D-E04", "D-E05"] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Animer une démarche partenariale",
+      "description": "Logique de labellisation et de mouvement. Transformer les acteurs en promoteurs.",
+      "objectives": [
+        {
+          "id": "A3.O1",
+          "name": "Fédérer un mouvement",
+          "means": [
+            { "id": "A3.O1.M1", "text": "Charte d'engagement signée par les acteurs économiques.", "nodes": ["m1", "b5"], "dispositifs": [] },
+            { "id": "A3.O1.M2", "text": "Annuaire public des signataires, recherche par filière et territoire.", "nodes": ["m2"], "dispositifs": [] },
+            { "id": "A3.O1.M3", "text": "Identité visuelle libre, marqueur officiel imposé sur l'écosystème CEE.", "nodes": ["m3"], "dispositifs": [] }
+          ]
+        },
+        {
+          "id": "A3.O2",
+          "name": "Animer le comité de liaison des communicants",
+          "means": [
+            { "id": "A3.O2.M1", "text": "Espace authentifié ProConnect dédié aux communicants publics et privés.", "nodes": ["m5"], "dispositifs": ["D-AU02"] },
+            { "id": "A3.O2.M2", "text": "Ressources partagées : chartes, kits, fiches argumentaires, calendrier.", "nodes": ["m5"], "dispositifs": [] }
+          ]
+        },
+        {
+          "id": "A3.O3",
+          "name": "Mettre en relation offre et demande",
+          "means": [
+            { "id": "A3.O3.M1", "text": "Marketplace partenariale apporteurs de solutions ↔ demandeurs (V2/V3).", "nodes": ["m4"], "dispositifs": [] },
+            { "id": "A3.O3.M2", "text": "Contreparties tangibles pour les signataires (visibilité, mise en relation, accès prioritaire).", "nodes": ["m1", "m2", "m4"], "dispositifs": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "Donner corps à la territorialisation",
+      "description": "Programme 100 territoires + outillage des communicants locaux.",
+      "objectives": [
+        {
+          "id": "A4.O1",
+          "name": "Faire vivre les 100 territoires d'électrification",
+          "means": [
+            { "id": "A4.O1.M1", "text": "Page dédiée : critères, calendrier, modalités de candidature (été 2026).", "nodes": ["c1"], "dispositifs": [] },
+            { "id": "A4.O1.M2", "text": "Dépôt de candidature via Démarches Simplifiées, filtrage par les préfets.", "nodes": ["c2"], "dispositifs": ["D-C04"] },
+            { "id": "A4.O1.M3", "text": "Cartographie interactive des territoires retenus, valorisation publique.", "nodes": ["c4"], "dispositifs": [] }
+          ]
+        },
+        {
+          "id": "A4.O2",
+          "name": "Outiller les communicants territoriaux",
+          "means": [
+            { "id": "A4.O2.M1", "text": "Kit de communication adaptable préfectures / communes / EPCI.", "nodes": ["c3"], "dispositifs": [] }
+          ]
+        }
+      ]
+    }
+  ]
+}
