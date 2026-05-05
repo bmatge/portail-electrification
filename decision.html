@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Dispositifs existants — Hub d'info plan d'électrification</title>
-  <meta name="description" content="Cartographie des dispositifs étatiques existants susceptibles d'être pointés ou intégrés par le hub d'info.">
+  <title>Trouver mon dispositif — Hub d'info plan d'électrification</title>
+  <meta name="description" content="Arbre de décision pour orienter chaque profil vers le ou les dispositifs étatiques adaptés.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
   <link rel="stylesheet" href="assets/style.css">
 </head>
-<body data-page="dispositifs">
+<body data-page="decision">
   <header role="banner" class="fr-header">
     <div class="fr-header__body">
       <div class="fr-container">
@@ -52,8 +52,8 @@
           <ul class="fr-nav__list">
             <li class="fr-nav__item"><a class="fr-nav__link" href="./" target="_self">Objectifs du site</a></li>
             <li class="fr-nav__item"><a class="fr-nav__link" href="arborescence.html" target="_self">Arborescence</a></li>
-            <li class="fr-nav__item"><a class="fr-nav__link" href="dispositifs.html" target="_self" aria-current="page">Dispositifs existants</a></li>
-            <li class="fr-nav__item"><a class="fr-nav__link" href="decision.html" target="_self">Trouver mon dispositif</a></li>
+            <li class="fr-nav__item"><a class="fr-nav__link" href="dispositifs.html" target="_self">Dispositifs existants</a></li>
+            <li class="fr-nav__item"><a class="fr-nav__link" href="decision.html" target="_self" aria-current="page">Trouver mon dispositif</a></li>
           </ul>
         </nav>
       </div>
@@ -65,60 +65,13 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Dispositifs étatiques existants</h1>
-          <p class="fr-text--lg fr-mb-0">Plateformes, simulateurs, cartes et guichets gouvernementaux susceptibles d'être pointés ou intégrés par le hub.</p>
+          <h1 class="fr-h3 fr-mb-1w">Trouver le bon dispositif pour vous</h1>
+          <p class="fr-text--lg fr-mb-0">Quelques questions pour orienter chaque profil vers les dispositifs étatiques adaptés à son projet.</p>
         </div>
       </div>
 
-      <section class="fr-mb-3w" aria-labelledby="toolbar-heading">
-        <h2 id="toolbar-heading" class="fr-sr-only">Barre d'outils</h2>
-        <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-          <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add">Nouveau dispositif</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export">Export</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import">Import</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-action="reset">Réinitialiser</button></li>
-          <input type="file" id="import-file" accept=".json" hidden>
-        </ul>
-      </section>
-
-      <section class="fr-mb-3w" aria-labelledby="filter-heading">
-        <h2 id="filter-heading" class="fr-sr-only">Filtres</h2>
-        <div class="fr-grid-row fr-grid-row--gutters">
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-input-group">
-              <label class="fr-label" for="search-input">Rechercher</label>
-              <input class="fr-input" type="search" id="search-input" placeholder="ex. ANAH, simulateur, leasing…">
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-select-group">
-              <label class="fr-label" for="filter-category">Catégorie</label>
-              <select class="fr-select" id="filter-category"><option value="all">Toutes</option></select>
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-select-group">
-              <label class="fr-label" for="filter-audience">Audience</label>
-              <select class="fr-select" id="filter-audience"><option value="all">Toutes</option></select>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div class="fr-grid-row fr-grid-row--gutters">
-        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="list-heading">
-          <div class="panel-card">
-            <h2 id="list-heading" class="fr-h6 fr-mb-2w">Dispositifs</h2>
-            <div class="card-list" id="list" role="list"></div>
-            <p class="fr-text--xs fr-mt-2w fr-mb-0" id="counter" style="color: var(--text-mention-grey);"></p>
-          </div>
-        </section>
-        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="detail-heading">
-          <div class="panel-card panel-detail">
-            <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du dispositif</h2>
-            <div id="panel"></div>
-          </div>
-        </section>
+      <div id="decision-root">
+        <p class="panel-empty">Chargement de l'arbre de décision…</p>
       </div>
 
     </div>
@@ -153,6 +106,6 @@
 
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
-  <script src="assets/dispositifs.js" type="module"></script>
+  <script src="assets/dispositifs-decision.js" type="module"></script>
 </body>
 </html>

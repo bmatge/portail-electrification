@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Dispositifs existants — Hub d'info plan d'électrification</title>
-  <meta name="description" content="Cartographie des dispositifs étatiques existants susceptibles d'être pointés ou intégrés par le hub d'info.">
+  <title>Arborescence — Hub d'info plan d'électrification</title>
+  <meta name="description" content="Maquette d'arborescence du hub d'info : édition de nœuds typés, export multi-format, persistance collaborative.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
   <link rel="stylesheet" href="assets/style.css">
 </head>
-<body data-page="dispositifs">
+<body data-page="arborescence">
   <header role="banner" class="fr-header">
     <div class="fr-header__body">
       <div class="fr-container">
@@ -34,6 +34,7 @@
           </div>
           <div class="fr-header__tools">
             <div class="fr-header__tools-links">
+              <div id="identity-zone" class="identity-zone"></div>
               <ul class="fr-btns-group">
                 <li>
                   <a class="fr-btn fr-icon-github-fill" href="https://github.com/bmatge/portail-electrification" target="_blank" rel="noopener">Code source</a>
@@ -51,8 +52,8 @@
         <nav class="fr-nav" id="navigation" role="navigation" aria-label="Menu principal">
           <ul class="fr-nav__list">
             <li class="fr-nav__item"><a class="fr-nav__link" href="./" target="_self">Objectifs du site</a></li>
-            <li class="fr-nav__item"><a class="fr-nav__link" href="arborescence.html" target="_self">Arborescence</a></li>
-            <li class="fr-nav__item"><a class="fr-nav__link" href="dispositifs.html" target="_self" aria-current="page">Dispositifs existants</a></li>
+            <li class="fr-nav__item"><a class="fr-nav__link" href="arborescence.html" target="_self" aria-current="page">Arborescence</a></li>
+            <li class="fr-nav__item"><a class="fr-nav__link" href="dispositifs.html" target="_self">Dispositifs existants</a></li>
             <li class="fr-nav__item"><a class="fr-nav__link" href="decision.html" target="_self">Trouver mon dispositif</a></li>
           </ul>
         </nav>
@@ -65,61 +66,94 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Dispositifs étatiques existants</h1>
-          <p class="fr-text--lg fr-mb-0">Plateformes, simulateurs, cartes et guichets gouvernementaux susceptibles d'être pointés ou intégrés par le hub.</p>
+          <h1 class="fr-h3 fr-mb-1w">Arborescence du hub</h1>
+          <p class="fr-text--lg fr-mb-0">Maquette éditable de la structure de contenus et services du futur portail.</p>
         </div>
       </div>
 
       <section class="fr-mb-3w" aria-labelledby="toolbar-heading">
         <h2 id="toolbar-heading" class="fr-sr-only">Barre d'outils</h2>
         <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-          <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add">Nouveau dispositif</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export">Export</button></li>
-          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import">Import</button></li>
+          <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-action="add-root">Nouvelle rubrique</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-down-s-line" data-action="expand-all">Déplier</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-right-s-line" data-action="collapse-all">Replier</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-git-branch-line" data-action="view-history">Historique</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-eye-fill" data-action="view-graph">Vue graphique</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-action="export-json">Export</button></li>
+          <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-action="import-json">Import</button></li>
           <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-action="reset">Réinitialiser</button></li>
           <input type="file" id="import-file" accept=".json" hidden>
         </ul>
+        <div id="save-status" class="save-status" aria-live="polite"></div>
       </section>
 
       <section class="fr-mb-3w" aria-labelledby="filter-heading">
-        <h2 id="filter-heading" class="fr-sr-only">Filtres</h2>
+        <h2 id="filter-heading" class="fr-sr-only">Filtres et recherche</h2>
         <div class="fr-grid-row fr-grid-row--gutters">
-          <div class="fr-col-12 fr-col-md-4">
+          <div class="fr-col-12 fr-col-md-6">
             <div class="fr-input-group">
-              <label class="fr-label" for="search-input">Rechercher</label>
-              <input class="fr-input" type="search" id="search-input" placeholder="ex. ANAH, simulateur, leasing…">
+              <label class="fr-label" for="search-input">Rechercher un nœud par libellé ou TL;DR</label>
+              <input class="fr-input" type="search" id="search-input" placeholder="ex. leasing, carte, simulateur…">
             </div>
           </div>
-          <div class="fr-col-12 fr-col-md-4">
+          <div class="fr-col-12 fr-col-md-6">
             <div class="fr-select-group">
-              <label class="fr-label" for="filter-category">Catégorie</label>
-              <select class="fr-select" id="filter-category"><option value="all">Toutes</option></select>
-            </div>
-          </div>
-          <div class="fr-col-12 fr-col-md-4">
-            <div class="fr-select-group">
-              <label class="fr-label" for="filter-audience">Audience</label>
-              <select class="fr-select" id="filter-audience"><option value="all">Toutes</option></select>
+              <label class="fr-label" for="priority-filter">Filtrer par priorité de mise en œuvre</label>
+              <select class="fr-select" id="priority-filter">
+                <option value="all">Toutes les priorités</option>
+                <option value="mvp">MVP uniquement</option>
+                <option value="v1">V1 et MVP</option>
+                <option value="v2">V2 et antérieures</option>
+                <option value="v3">Toutes (V3 inclus)</option>
+                <option value="none">Sans priorité définie</option>
+              </select>
             </div>
           </div>
         </div>
       </section>
 
       <div class="fr-grid-row fr-grid-row--gutters">
-        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="list-heading">
+
+        <section class="fr-col-12 fr-col-lg-6" aria-labelledby="tree-heading">
           <div class="panel-card">
-            <h2 id="list-heading" class="fr-h6 fr-mb-2w">Dispositifs</h2>
-            <div class="card-list" id="list" role="list"></div>
+            <h2 id="tree-heading" class="fr-h6 fr-mb-2w">Arborescence</h2>
+            <div class="tree" id="tree" role="tree" aria-label="Arborescence des nœuds"></div>
+            <div class="legend" id="legend" aria-label="Légende des types"></div>
             <p class="fr-text--xs fr-mt-2w fr-mb-0" id="counter" style="color: var(--text-mention-grey);"></p>
           </div>
         </section>
+
         <section class="fr-col-12 fr-col-lg-6" aria-labelledby="detail-heading">
           <div class="panel-card panel-detail">
-            <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du dispositif</h2>
+            <h2 id="detail-heading" class="fr-h6 fr-mb-2w">Détail du nœud sélectionné</h2>
             <div id="panel"></div>
           </div>
         </section>
+
       </div>
+
+      <details class="fr-mt-4w">
+        <summary class="fr-text--md" style="cursor: pointer;">À propos de cette maquette</summary>
+        <div class="fr-mt-2w fr-text--sm">
+          <p>
+            <strong>Typologie de nœuds.</strong> Dix types sont prédéfinis pour qualifier chaque rubrique selon sa fonction :
+            page éditoriale, service applicatif, simulateur, carte, renvoi externe, marketplace, kit téléchargeable,
+            formulaire, espace authentifié, ou hub d'orientation. Cette typologie sert ensuite à arbitrer
+            la priorisation et l'effort technique requis.
+          </p>
+          <p>
+            <strong>Persistance et collaboration.</strong> Les modifications sont enregistrées sur le serveur
+            et partagées entre tous les contributeurs. Chaque enregistrement crée une nouvelle révision
+            consultable depuis l'historique (avec diff et possibilité de revert). Les commentaires sont
+            attachés à chaque nœud et visibles par tous.
+          </p>
+          <p>
+            <strong>Réutilisation.</strong> Le code source est sous licence ouverte sur
+            <a href="https://github.com/bmatge/portail-electrification" target="_blank" rel="noopener">GitHub</a>
+            et peut être adapté à d'autres projets de cadrage de portails.
+          </p>
+        </div>
+      </details>
 
     </div>
   </main>
@@ -153,6 +187,6 @@
 
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
-  <script src="assets/dispositifs.js" type="module"></script>
+  <script src="assets/script.js" type="module"></script>
 </body>
 </html>
