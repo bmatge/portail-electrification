@@ -520,6 +520,59 @@ dialog.app-dialog::backdrop {
   color: #a93f1d;
 }
 
+/* Objectives linked to a tree node, shown in the detail panel */
+.objectives-section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.objective-link-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.objective-link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: #fff6e3;
+  color: #716043;
+  border: 1px solid #d4be91;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.objective-link-badge:hover {
+  background: #f5e6c4;
+}
+
+.objective-link-badge .badge-id {
+  font-family: monospace;
+  font-weight: 600;
+  color: #6a4d12;
+}
+
+.objective-link-badge .badge-label {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.objective-link-badge .badge-x {
+  font-weight: 700;
+  opacity: 0.6;
+  margin-left: 0.125rem;
+}
+
 /* ---- Collaboration: identity, status, comments, history ---- */
 
 .identity-zone {

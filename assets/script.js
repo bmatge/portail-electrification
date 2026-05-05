@@ -328,6 +328,7 @@ function renderPanel() {
   panelEl.appendChild(field('format', 'Format', node.format, 'input'));
   panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
 
+  panelEl.appendChild(renderObjectivesSection(node.id));
   panelEl.appendChild(renderCommentsSection(node.id));
 }
 
@@ -517,6 +518,160 @@ function renderIdentity() {
     await reloadFromServer();
   });
   el.append('Identifié comme ', span, ' ', change);
+}
+
+// ---- Objectives linkage (reverse of objectifs.js: from a node, manage its means) ----
+
+const OBJECTIFS_STORAGE_KEY = 'portail-electrification.objectifs.v1';
+const OBJECTIFS_DATA_URL = 'assets/data/objectifs.json';
+let objectifsData = null;
+
+async function loadObjectifs() {
+  try {
+    const raw = localStorage.getItem(OBJECTIFS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  try {
+    const res = await fetch(OBJECTIFS_DATA_URL, { cache: 'no-cache' });
+    if (res.ok) return await res.json();
+  } catch { /* ignore */ }
+  return null;
+}
+
+function saveObjectifs() {
+  if (objectifsData) localStorage.setItem(OBJECTIFS_STORAGE_KEY, JSON.stringify(objectifsData));
+}
+
+function allMeans() {
+  if (!objectifsData) return [];
+  return objectifsData.axes.flatMap(a =>
+    a.objectives.flatMap(o => o.means.map(m => ({ ...m, _axe: a.name, _objective: o.name })))
+  );
+}
+
+function meansForNode(nodeId) {
+  return allMeans().filter(m => (m.nodes || []).includes(nodeId));
+}
+
+function findMean(meanId) {
+  if (!objectifsData) return null;
+  for (const a of objectifsData.axes) for (const o of a.objectives) for (const m of o.means) {
+    if (m.id === meanId) return m;
+  }
+  return null;
+}
+
+function linkObjective(meanId, nodeId) {
+  const m = findMean(meanId);
+  if (!m) return;
+  if (!m.nodes) m.nodes = [];
+  if (!m.nodes.includes(nodeId)) m.nodes.push(nodeId);
+  saveObjectifs();
+}
+
+function unlinkObjective(meanId, nodeId) {
+  const m = findMean(meanId);
+  if (!m) return;
+  m.nodes = (m.nodes || []).filter(id => id !== nodeId);
+  saveObjectifs();
+}
+
+function truncate(s, n) { s = String(s ?? ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+function renderObjectivesSection(nodeId) {
+  const wrap = document.createElement('section');
+  wrap.className = 'objectives-section';
+
+  const h = document.createElement('h3');
+  h.className = 'fr-h6 fr-mt-4w';
+  h.textContent = 'Objectifs couverts par cette page';
+  wrap.appendChild(h);
+
+  if (!objectifsData) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.textContent = 'Pyramide stratégique non chargée — réessayez dans quelques instants.';
+    wrap.appendChild(p);
+    return wrap;
+  }
+
+  const linked = meansForNode(nodeId);
+  const list = document.createElement('div');
+  list.className = 'objective-link-list';
+
+  if (linked.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Aucun objectif rattaché à cette page.';
+    list.appendChild(p);
+  } else {
+    for (const mean of linked) list.appendChild(renderMeanBadge(mean, nodeId));
+  }
+  wrap.appendChild(list);
+  wrap.appendChild(renderAddObjectiveButton(nodeId));
+  return wrap;
+}
+
+function renderMeanBadge(mean, nodeId) {
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.className = 'objective-link-badge';
+  badge.title = `${mean._axe} → ${mean._objective}\n${mean.text}\n\nCliquer pour retirer ce lien.`;
+  badge.innerHTML = `<span class="badge-id">${escapeHtml(mean.id)}</span> <span class="badge-label">${escapeHtml(truncate(mean.text, 70))}</span> <span class="badge-x">×</span>`;
+  badge.addEventListener('click', () => {
+    unlinkObjective(mean.id, nodeId);
+    renderPanel();
+  });
+  return badge;
+}
+
+function renderAddObjectiveButton(nodeId) {
+  const wrap = document.createElement('div');
+  wrap.className = 'add-link';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'add-link__btn fr-btn fr-btn--tertiary fr-btn--sm';
+  btn.textContent = '+ lier un objectif';
+  wrap.appendChild(btn);
+
+  btn.addEventListener('click', () => {
+    btn.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'fr-input add-link__input';
+    input.placeholder = 'rechercher un moyen (id A1.O1.M1 ou texte)…';
+    const dropdown = document.createElement('ul');
+    dropdown.className = 'add-link__dropdown';
+    wrap.append(input, dropdown);
+    input.focus();
+
+    function refresh() {
+      const term = input.value.trim().toLowerCase();
+      dropdown.innerHTML = '';
+      if (!term) return;
+      const already = new Set(meansForNode(nodeId).map(m => m.id));
+      const matches = allMeans()
+        .filter(m => !already.has(m.id))
+        .filter(m => m.id.toLowerCase().includes(term) || m.text.toLowerCase().includes(term))
+        .slice(0, 8);
+      for (const m of matches) {
+        const li = document.createElement('li');
+        li.className = 'add-link__option';
+        li.innerHTML = `<span class="badge-id">${escapeHtml(m.id)}</span> ${escapeHtml(truncate(m.text, 90))}`;
+        li.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          linkObjective(m.id, nodeId);
+          renderPanel();
+        });
+        dropdown.appendChild(li);
+      }
+    }
+    input.addEventListener('input', refresh);
+    input.addEventListener('blur', () => setTimeout(() => renderPanel(), 200));
+  });
+  return wrap;
 }
 
 // ---- Comments ----
@@ -964,6 +1119,9 @@ async function init() {
     const res = await fetch(DEFAULT_TREE_URL, { cache: 'no-cache' });
     if (res.ok) defaultTree = await res.json();
   } catch { /* non-fatal */ }
+
+  // Pyramide stratégique (used by the "Objectifs couverts" field in the panel).
+  loadObjectifs().then(d => { objectifsData = d; if (state.tree) renderPanel(); });
 
   await ensureIdentified();
   renderIdentity();
