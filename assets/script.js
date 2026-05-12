@@ -211,11 +211,11 @@ function renderTree() {
   const list = document.createElement('div');
   list.className = 'flat-list';
 
-  // Build flat list with breadcrumb info preserved (computed on render).
   function rec(node, parents) {
     const row = renderNodeRow(node, parents);
     if (!subtreeMatches(node)) row.classList.add('dim');
     list.appendChild(row);
+    if (state.collapsed.has(node.id)) return;
     for (const c of node.children ?? []) rec(c, [...parents, node]);
   }
   rec(state.tree, []);
@@ -275,7 +275,30 @@ function renderNodeRow(node, parents) {
     performMove(sourceId, node.id, mode);
   });
 
-  // Column 1: audience
+  // Column 1: toggle (chevron for nodes with children, placeholder otherwise)
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'flat-row__toggle';
+  const hasChildren = (node.children ?? []).length > 0;
+  if (hasChildren) {
+    const isCollapsed = state.collapsed.has(node.id);
+    toggle.textContent = isCollapsed ? '▸' : '▾';
+    toggle.setAttribute('aria-label', isCollapsed ? `Déplier ${node.label}` : `Replier ${node.label}`);
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.collapsed.has(node.id)) state.collapsed.delete(node.id);
+      else state.collapsed.add(node.id);
+      saveCollapsed();
+      renderTree();
+    });
+  } else {
+    toggle.classList.add('flat-row__toggle--placeholder');
+    toggle.tabIndex = -1;
+    toggle.setAttribute('aria-hidden', 'true');
+  }
+  row.appendChild(toggle);
+
+  // Column 2: audience
   const aud = document.createElement('div');
   aud.className = 'flat-row__audience';
   const audText = audienceFor(node);
@@ -287,31 +310,16 @@ function renderNodeRow(node, parents) {
   }
   row.appendChild(aud);
 
-  // Column 2: indent + label (no TL;DR — kept only in the detail panel)
+  // Column 3: label (no TL;DR, no breadcrumb — depth is shown by physical indent)
   const text = document.createElement('div');
   text.className = 'flat-row__text';
-
-  // Indent guides: one vertical line per ancestor level
-  if (depth > 0) {
-    const guides = document.createElement('span');
-    guides.className = 'flat-row__guides';
-    for (let i = 0; i < depth; i++) {
-      const g = document.createElement('span');
-      g.className = 'flat-row__guide';
-      // The last guide shows a tee/elbow connector
-      if (i === depth - 1) g.classList.add('flat-row__guide--connector');
-      guides.appendChild(g);
-    }
-    text.appendChild(guides);
-  }
-
   const lbl = document.createElement('span');
   lbl.className = 'flat-row__label';
   lbl.textContent = node.label;
   text.appendChild(lbl);
   row.appendChild(text);
 
-  // Column 3: tags (priority, type, auth, mesure_plan, comments)
+  // Column 4: version pill (priority) + comments if any
   const tags = document.createElement('div');
   tags.className = 'flat-row__tags';
   if (node.priority) {
@@ -319,24 +327,6 @@ function renderNodeRow(node, parents) {
     pri.className = `priority-pill ${node.priority}`;
     pri.textContent = PRIORITIES[node.priority];
     tags.appendChild(pri);
-  }
-  const typePill = document.createElement('span');
-  typePill.className = `type-pill type-${node.type}`;
-  typePill.textContent = TYPES[node.type]?.label ?? node.type;
-  tags.appendChild(typePill);
-  if (node.mesure_plan) {
-    const mp = document.createElement('span');
-    mp.className = 'mesure-pill';
-    mp.textContent = `Mesure ${node.mesure_plan}`;
-    mp.title = `Mesure ${node.mesure_plan} du plan d'électrification`;
-    tags.appendChild(mp);
-  }
-  if (node.auth) {
-    const auth = document.createElement('span');
-    auth.className = 'auth-pill';
-    auth.textContent = 'Auth';
-    auth.title = 'Authentification requise';
-    tags.appendChild(auth);
   }
   const commentN = state.commentCounts[node.id] || 0;
   if (commentN > 0) {
@@ -347,17 +337,6 @@ function renderNodeRow(node, parents) {
     tags.appendChild(c);
   }
   row.appendChild(tags);
-
-  // Column 4: complexity
-  const cx = document.createElement('div');
-  cx.className = 'flat-row__complexity';
-  if (node.complexity) {
-    const pill = document.createElement('span');
-    pill.className = `complexity-pill ${node.complexity}`;
-    pill.textContent = COMPLEXITIES[node.complexity];
-    cx.appendChild(pill);
-  }
-  row.appendChild(cx);
 
   row.addEventListener('click', () => {
     state.selectedId = node.id;
@@ -514,6 +493,42 @@ function renderPanel() {
     actions.appendChild(demote);
   }
   panelEl.appendChild(actions);
+
+  // Meta tag strip between actions and ID: type, mesure, complexity, auth, comments
+  const metaStrip = document.createElement('div');
+  metaStrip.className = 'panel-meta-strip';
+  const typePill = document.createElement('span');
+  typePill.className = `type-pill type-${node.type}`;
+  typePill.textContent = TYPES[node.type]?.label ?? node.type;
+  metaStrip.appendChild(typePill);
+  if (node.mesure_plan) {
+    const mp = document.createElement('span');
+    mp.className = 'mesure-pill';
+    mp.textContent = `Mesure ${node.mesure_plan}`;
+    metaStrip.appendChild(mp);
+  }
+  if (node.complexity) {
+    const cx = document.createElement('span');
+    cx.className = `complexity-pill ${node.complexity}`;
+    cx.textContent = COMPLEXITIES[node.complexity];
+    cx.title = `Complexité ${COMPLEXITIES[node.complexity].toLowerCase()}`;
+    metaStrip.appendChild(cx);
+  }
+  if (node.auth) {
+    const auth = document.createElement('span');
+    auth.className = 'auth-pill';
+    auth.textContent = 'Auth';
+    auth.title = 'Authentification requise';
+    metaStrip.appendChild(auth);
+  }
+  const panelCommentN = state.commentCounts[node.id] || 0;
+  if (panelCommentN > 0) {
+    const c = document.createElement('span');
+    c.className = 'comment-pill';
+    c.textContent = `💬 ${panelCommentN}`;
+    metaStrip.appendChild(c);
+  }
+  panelEl.appendChild(metaStrip);
 
   const id = document.createElement('p');
   id.className = 'panel-id';
