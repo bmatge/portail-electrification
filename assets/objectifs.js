@@ -105,12 +105,25 @@ function renderToolbar() {
   wrap.className = 'fr-mb-2w';
   wrap.innerHTML = `
     <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
+      <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-down-s-line" data-objectif-action="expand-all">Tout déplier</button></li>
+      <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-right-s-line" data-objectif-action="collapse-all">Tout replier</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-objectif-action="export">Export</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-objectif-action="import">Import</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-objectif-action="reset">Réinitialiser</button></li>
       <input type="file" id="objectifs-import-file" accept=".json" hidden>
     </ul>
   `;
+  wrap.querySelector('[data-objectif-action="expand-all"]').addEventListener('click', () => {
+    state.collapsed.clear(); render();
+  });
+  wrap.querySelector('[data-objectif-action="collapse-all"]').addEventListener('click', () => {
+    state.collapsed.clear();
+    for (const a of state.data.axes) {
+      state.collapsed.add(a.id);
+      for (const o of a.objectives) state.collapsed.add(o.id);
+    }
+    render();
+  });
   wrap.querySelector('[data-objectif-action="export"]').addEventListener('click', exportJson);
   wrap.querySelector('[data-objectif-action="import"]').addEventListener('click', () => {
     document.getElementById('objectifs-import-file').click();
@@ -153,10 +166,36 @@ function renderSearch() {
 function renderHeader() {
   const div = document.createElement('div');
   div.className = 'fr-callout fr-mb-3w';
-  div.innerHTML = `
-    <p class="fr-callout__title fr-text--lg">${escape(state.data.meta.promise)}</p>
-    <p class="fr-callout__text fr-text--sm" style="font-style: italic;">${escape(state.data.meta.subtitle)}</p>
-  `;
+
+  const promise = document.createElement('p');
+  promise.className = 'fr-callout__title fr-text--lg';
+  promise.textContent = state.data.meta.promise;
+  div.appendChild(promise);
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'fr-callout__text fr-text--sm';
+  subtitle.style.fontStyle = 'italic';
+  subtitle.textContent = state.data.meta.subtitle;
+  div.appendChild(subtitle);
+
+  // Calendar baseline: pill (slice) + text (échéance)
+  const cal = state.data.meta.calendrier;
+  if (Array.isArray(cal) && cal.length) {
+    const calWrap = document.createElement('div');
+    calWrap.className = 'objectifs-calendar';
+    const label = document.createElement('span');
+    label.className = 'objectifs-calendar__label';
+    label.textContent = 'Calendrier :';
+    calWrap.appendChild(label);
+    for (const slice of cal) {
+      const item = document.createElement('span');
+      item.className = 'objectifs-calendar__item';
+      item.innerHTML = `<span class="priority-pill ${escape(slice.id)}">${escape(slice.label)}</span> <span class="objectifs-calendar__date">${escape(slice.echeance)}</span>`;
+      calWrap.appendChild(item);
+    }
+    div.appendChild(calWrap);
+  }
+
   return div;
 }
 
@@ -207,20 +246,36 @@ function renderAxe(axe) {
 }
 
 function renderObjective(obj) {
+  const collapsed = state.collapsed.has(obj.id);
   const wrap = document.createElement('div');
   wrap.className = 'objectif-objective';
+
+  const head = document.createElement('div');
+  head.className = 'objectif-objective__head';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'objectif-toggle';
+  toggle.textContent = collapsed ? '▸' : '▾';
+  toggle.setAttribute('aria-expanded', String(!collapsed));
+  toggle.addEventListener('click', () => {
+    if (collapsed) state.collapsed.delete(obj.id); else state.collapsed.add(obj.id);
+    render();
+  });
   const title = document.createElement('h4');
   title.className = 'objectif-objective__title';
   title.innerHTML = `<span class="objectif-id">${escape(obj.id)}</span> ${escape(obj.name)}`;
-  wrap.appendChild(title);
+  head.append(toggle, title);
+  wrap.appendChild(head);
 
-  const list = document.createElement('div');
-  list.className = 'objectif-means';
-  for (const mean of obj.means) {
-    if (!meanMatches(mean)) continue;
-    list.appendChild(renderMean(mean));
+  if (!collapsed) {
+    const list = document.createElement('div');
+    list.className = 'objectif-means';
+    for (const mean of obj.means) {
+      if (!meanMatches(mean)) continue;
+      list.appendChild(renderMean(mean));
+    }
+    wrap.appendChild(list);
   }
-  wrap.appendChild(list);
   return wrap;
 }
 

@@ -125,7 +125,56 @@ function newId() {
 }
 
 function makeNode(label = 'Nouveau nœud') {
-  return { id: newId(), label, type: 'editorial', format: '', tldr: '', url: '', priority: '', complexity: '', auth: false, children: [] };
+  return {
+    id: newId(),
+    label,
+    type: 'editorial',
+    format: '',
+    tldr: '',
+    url: '',
+    priority: '',
+    complexity: '',
+    auth: false,
+    mesure_plan: '',
+    audience: '',
+    dispositifs: [],
+    children: [],
+  };
+}
+
+function parentOf(id) {
+  for (const { node, parent } of walk(state.tree)) {
+    if (node.id === id) return parent;
+  }
+  return null;
+}
+
+function ancestorOf(targetId, candidateId) {
+  // True if candidateId is an ancestor of targetId in state.tree.
+  const found = find(candidateId);
+  if (!found) return false;
+  for (const { node } of walk(found.node)) {
+    if (node.id === targetId) return true;
+  }
+  return false;
+}
+
+function audienceFor(node) {
+  // Use explicit audience if set, else inherit from the closest ancestor that has one.
+  if (node.audience) return node.audience;
+  function findPath(root, targetId, acc) {
+    if (root.id === targetId) return acc;
+    for (const c of root.children ?? []) {
+      const r = findPath(c, targetId, [...acc, root]);
+      if (r) return r;
+    }
+    return null;
+  }
+  const ancestors = findPath(state.tree, node.id, []) ?? [];
+  for (let i = ancestors.length - 1; i >= 0; i--) {
+    if (ancestors[i].audience) return ancestors[i].audience;
+  }
+  return '';
 }
 
 // ---- Rendering ----
@@ -159,103 +208,244 @@ function subtreeMatches(node) {
 
 function renderTree() {
   treeEl.innerHTML = '';
-  treeEl.appendChild(renderNode(state.tree));
+  const list = document.createElement('div');
+  list.className = 'flat-list';
+
+  // Build flat list with breadcrumb info preserved (computed on render).
+  function rec(node, parents) {
+    const row = renderNodeRow(node, parents);
+    if (!subtreeMatches(node)) row.classList.add('dim');
+    list.appendChild(row);
+    for (const c of node.children ?? []) rec(c, [...parents, node]);
+  }
+  rec(state.tree, []);
+
+  treeEl.appendChild(list);
   renderLegend();
   renderCounter();
 }
 
-function renderNode(node) {
-  const wrapper = document.createElement('ul');
-  const li = document.createElement('li');
-  li.setAttribute('role', 'treeitem');
-  li.dataset.id = node.id;
-
+function renderNodeRow(node, parents) {
   const row = document.createElement('div');
-  row.className = 'node-row';
+  row.className = 'flat-row';
+  row.dataset.id = node.id;
+  row.setAttribute('role', 'treeitem');
   if (node.id === state.selectedId) row.classList.add('selected');
-  if (!subtreeMatches(node)) row.classList.add('dim');
 
-  const hasChildren = (node.children ?? []).length > 0;
-  const toggle = document.createElement('button');
-  toggle.className = 'node-toggle';
-  toggle.type = 'button';
-  if (!hasChildren) toggle.classList.add('placeholder');
-  toggle.textContent = state.collapsed.has(node.id) ? '▸' : '▾';
-  toggle.setAttribute('aria-label', state.collapsed.has(node.id) ? 'Déplier' : 'Replier');
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (state.collapsed.has(node.id)) state.collapsed.delete(node.id);
-    else state.collapsed.add(node.id);
-    saveCollapsed();
-    renderTree();
+  // Drag handle: drag any row except root.
+  if (node.id !== state.tree.id) {
+    row.draggable = true;
+    row.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', node.id);
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.flat-row').forEach(r => r.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-child'));
+    });
+  }
+  row.addEventListener('dragover', (e) => {
+    if (!isDragValid(e, node)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = row.getBoundingClientRect();
+    const yMid = rect.top + rect.height / 2;
+    row.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-child');
+    // Three zones: top 25% = before, middle 50% = child, bottom 25% = after
+    const offset = e.clientY - rect.top;
+    if (offset < rect.height * 0.25) row.classList.add('drag-over-before');
+    else if (offset > rect.height * 0.75) row.classList.add('drag-over-after');
+    else row.classList.add('drag-over-child');
+  });
+  row.addEventListener('dragleave', () => {
+    row.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-child');
+  });
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain');
+    let mode = 'after';
+    if (row.classList.contains('drag-over-before')) mode = 'before';
+    else if (row.classList.contains('drag-over-child')) mode = 'child';
+    row.classList.remove('drag-over-before', 'drag-over-after', 'drag-over-child');
+    performMove(sourceId, node.id, mode);
   });
 
-  const label = document.createElement('span');
-  label.className = 'node-label';
-  label.textContent = node.label;
+  // Column 1: audience
+  const aud = document.createElement('div');
+  aud.className = 'flat-row__audience';
+  const audText = audienceFor(node);
+  if (audText) {
+    const tag = document.createElement('span');
+    tag.className = 'audience-tag';
+    tag.textContent = audText;
+    aud.appendChild(tag);
+  }
+  row.appendChild(aud);
 
-  const meta = document.createElement('span');
-  meta.className = 'node-meta';
+  // Column 2: label + tldr
+  const text = document.createElement('div');
+  text.className = 'flat-row__text';
+  const lbl = document.createElement('div');
+  lbl.className = 'flat-row__label';
+  if (parents.length > 0) {
+    const bc = document.createElement('span');
+    bc.className = 'flat-row__breadcrumb';
+    bc.textContent = parents.map(p => p.label).join(' › ') + ' › ';
+    lbl.appendChild(bc);
+  }
+  const lblText = document.createElement('span');
+  lblText.className = 'flat-row__label-text';
+  lblText.textContent = node.label;
+  lbl.appendChild(lblText);
+  text.appendChild(lbl);
+  if (node.tldr) {
+    const tldr = document.createElement('div');
+    tldr.className = 'flat-row__tldr';
+    tldr.textContent = node.tldr;
+    text.appendChild(tldr);
+  }
+  row.appendChild(text);
 
-  const typePill = document.createElement('span');
-  typePill.className = `type-pill type-${node.type}`;
-  typePill.textContent = TYPES[node.type]?.label ?? node.type;
-  meta.appendChild(typePill);
-
+  // Column 3: tags (priority, type, auth, mesure_plan, comments)
+  const tags = document.createElement('div');
+  tags.className = 'flat-row__tags';
   if (node.priority) {
     const pri = document.createElement('span');
     pri.className = `priority-pill ${node.priority}`;
     pri.textContent = PRIORITIES[node.priority];
-    meta.appendChild(pri);
+    tags.appendChild(pri);
   }
-
-  if (node.complexity) {
-    const cx = document.createElement('span');
-    cx.className = `complexity-pill ${node.complexity}`;
-    cx.textContent = COMPLEXITIES[node.complexity];
-    cx.title = `Complexité ${COMPLEXITIES[node.complexity].toLowerCase()}`;
-    meta.appendChild(cx);
+  const typePill = document.createElement('span');
+  typePill.className = `type-pill type-${node.type}`;
+  typePill.textContent = TYPES[node.type]?.label ?? node.type;
+  tags.appendChild(typePill);
+  if (node.mesure_plan) {
+    const mp = document.createElement('span');
+    mp.className = 'mesure-pill';
+    mp.textContent = `Mesure ${node.mesure_plan}`;
+    mp.title = `Mesure ${node.mesure_plan} du plan d'électrification`;
+    tags.appendChild(mp);
   }
-
   if (node.auth) {
     const auth = document.createElement('span');
     auth.className = 'auth-pill';
     auth.textContent = 'Auth';
-    auth.setAttribute('aria-label', 'Authentification requise');
     auth.title = 'Authentification requise';
-    meta.appendChild(auth);
+    tags.appendChild(auth);
   }
-
   const commentN = state.commentCounts[node.id] || 0;
   if (commentN > 0) {
     const c = document.createElement('span');
     c.className = 'comment-pill';
     c.textContent = `💬 ${commentN}`;
     c.title = `${commentN} commentaire${commentN > 1 ? 's' : ''}`;
-    meta.appendChild(c);
+    tags.appendChild(c);
   }
+  row.appendChild(tags);
 
-  row.append(toggle, label, meta);
+  // Column 4: complexity
+  const cx = document.createElement('div');
+  cx.className = 'flat-row__complexity';
+  if (node.complexity) {
+    const pill = document.createElement('span');
+    pill.className = `complexity-pill ${node.complexity}`;
+    pill.textContent = COMPLEXITIES[node.complexity];
+    cx.appendChild(pill);
+  }
+  row.appendChild(cx);
+
   row.addEventListener('click', () => {
     state.selectedId = node.id;
     renderTree();
     renderPanel();
   });
 
-  li.appendChild(row);
+  return row;
+}
 
-  if (hasChildren && !state.collapsed.has(node.id)) {
-    const childUl = document.createElement('ul');
-    for (const child of node.children) {
-      const sub = renderNode(child);
-      // renderNode wraps in <ul><li>; unwrap to single ul
-      childUl.appendChild(sub.firstElementChild);
+// Drag&drop helpers
+
+function isDragValid(e, targetNode) {
+  const sourceId = e.dataTransfer.types.includes('text/plain') ? null : null; // we don't have access to data during dragover in some browsers
+  // Just always allow dragover; we validate on drop.
+  return true;
+}
+
+function performMove(sourceId, targetId, mode) {
+  if (!sourceId || sourceId === targetId) return;
+  // Can't drop into itself or its descendants.
+  if (ancestorOf(targetId, sourceId)) {
+    alert('Impossible de déplacer un nœud dans sa propre descendance.');
+    return;
+  }
+  if (sourceId === state.tree.id) return; // can't move root
+
+  const srcInfo = find(sourceId);
+  const tgtInfo = find(targetId);
+  if (!srcInfo || !tgtInfo) return;
+
+  // Detach source
+  const srcParent = srcInfo.parent;
+  if (!srcParent) return; // root, can't move
+  srcParent.children = srcParent.children.filter(c => c.id !== sourceId);
+
+  if (mode === 'child') {
+    // Insert as first child of target
+    if (!tgtInfo.node.children) tgtInfo.node.children = [];
+    tgtInfo.node.children.unshift(srcInfo.node);
+  } else {
+    // Insert as sibling of target (before or after)
+    const tgtParent = tgtInfo.parent;
+    if (!tgtParent) {
+      // Target is root; fall back to insert as first child of root
+      state.tree.children.unshift(srcInfo.node);
+    } else {
+      const idx = tgtParent.children.indexOf(tgtInfo.node);
+      const insertAt = mode === 'before' ? idx : idx + 1;
+      tgtParent.children.splice(insertAt, 0, srcInfo.node);
     }
-    li.appendChild(childUl);
   }
 
-  wrapper.appendChild(li);
-  return wrapper;
+  save(`Déplacement de ${sourceId} (${mode}) vers ${targetId}`);
+  state.selectedId = sourceId;
+  renderTree(); renderPanel();
+}
+
+function promoteNode(node) {
+  // Move node up one level: becomes sibling of its current parent.
+  const found = find(node.id);
+  if (!found || !found.parent) return;
+  const parent = found.parent;
+  const grandFound = find(parent.id);
+  if (!grandFound || !grandFound.parent) {
+    alert('Ce nœud est déjà au plus haut niveau possible.');
+    return;
+  }
+  const grandparent = grandFound.parent;
+  parent.children = parent.children.filter(c => c.id !== node.id);
+  const idx = grandparent.children.indexOf(parent);
+  grandparent.children.splice(idx + 1, 0, node);
+  save(`Promotion d'un niveau : ${node.id}`);
+  renderTree(); renderPanel();
+}
+
+function demoteNode(node) {
+  // Move node down one level: becomes last child of its previous sibling.
+  const found = find(node.id);
+  if (!found || !found.parent) return;
+  const parent = found.parent;
+  const idx = parent.children.indexOf(node);
+  if (idx <= 0) {
+    alert('Aucun frère précédent — il faut un nœud frère avant celui-ci pour le faire descendre d\'un niveau.');
+    return;
+  }
+  const prevSibling = parent.children[idx - 1];
+  parent.children.splice(idx, 1);
+  if (!prevSibling.children) prevSibling.children = [];
+  prevSibling.children.push(node);
+  save(`Descente d'un niveau : ${node.id}`);
+  renderTree(); renderPanel();
 }
 
 function renderLegend() {
@@ -311,6 +501,13 @@ function renderPanel() {
     const moveDown = button('Descendre', 'fr-btn--tertiary fr-icon-arrow-down-line fr-btn--icon-left', () => moveSibling(parent, node, +1));
     actions.appendChild(moveUp);
     actions.appendChild(moveDown);
+
+    const promote = button('↑ Niveau (sortir)', 'fr-btn--tertiary', () => promoteNode(node));
+    promote.title = 'Faire remonter ce nœud d\'un niveau (sortir de son parent).';
+    const demote = button('↓ Niveau (entrer)', 'fr-btn--tertiary', () => demoteNode(node));
+    demote.title = 'Faire descendre ce nœud d\'un niveau (devenir enfant du frère précédent).';
+    actions.appendChild(promote);
+    actions.appendChild(demote);
   }
   panelEl.appendChild(actions);
 
@@ -319,15 +516,18 @@ function renderPanel() {
   id.textContent = `id : ${node.id}`;
   panelEl.appendChild(id);
 
-  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
   panelEl.appendChild(field('label', 'Libellé', node.label, 'input'));
+  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
+  panelEl.appendChild(field('audience', 'Public cible (hérité du parent si vide)', node.audience, 'input'));
   panelEl.appendChild(typeField(node));
   panelEl.appendChild(priorityField(node));
   panelEl.appendChild(complexityField(node));
   panelEl.appendChild(authField(node));
+  panelEl.appendChild(field('mesure_plan', 'Mesure du plan (M1-M22)', node.mesure_plan, 'input'));
   panelEl.appendChild(field('format', 'Format', node.format, 'input'));
   panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
 
+  panelEl.appendChild(renderDispositifsSection(node));
   panelEl.appendChild(renderObjectivesSection(node.id));
   panelEl.appendChild(renderCommentsSection(node.id));
 }
@@ -518,6 +718,114 @@ function renderIdentity() {
     await reloadFromServer();
   });
   el.append('Identifié comme ', span, ' ', change);
+}
+
+// ---- Dispositifs linkage (read dispositifs data, manage node.dispositifs from the panel) ----
+
+const DISPOSITIFS_URL = 'assets/data/dispositifs.json';
+let dispositifsIndex = new Map();
+
+async function loadDispositifs() {
+  try {
+    const res = await fetch(DISPOSITIFS_URL, { cache: 'no-cache' });
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const d of data.dispositifs ?? []) {
+      dispositifsIndex.set(d.id, { id: d.id, name: d.name, audience: d.audience, category: d.category });
+    }
+  } catch { /* non-fatal */ }
+}
+
+function renderDispositifsSection(node) {
+  const wrap = document.createElement('section');
+  wrap.className = 'dispositifs-section';
+
+  const h = document.createElement('h3');
+  h.className = 'fr-h6 fr-mt-4w';
+  h.textContent = 'Dispositifs existants rattachés';
+  wrap.appendChild(h);
+
+  if (!node.dispositifs) node.dispositifs = [];
+
+  const list = document.createElement('div');
+  list.className = 'dispositif-link-list';
+
+  if (node.dispositifs.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Aucun dispositif rattaché.';
+    list.appendChild(p);
+  } else {
+    for (const dispId of node.dispositifs) list.appendChild(renderDispositifBadge(node, dispId));
+  }
+  wrap.appendChild(list);
+  wrap.appendChild(renderAddDispositifButton(node));
+  return wrap;
+}
+
+function renderDispositifBadge(node, dispId) {
+  const d = dispositifsIndex.get(dispId);
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.className = d ? 'objective-link-badge' : 'objective-link-badge node-link-badge--unknown';
+  badge.title = d ? `${d.name} (${dispId}) — cliquer pour retirer` : `${dispId} introuvable — cliquer pour retirer`;
+  badge.innerHTML = `<span class="badge-id">${escapeHtml(dispId)}</span> <span class="badge-label">${escapeHtml(d ? d.name : '?')}</span> <span class="badge-x">×</span>`;
+  badge.addEventListener('click', () => {
+    node.dispositifs = (node.dispositifs || []).filter(id => id !== dispId);
+    save(`Retrait dispositif ${dispId} de ${node.id}`);
+    renderPanel(); renderTree();
+  });
+  return badge;
+}
+
+function renderAddDispositifButton(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'add-link';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'add-link__btn fr-btn fr-btn--tertiary fr-btn--sm';
+  btn.textContent = '+ lier un dispositif';
+  wrap.appendChild(btn);
+
+  btn.addEventListener('click', () => {
+    btn.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'fr-input add-link__input';
+    input.placeholder = 'rechercher un dispositif (id D-Lxx ou nom)…';
+    const dropdown = document.createElement('ul');
+    dropdown.className = 'add-link__dropdown';
+    wrap.append(input, dropdown);
+    input.focus();
+
+    function refresh() {
+      const term = input.value.trim().toLowerCase();
+      dropdown.innerHTML = '';
+      if (!term) return;
+      const already = new Set(node.dispositifs || []);
+      const matches = [...dispositifsIndex.values()]
+        .filter(d => !already.has(d.id) && (d.name.toLowerCase().includes(term) || d.id.toLowerCase().includes(term)))
+        .slice(0, 8);
+      for (const d of matches) {
+        const li = document.createElement('li');
+        li.className = 'add-link__option';
+        li.innerHTML = `<span class="badge-id">${escapeHtml(d.id)}</span> ${escapeHtml(d.name)}`;
+        li.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          if (!node.dispositifs) node.dispositifs = [];
+          node.dispositifs.push(d.id);
+          save(`Ajout dispositif ${d.id} à ${node.id}`);
+          renderPanel(); renderTree();
+        });
+        dropdown.appendChild(li);
+      }
+    }
+    input.addEventListener('input', refresh);
+    input.addEventListener('blur', () => setTimeout(() => renderPanel(), 200));
+  });
+  return wrap;
 }
 
 // ---- Objectives linkage (reverse of objectifs.js: from a node, manage its means) ----
@@ -1122,6 +1430,9 @@ async function init() {
 
   // Pyramide stratégique (used by the "Objectifs couverts" field in the panel).
   loadObjectifs().then(d => { objectifsData = d; if (state.tree) renderPanel(); });
+
+  // Dispositifs (used by the "Dispositifs rattachés" field in the panel).
+  loadDispositifs().then(() => { if (state.tree) renderPanel(); });
 
   await ensureIdentified();
   renderIdentity();

@@ -8,6 +8,7 @@ import { attachUser, identifyRoute, logoutRoute, meRoute } from './auth.js';
 import { treeRouter } from './routes/tree.js';
 import { historyRouter } from './routes/history.js';
 import { commentsRouter } from './routes/comments.js';
+import { roadmapRouter } from './routes/roadmap.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = process.env.PUBLIC_DIR || resolve(__dirname, '../../');
@@ -27,6 +28,7 @@ app.get('/api/me', meRoute);
 app.use('/api', treeRouter);
 app.use('/api', historyRouter);
 app.use('/api', commentsRouter);
+app.use('/api', roadmapRouter);
 
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'], index: 'index.html' }));
 

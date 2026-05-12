@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "title": "Roadmap fonctionnelle — Hub Electrifions la France",
+    "subtitle": "User stories cadrées par échéance et par moment-clé du parcours utilisateur.",
+    "calendrier": [
+      { "id": "mvp", "label": "MVP", "echeance": "juin 2026" },
+      { "id": "v1",  "label": "V1",  "echeance": "septembre 2026" },
+      { "id": "v2",  "label": "V2",  "echeance": "fin 2026" },
+      { "id": "v3",  "label": "V3",  "echeance": "au-delà" }
+    ],
+    "actions": [
+      { "id": "informer", "label": "Je m'informe", "desc": "Découvrir, comprendre, lever les freins. Cœur du hub." },
+      { "id": "evaluer",  "label": "J'évalue",     "desc": "Vérifier, comparer, simuler. Iframes et renvois tracés." },
+      { "id": "agir",     "label": "J'agis",       "desc": "Faire les démarches. Renvois sortants uniquement." }
+    ]
+  },
+  "items": [
+    { "id": "rm-001", "slice": "mvp", "action": "informer", "story": "Comprendre le plan d'électrification et ses enjeux (souveraineté, pouvoir d'achat).", "status": "pending", "notes": "", "nodes": ["root"], "dispositifs": [] },
+    { "id": "rm-002", "slice": "mvp", "action": "informer", "story": "Comprendre les bénéfices concrets du véhicule électrique.", "status": "pending", "notes": "", "nodes": ["p1e"], "dispositifs": [] },
+    { "id": "rm-003", "slice": "mvp", "action": "informer", "story": "Comprendre les bénéfices concrets de la pompe à chaleur.", "status": "pending", "notes": "", "nodes": ["p2e"], "dispositifs": [] },
+    { "id": "rm-004", "slice": "mvp", "action": "informer", "story": "Lever mes idées reçues sur le véhicule électrique.", "status": "pending", "notes": "", "nodes": ["p1d"], "dispositifs": ["D-M07"] },
+    { "id": "rm-005", "slice": "mvp", "action": "informer", "story": "Lever mes idées reçues sur la pompe à chaleur.", "status": "pending", "notes": "", "nodes": ["p2d"], "dispositifs": [] },
+    { "id": "rm-006", "slice": "mvp", "action": "informer", "story": "Découvrir les aides existantes et savoir où trouver de l'aide humaine.", "status": "pending", "notes": "", "nodes": ["p2a"], "dispositifs": ["D-A01", "D-A02"] },
+    { "id": "rm-007", "slice": "mvp", "action": "informer", "story": "Identifier les dispositifs me concernant selon ma situation.", "status": "pending", "notes": "", "nodes": ["p3"], "dispositifs": [] },
+    { "id": "rm-008", "slice": "mvp", "action": "informer", "story": "Comprendre l'offre clés en main pompes à chaleur (mesure M4).", "status": "pending", "notes": "", "nodes": ["p2f"], "dispositifs": [] },
+    { "id": "rm-009", "slice": "mvp", "action": "informer", "story": "Comprendre le leasing social (M9) et le soutien gros rouleurs (M10).", "status": "pending", "notes": "", "nodes": ["p1a", "p1f"], "dispositifs": ["D-M01"] },
+    { "id": "rm-010", "slice": "mvp", "action": "informer", "story": "Comprendre la recharge en copropriété (Logivolt).", "status": "pending", "notes": "", "nodes": ["p1g"], "dispositifs": ["D-L06"] },
+    { "id": "rm-011", "slice": "mvp", "action": "informer", "story": "Comprendre le programme « 100 territoires d'électrification ».", "status": "pending", "notes": "", "nodes": ["c1"], "dispositifs": [] },
+
+    { "id": "rm-012", "slice": "mvp", "action": "evaluer", "story": "Simuler mes aides à la rénovation (iframe Mes Aides Réno).", "status": "pending", "notes": "", "nodes": ["p2b"], "dispositifs": ["D-L02"] },
+    { "id": "rm-013", "slice": "mvp", "action": "evaluer", "story": "Vérifier mon éligibilité au leasing social (lien tracé).", "status": "pending", "notes": "", "nodes": ["p1a"], "dispositifs": ["D-M02"] },
+    { "id": "rm-014", "slice": "mvp", "action": "evaluer", "story": "Trouver une borne de recharge près de chez moi (carte IRVE).", "status": "pending", "notes": "", "nodes": ["p1c"], "dispositifs": ["D-M05"] },
+    { "id": "rm-015", "slice": "mvp", "action": "evaluer", "story": "Trouver un Espace conseil France Rénov'.", "status": "pending", "notes": "", "nodes": ["p2a"], "dispositifs": ["D-A02"] },
+    { "id": "rm-016", "slice": "mvp", "action": "evaluer", "story": "Trouver un artisan RGE près de chez moi (annuaire).", "status": "pending", "notes": "", "nodes": ["p2g"], "dispositifs": ["D-L04"] },
+    { "id": "rm-017", "slice": "mvp", "action": "evaluer", "story": "Vérifier si mon territoire est éligible au programme 100 territoires.", "status": "pending", "notes": "", "nodes": ["c1"], "dispositifs": [] },
+    { "id": "rm-018", "slice": "mvp", "action": "evaluer", "story": "Trouver les aides pour mon entreprise (Mission Transition Écologique).", "status": "pending", "notes": "", "nodes": ["b4"], "dispositifs": ["D-E01"] },
+
+    { "id": "rm-019", "slice": "mvp", "action": "agir", "story": "Prendre rendez-vous avec un conseiller France Rénov' (renvoi).", "status": "pending", "notes": "", "nodes": ["p2a"], "dispositifs": ["D-L01"] },
+    { "id": "rm-020", "slice": "mvp", "action": "agir", "story": "Déposer ma demande MaPrimeRénov' (renvoi sortant).", "status": "pending", "notes": "", "nodes": [], "dispositifs": ["D-L03"] },
+    { "id": "rm-021", "slice": "mvp", "action": "agir", "story": "M'inscrire au leasing social (renvoi à partir du 16 juillet 2026).", "status": "pending", "notes": "", "nodes": ["p1a"], "dispositifs": ["D-M01"] },
+    { "id": "rm-022", "slice": "mvp", "action": "agir", "story": "Déposer ma candidature au programme 100 territoires (Démarches Simplifiées).", "status": "pending", "notes": "", "nodes": ["c2"], "dispositifs": ["D-C04"] },
+    { "id": "rm-023", "slice": "mvp", "action": "agir", "story": "Télécharger le kit identité visuelle de la signature.", "status": "pending", "notes": "", "nodes": ["m3"], "dispositifs": [] },
+
+    { "id": "rm-024", "slice": "v1", "action": "informer", "story": "Témoignages particuliers (urbain, gros rouleur, copropriétaire).", "status": "pending", "notes": "", "nodes": ["p4"], "dispositifs": [] },
+    { "id": "rm-025", "slice": "v1", "action": "informer", "story": "Pages mesures détaillées au-delà des prioritaires.", "status": "pending", "notes": "", "nodes": [], "dispositifs": [] },
+    { "id": "rm-026", "slice": "v1", "action": "informer", "story": "Pages pros par secteur (industrie, artisanat, agriculture).", "status": "pending", "notes": "", "nodes": ["b1", "b2", "b3"], "dispositifs": [] },
+    { "id": "rm-027", "slice": "v1", "action": "informer", "story": "Indicateurs d'avancement du plan (tableau de bord public).", "status": "pending", "notes": "", "nodes": ["i"], "dispositifs": [] },
+    { "id": "rm-028", "slice": "v1", "action": "informer", "story": "Télécharger le kit de communication territorial.", "status": "pending", "notes": "", "nodes": ["c3"], "dispositifs": [] },
+
+    { "id": "rm-029", "slice": "v1", "action": "evaluer", "story": "Référentiel des prix d'installation PAC (intégration).", "status": "pending", "notes": "", "nodes": ["p2h"], "dispositifs": [] },
+    { "id": "rm-030", "slice": "v1", "action": "evaluer", "story": "Score environnemental des VE éligibles (intégration ADEME).", "status": "pending", "notes": "", "nodes": ["p1h"], "dispositifs": ["D-M04"] },
+    { "id": "rm-031", "slice": "v1", "action": "evaluer", "story": "Cartographie des concessionnaires éligibles au leasing.", "status": "pending", "notes": "", "nodes": ["p1i"], "dispositifs": [] },
+
+    { "id": "rm-032", "slice": "v1", "action": "agir", "story": "M'inscrire à l'offre clés en main PAC (renvoi acteurs labellisés).", "status": "pending", "notes": "", "nodes": ["p2f"], "dispositifs": [] },
+    { "id": "rm-033", "slice": "v1", "action": "agir", "story": "Espace authentifié pour les agents publics (ProConnect).", "status": "pending", "notes": "", "nodes": ["m5"], "dispositifs": ["D-AU02"] },
+
+    { "id": "rm-034", "slice": "v2", "action": "informer", "story": "Versions outre-mer (par bassin).", "status": "pending", "notes": "", "nodes": ["o"], "dispositifs": [] },
+    { "id": "rm-035", "slice": "v2", "action": "informer", "story": "Actualités cadencées du plan.", "status": "pending", "notes": "", "nodes": ["a"], "dispositifs": [] },
+    { "id": "rm-036", "slice": "v2", "action": "informer", "story": "Pages thématiques pour le mouvement (charte, signataires).", "status": "pending", "notes": "", "nodes": ["m1", "m2"], "dispositifs": [] },
+    { "id": "rm-037", "slice": "v2", "action": "informer", "story": "Visualiser la cartographie des territoires retenus.", "status": "pending", "notes": "", "nodes": ["c4"], "dispositifs": [] },
+
+    { "id": "rm-038", "slice": "v2", "action": "evaluer", "story": "Indicateurs avancés et projections.", "status": "pending", "notes": "", "nodes": ["i"], "dispositifs": [] },
+    { "id": "rm-039", "slice": "v2", "action": "evaluer", "story": "Annuaire signataires (recherche par filière et territoire).", "status": "pending", "notes": "", "nodes": ["m2"], "dispositifs": [] },
+
+    { "id": "rm-040", "slice": "v2", "action": "agir", "story": "Signature de la charte d'engagement.", "status": "pending", "notes": "", "nodes": ["m1", "b5"], "dispositifs": [] },
+    { "id": "rm-041", "slice": "v2", "action": "agir", "story": "Comité communicants outillé (espace privé, ressources partagées).", "status": "pending", "notes": "", "nodes": ["m5"], "dispositifs": [] },
+
+    { "id": "rm-042", "slice": "v3", "action": "informer", "story": "Approfondissements éditoriaux par filière.", "status": "pending", "notes": "", "nodes": [], "dispositifs": [] },
+
+    { "id": "rm-043", "slice": "v3", "action": "evaluer", "story": "Simulateur unifié logement + mobilités (avec DINUM).", "status": "pending", "notes": "", "nodes": ["p3"], "dispositifs": ["D-X05"] },
+
+    { "id": "rm-044", "slice": "v3", "action": "agir", "story": "Marketplace partenariale (apporteurs de solutions ↔ demandeurs).", "status": "pending", "notes": "", "nodes": ["m4"], "dispositifs": [] }
+  ]
+}

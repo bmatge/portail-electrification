@@ -108,6 +108,11 @@ export function setup(config) {
     for (const field of config.detailFields) {
       panelEl.appendChild(renderField(item, field));
     }
+
+    if (typeof config.renderExtraDetail === 'function') {
+      const extra = config.renderExtraDetail(item, { render, renderPanel });
+      if (extra) panelEl.appendChild(extra);
+    }
   }
 
   function renderField(item, field) {

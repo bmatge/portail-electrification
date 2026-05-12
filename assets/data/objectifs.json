@@ -3,7 +3,13 @@
     "title": "Pyramide stratégique du hub",
     "promise": "Avec « Electrifions la France », l'État vous montre concrètement comment passer à l'électrique en gagnant du pouvoir d'achat, et vous accompagne jusqu'au bon dispositif.",
     "subtitle": "Pour une énergie moins chère, plus souveraine et plus durable.",
-    "note": "Seuls les moyens portés par le site sont conservés ici. Les moyens transverses (gouvernance, technique, juridique) sont suivis hors prototype."
+    "note": "Seuls les moyens portés par le site sont conservés ici. Les moyens transverses (gouvernance, technique, juridique) sont suivis hors prototype.",
+    "calendrier": [
+      { "id": "mvp", "label": "MVP", "echeance": "juin 2026" },
+      { "id": "v1",  "label": "V1",  "echeance": "septembre 2026" },
+      { "id": "v2",  "label": "V2",  "echeance": "fin 2026" },
+      { "id": "v3",  "label": "V3",  "echeance": "au-delà" }
+    ]
   },
   "axes": [
     {
@@ -16,7 +22,7 @@
           "name": "Susciter l'adhésion à l'électrique",
           "means": [
             { "id": "A1.O1.M1", "text": "Récit unifié sous une signature unique « Electrifions la France ».", "nodes": ["root"], "dispositifs": [] },
-            { "id": "A1.O1.M2", "text": "Argumentaire pouvoir d'achat porté en page d'accueil (gain mensuel, coût total d'usage, économies).", "nodes": ["root", "p"], "dispositifs": [] },
+            { "id": "A1.O1.M2", "text": "Argumentaire pouvoir d'achat porté en page d'accueil (gain mensuel, coût total d'usage, économies).", "nodes": ["root", "p", "p1e", "p2e"], "dispositifs": [] },
             { "id": "A1.O1.M3", "text": "Témoignages par profil (urbain en appartement, gros rouleur périurbain, copropriétaire).", "nodes": ["p4"], "dispositifs": [] }
           ]
         },
@@ -26,14 +32,17 @@
           "means": [
             { "id": "A1.O2.M1", "text": "Vrai/faux véhicule électrique adossé au document de référence.", "nodes": ["p1d"], "dispositifs": ["D-M07"] },
             { "id": "A1.O2.M2", "text": "Vrai/faux pompes à chaleur (acoustique, climat, types de PAC).", "nodes": ["p2d"], "dispositifs": [] },
-            { "id": "A1.O2.M3", "text": "Cartes officielles des points de recharge (base IRVE, réseau autoroutier).", "nodes": ["p1c"], "dispositifs": ["D-M05", "D-M06"] }
+            { "id": "A1.O2.M3", "text": "Cartes officielles des points de recharge (base IRVE, réseau autoroutier).", "nodes": ["p1c"], "dispositifs": ["D-M05", "D-M06"] },
+            { "id": "A1.O2.M4", "text": "Pédagogie spécifique sur la recharge en copropriété (Logivolt).", "nodes": ["p1g"], "dispositifs": ["D-L06"] }
           ]
         },
         {
           "id": "A1.O3",
           "name": "Toucher aussi les publics éloignés du numérique",
           "means": [
-            { "id": "A1.O3.M2", "text": "Renvoi systématique aux 600+ Espaces conseil France Rénov'.", "nodes": ["p2a"], "dispositifs": ["D-A02", "D-L01"] }
+            { "id": "A1.O3.M1", "text": "Renvoi vers le réseau France Services (2 865 maisons, 7 100 conseillers).", "nodes": ["p2a"], "dispositifs": ["D-A01"] },
+            { "id": "A1.O3.M2", "text": "Renvoi systématique aux 600+ Espaces conseil France Rénov'.", "nodes": ["p2a"], "dispositifs": ["D-A02", "D-L01"] },
+            { "id": "A1.O3.M3", "text": "Mention de la Tournée France Rénov' pour les zones rurales et périurbaines.", "nodes": ["p2a"], "dispositifs": ["D-A03"] }
           ]
         }
       ]
@@ -49,15 +58,16 @@
           "means": [
             { "id": "A2.O1.M1", "text": "Arbre de décision par profil (cible → projet → conditions → dispositifs).", "nodes": ["p3"], "dispositifs": [] },
             { "id": "A2.O1.M2", "text": "Intégration en iframe ou via API du simulateur Mes Aides Réno (logement).", "nodes": ["p2b"], "dispositifs": ["D-L02"] },
-            { "id": "A2.O1.M3", "text": "Renvoi vers le simulateur d'éligibilité leasing social (service-public.gouv.fr).", "nodes": ["p1a"], "dispositifs": ["D-M01", "D-M02"] }
+            { "id": "A2.O1.M3", "text": "Renvoi vers le simulateur d'éligibilité leasing social (service-public.gouv.fr).", "nodes": ["p1a"], "dispositifs": ["D-M01", "D-M02"] },
+            { "id": "A2.O1.M4", "text": "Renvoi vers Mission Transition Écologique pour l'orientation des entreprises.", "nodes": ["b4"], "dispositifs": ["D-E01"] }
           ]
         },
         {
           "id": "A2.O2",
           "name": "Couvrir les principaux parcours d'investissement",
           "means": [
-            { "id": "A2.O2.M1", "text": "Branche mobilités : leasing social, prime CEE, recharge, vrai/faux.", "nodes": ["p1", "p1a", "p1b", "p1c", "p1d"], "dispositifs": ["D-M01", "D-M03", "D-M05"] },
-            { "id": "A2.O2.M2", "text": "Branche logement : MaPrimeRénov', Mon Accompagnateur Rénov', PAC, Coup de pouce chauffage.", "nodes": ["p2", "p2a", "p2b", "p2c", "p2d"], "dispositifs": ["D-L01", "D-L02", "D-L03", "D-L05", "D-L07"] },
+            { "id": "A2.O2.M1", "text": "Branche mobilités : leasing social, prime CEE, recharge, vrai/faux.", "nodes": ["p1", "p1a", "p1b", "p1c", "p1d", "p1e", "p1f"], "dispositifs": ["D-M01", "D-M03", "D-M05"] },
+            { "id": "A2.O2.M2", "text": "Branche logement : MaPrimeRénov', Mon Accompagnateur Rénov', PAC, Coup de pouce chauffage.", "nodes": ["p2", "p2a", "p2b", "p2c", "p2d", "p2e", "p2f", "p2g"], "dispositifs": ["D-L01", "D-L02", "D-L03", "D-L05", "D-L07"] },
             { "id": "A2.O2.M3", "text": "Branche pros : Tremplin ADEME, Prêt Flash Électrique Bpifrance, AAP DECARB IND.", "nodes": ["b", "b1", "b2", "b3", "b4"], "dispositifs": ["D-E01", "D-E03", "D-E04", "D-E05"] }
           ]
         }
@@ -114,6 +124,28 @@
           "name": "Outiller les communicants territoriaux",
           "means": [
             { "id": "A4.O2.M1", "text": "Kit de communication adaptable préfectures / communes / EPCI.", "nodes": ["c3"], "dispositifs": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A5",
+      "name": "Assurer le pilotage et la transparence",
+      "description": "Mesure de l'avancement du plan, communication régulière, prise en compte des spécificités territoriales.",
+      "objectives": [
+        {
+          "id": "A5.O1",
+          "name": "Rendre compte de l'avancement",
+          "means": [
+            { "id": "A5.O1.M1", "text": "Tableau de bord public (leasings souscrits, PAC installées, signataires charte).", "nodes": ["i"], "dispositifs": [] },
+            { "id": "A5.O1.M2", "text": "Fil d'actualités cadencé sur les évolutions du plan.", "nodes": ["a"], "dispositifs": [] }
+          ]
+        },
+        {
+          "id": "A5.O2",
+          "name": "Adapter aux spécificités outre-mer",
+          "means": [
+            { "id": "A5.O2.M1", "text": "Versions outre-mer par bassin (aides régionales, contraintes locales).", "nodes": ["o"], "dispositifs": [] }
           ]
         }
       ]

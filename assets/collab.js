@@ -29,6 +29,7 @@ class Collab {
   constructor() {
     this.user = null;
     this.currentRevisionId = null;
+    this.currentRoadmapRevisionId = null;
     this._listeners = new Set();
   }
 
@@ -102,6 +103,22 @@ class Collab {
 
   async deleteComment(id) {
     return http('DELETE', `${API}/comments/${id}`);
+  }
+
+  async fetchRoadmap() {
+    const data = await http('GET', `${API}/roadmap`);
+    this.currentRoadmapRevisionId = data.revision.id;
+    return data;
+  }
+
+  async saveRoadmap(roadmap, message = '') {
+    const headers = this.currentRoadmapRevisionId != null
+      ? { 'If-Match': String(this.currentRoadmapRevisionId) }
+      : {};
+    const data = await http('PUT', `${API}/roadmap`, { roadmap, message }, headers);
+    this.currentRoadmapRevisionId = data.revision.id;
+    this._emit('roadmap-saved', data.revision);
+    return data;
   }
 }
 
