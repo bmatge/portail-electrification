@@ -1321,6 +1321,32 @@ dialog.app-dialog::backdrop {
   padding: 0 0.125rem;
 }
 
+.diff-list-modified {
+  background: #f4f4fc;
+  color: #3a3a8c;
+  padding: 0 0.25rem;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.diff-sublist {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+  list-style: none;
+}
+
+.diff-sublist li {
+  margin: 0.125rem 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.diff-sublist .diff-badge {
+  flex-shrink: 0;
+}
+
 .identify-dialog {
   max-width: 480px;
 }

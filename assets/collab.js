@@ -189,23 +189,69 @@ export function formatDate(iso) {
 
 // ---- Tree diff ----
 
-const NODE_ATTRS = ['label', 'type', 'tldr', 'format', 'url', 'priority', 'complexity', 'auth'];
+const NODE_ATTRS = ['label', 'type', 'tldr', 'format', 'url', 'priority', 'complexity', 'auth', 'deadline', 'objectif'];
+const SET_FIELDS = ['types', 'audiences', 'mesures', 'dispositifs'];
+// item-array fields keyed by `id`; values are the per-item scalar attrs we compare.
+const LIST_FIELDS = {
+  blocks:       ['title', 'description'],
+  improvements: ['title', 'description', 'deadline'],
+};
 
 function flattenTree(root) {
   const map = new Map();
   function rec(node, parentId, index) {
     const childIds = (node.children ?? []).map(c => c.id);
+    const sets = Object.fromEntries(SET_FIELDS.map(k => [k, Array.isArray(node[k]) ? [...node[k]] : []]));
+    const lists = Object.fromEntries(
+      Object.keys(LIST_FIELDS).map(k => [k, Array.isArray(node[k]) ? node[k].map(it => ({ ...it })) : []])
+    );
     map.set(node.id, {
       id: node.id,
       parent_id: parentId,
       index,
       attrs: Object.fromEntries(NODE_ATTRS.map(k => [k, node[k] ?? ''])),
+      sets,
+      lists,
       children: childIds,
     });
     (node.children ?? []).forEach((c, i) => rec(c, node.id, i));
   }
   rec(root, null, 0);
   return map;
+}
+
+function diffSet(oldArr, newArr) {
+  const oldSet = new Set(oldArr);
+  const newSet = new Set(newArr);
+  const added = [...newSet].filter(x => !oldSet.has(x));
+  const removed = [...oldSet].filter(x => !newSet.has(x));
+  return { added, removed };
+}
+
+function diffList(oldArr, newArr, itemAttrs) {
+  const oldById = new Map(oldArr.map(it => [it.id, it]));
+  const newById = new Map(newArr.map(it => [it.id, it]));
+  const added = [];
+  const removed = [];
+  const changed = [];
+  for (const [id, item] of newById) {
+    if (!oldById.has(id)) added.push(item);
+  }
+  for (const [id, item] of oldById) {
+    if (!newById.has(id)) removed.push(item);
+  }
+  for (const [id, newItem] of newById) {
+    const oldItem = oldById.get(id);
+    if (!oldItem) continue;
+    const itemFields = [];
+    for (const k of itemAttrs) {
+      if (String(oldItem[k] ?? '') !== String(newItem[k] ?? '')) {
+        itemFields.push({ field: k, old: oldItem[k] ?? '', new: newItem[k] ?? '' });
+      }
+    }
+    if (itemFields.length) changed.push({ id, fields: itemFields, oldItem, newItem });
+  }
+  return { added, removed, changed };
 }
 
 export function diffTrees(oldRoot, newRoot) {
@@ -227,6 +273,18 @@ export function diffTrees(oldRoot, newRoot) {
       for (const k of NODE_ATTRS) {
         if (String(oldN.attrs[k] ?? '') !== String(newN.attrs[k] ?? '')) {
           fieldChanges.push({ field: k, old: oldN.attrs[k], new: newN.attrs[k] });
+        }
+      }
+      for (const k of SET_FIELDS) {
+        const { added, removed } = diffSet(oldN.sets[k], newN.sets[k]);
+        if (added.length || removed.length) {
+          fieldChanges.push({ field: k, kind: 'set', added, removed });
+        }
+      }
+      for (const [k, itemAttrs] of Object.entries(LIST_FIELDS)) {
+        const d = diffList(oldN.lists[k], newN.lists[k], itemAttrs);
+        if (d.added.length || d.removed.length || d.changed.length) {
+          fieldChanges.push({ field: k, kind: 'list', ...d });
         }
       }
       if (moved || reordered || fieldChanges.length) {
@@ -295,9 +353,47 @@ export function renderDiff(container, oldTree, newTree, labels = { old: 'Avant',
       for (const f of ch.fields) {
         const p = document.createElement('div');
         p.className = 'diff-field';
-        const oldHtml = `<del>${escapeHtml(String(f.old ?? ''))}</del>`;
-        const newHtml = `<ins>${escapeHtml(String(f.new ?? ''))}</ins>`;
-        p.innerHTML = `<span class="diff-field-name">${escapeHtml(f.field)}</span> : ${oldHtml} ${newHtml}`;
+        if (f.kind === 'set') {
+          const addedHtml = f.added.map(v => `<ins>${escapeHtml(String(v))}</ins>`).join(' ');
+          const removedHtml = f.removed.map(v => `<del>${escapeHtml(String(v))}</del>`).join(' ');
+          p.innerHTML = `<span class="diff-field-name">${escapeHtml(f.field)}</span> : ${removedHtml} ${addedHtml}`.trim();
+        } else if (f.kind === 'list') {
+          const parts = [];
+          if (f.added.length)   parts.push(`<ins>+${f.added.length}</ins>`);
+          if (f.removed.length) parts.push(`<del>−${f.removed.length}</del>`);
+          if (f.changed.length) parts.push(`<span class="diff-list-modified">~${f.changed.length}</span>`);
+          p.innerHTML = `<span class="diff-field-name">${escapeHtml(f.field)}</span> : ${parts.join(' ')}`;
+          if (f.added.length || f.removed.length || f.changed.length) {
+            const sub = document.createElement('ul');
+            sub.className = 'diff-sublist';
+            for (const it of f.added) {
+              const li = document.createElement('li');
+              const title = it.title || it.id;
+              li.innerHTML = `<span class="diff-badge diff-badge-added">Ajouté</span> ${escapeHtml(title)}`;
+              sub.appendChild(li);
+            }
+            for (const it of f.removed) {
+              const li = document.createElement('li');
+              const title = it.title || it.id;
+              li.innerHTML = `<span class="diff-badge diff-badge-removed">Supprimé</span> <del>${escapeHtml(title)}</del>`;
+              sub.appendChild(li);
+            }
+            for (const it of f.changed) {
+              const li = document.createElement('li');
+              const title = it.newItem.title || it.oldItem.title || it.id;
+              const fieldsHtml = it.fields.map(sf =>
+                `<span class="diff-field-name">${escapeHtml(sf.field)}</span> : <del>${escapeHtml(String(sf.old ?? ''))}</del> <ins>${escapeHtml(String(sf.new ?? ''))}</ins>`
+              ).join(' · ');
+              li.innerHTML = `<span class="diff-badge diff-badge-changed">Modifié</span> ${escapeHtml(title)} — ${fieldsHtml}`;
+              sub.appendChild(li);
+            }
+            p.appendChild(sub);
+          }
+        } else {
+          const oldHtml = `<del>${escapeHtml(String(f.old ?? ''))}</del>`;
+          const newHtml = `<ins>${escapeHtml(String(f.new ?? ''))}</ins>`;
+          p.innerHTML = `<span class="diff-field-name">${escapeHtml(f.field)}</span> : ${oldHtml} ${newHtml}`;
+        }
         details.appendChild(p);
       }
       li.appendChild(details);
