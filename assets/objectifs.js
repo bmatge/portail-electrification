@@ -28,9 +28,18 @@ function save() {
 
 // ---- Tree index for autocomplete ----
 
-function indexTree(node, out = new Map()) {
-  out.set(node.id, { id: node.id, label: node.label });
-  for (const c of node.children ?? []) indexTree(c, out);
+function indexTree(node, out = new Map(), depth = 0) {
+  const types = Array.isArray(node.types) && node.types.length
+    ? node.types
+    : (node.type ? [node.type] : []);
+  out.set(node.id, {
+    id: node.id,
+    label: node.label,
+    type: types[0] || 'editorial',
+    deadline: node.deadline || '',
+    depth,
+  });
+  for (const c of node.children ?? []) indexTree(c, out, depth + 1);
   return out;
 }
 
@@ -82,22 +91,9 @@ function render() {
   rootEl.innerHTML = '';
   rootEl.appendChild(renderToolbar());
   rootEl.appendChild(renderSearch());
-  const split = document.createElement('div');
-  split.className = 'fr-grid-row fr-grid-row--gutters';
-  split.innerHTML = '';
-
-  const left = document.createElement('section');
-  left.className = 'fr-col-12 fr-col-lg-8';
-  left.appendChild(renderHeader());
-  left.appendChild(renderPyramid());
-  split.appendChild(left);
-
-  const right = document.createElement('section');
-  right.className = 'fr-col-12 fr-col-lg-4';
-  right.appendChild(renderCoverage());
-  split.appendChild(right);
-
-  rootEl.appendChild(split);
+  rootEl.appendChild(renderIntro());
+  rootEl.appendChild(renderPyramid());
+  rootEl.appendChild(renderCoverage());
 }
 
 function renderToolbar() {
@@ -105,25 +101,12 @@ function renderToolbar() {
   wrap.className = 'fr-mb-2w';
   wrap.innerHTML = `
     <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
-      <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-down-s-line" data-objectif-action="expand-all">Tout déplier</button></li>
-      <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-arrow-right-s-line" data-objectif-action="collapse-all">Tout replier</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-objectif-action="export">Export</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-objectif-action="import">Import</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-objectif-action="reset">Réinitialiser</button></li>
       <input type="file" id="objectifs-import-file" accept=".json" hidden>
     </ul>
   `;
-  wrap.querySelector('[data-objectif-action="expand-all"]').addEventListener('click', () => {
-    state.collapsed.clear(); render();
-  });
-  wrap.querySelector('[data-objectif-action="collapse-all"]').addEventListener('click', () => {
-    state.collapsed.clear();
-    for (const a of state.data.axes) {
-      state.collapsed.add(a.id);
-      for (const o of a.objectives) state.collapsed.add(o.id);
-    }
-    render();
-  });
   wrap.querySelector('[data-objectif-action="export"]').addEventListener('click', exportJson);
   wrap.querySelector('[data-objectif-action="import"]').addEventListener('click', () => {
     document.getElementById('objectifs-import-file').click();
@@ -163,40 +146,21 @@ function renderSearch() {
   return wrap;
 }
 
-function renderHeader() {
-  const div = document.createElement('div');
-  div.className = 'fr-callout fr-mb-3w';
-
+function renderIntro() {
+  const meta = state.data.meta || {};
+  const wrap = document.createElement('section');
+  wrap.className = 'objectifs-intro fr-mb-3w';
   const promise = document.createElement('p');
-  promise.className = 'fr-callout__title fr-text--lg';
-  promise.textContent = state.data.meta.promise;
-  div.appendChild(promise);
-
-  const subtitle = document.createElement('p');
-  subtitle.className = 'fr-callout__text fr-text--sm';
-  subtitle.style.fontStyle = 'italic';
-  subtitle.textContent = state.data.meta.subtitle;
-  div.appendChild(subtitle);
-
-  // Calendar baseline: pill (slice) + text (échéance)
-  const cal = state.data.meta.calendrier;
-  if (Array.isArray(cal) && cal.length) {
-    const calWrap = document.createElement('div');
-    calWrap.className = 'objectifs-calendar';
-    const label = document.createElement('span');
-    label.className = 'objectifs-calendar__label';
-    label.textContent = 'Calendrier :';
-    calWrap.appendChild(label);
-    for (const slice of cal) {
-      const item = document.createElement('span');
-      item.className = 'objectifs-calendar__item';
-      item.innerHTML = `<span class="priority-pill ${escape(slice.id)}">${escape(slice.label)}</span> <span class="objectifs-calendar__date">${escape(slice.echeance)}</span>`;
-      calWrap.appendChild(item);
-    }
-    div.appendChild(calWrap);
+  promise.className = 'objectifs-intro__promise';
+  promise.textContent = meta.promise || '';
+  wrap.appendChild(promise);
+  if (meta.subtitle) {
+    const sub = document.createElement('p');
+    sub.className = 'objectifs-intro__subtitle';
+    sub.textContent = meta.subtitle;
+    wrap.appendChild(sub);
   }
-
-  return div;
+  return wrap;
 }
 
 function renderPyramid() {
@@ -226,7 +190,7 @@ function renderAxe(axe) {
   });
   const title = document.createElement('h3');
   title.className = 'objectif-axe__title';
-  title.innerHTML = `<span class="objectif-id">${escape(axe.id)}</span> ${escape(axe.name)}`;
+  title.innerHTML = `<span class="kind-badge kind-badge--axe" title="${escape(axe.id)}">Axe</span> ${escape(axe.name)}`;
   head.append(toggle, title);
   card.appendChild(head);
 
@@ -263,7 +227,7 @@ function renderObjective(obj) {
   });
   const title = document.createElement('h4');
   title.className = 'objectif-objective__title';
-  title.innerHTML = `<span class="objectif-id">${escape(obj.id)}</span> ${escape(obj.name)}`;
+  title.innerHTML = `<span class="kind-badge kind-badge--objective" title="${escape(obj.id)}">Objectif</span> ${escape(obj.name)}`;
   head.append(toggle, title);
   wrap.appendChild(head);
 
@@ -280,37 +244,43 @@ function renderObjective(obj) {
 }
 
 function renderMean(mean) {
-  const card = document.createElement('article');
-  card.className = 'objectif-mean';
+  const row = document.createElement('article');
+  row.className = 'objectif-mean';
 
-  const head = document.createElement('div');
-  head.className = 'objectif-mean__head';
-  head.innerHTML = `<span class="objectif-id">${escape(mean.id)}</span> ${escape(mean.text)}`;
-  card.appendChild(head);
+  const kind = document.createElement('span');
+  kind.className = 'kind-badge kind-badge--mean';
+  kind.textContent = 'Moyen';
+  kind.title = mean.id;
+  row.appendChild(kind);
 
-  // Linked nodes
+  const text = document.createElement('span');
+  text.className = 'objectif-mean__text';
+  text.textContent = mean.text;
+  row.appendChild(text);
+
   const nodes = document.createElement('div');
   nodes.className = 'objectif-mean__nodes';
-  const labelEl = document.createElement('span');
-  labelEl.className = 'objectif-mean__label';
-  labelEl.textContent = 'Couvre :';
-  nodes.appendChild(labelEl);
   for (const nodeId of mean.nodes || []) {
     nodes.appendChild(renderNodeBadge(mean, nodeId));
   }
   nodes.appendChild(renderAddButton(mean));
-  card.appendChild(nodes);
+  row.appendChild(nodes);
 
-  return card;
+  return row;
 }
 
 function renderNodeBadge(mean, nodeId) {
   const node = state.treeIndex.get(nodeId);
   const badge = document.createElement('button');
   badge.type = 'button';
-  badge.className = node ? 'node-link-badge' : 'node-link-badge node-link-badge--unknown';
-  badge.title = node ? `${node.label} (${nodeId}) — cliquer pour retirer` : `${nodeId} introuvable — cliquer pour retirer`;
-  badge.innerHTML = `<span class="badge-id">${escape(nodeId)}</span> <span class="badge-label">${escape(node ? node.label : '?')}</span> <span class="badge-x">×</span>`;
+  badge.className = node
+    ? `node-link-badge node-link-badge--typed type-${node.type}`
+    : 'node-link-badge node-link-badge--unknown';
+  badge.title = node
+    ? `${node.label} (${nodeId}) — niveau ${node.depth} — cliquer pour retirer`
+    : `${nodeId} introuvable — cliquer pour retirer`;
+  const levelText = node ? `L${node.depth}` : '?';
+  badge.innerHTML = `<span class="badge-level">${escape(levelText)}</span> <span class="badge-label">${escape(node ? node.label : nodeId)}</span> <span class="badge-x">×</span>`;
   badge.addEventListener('click', () => {
     mean.nodes = (mean.nodes || []).filter(id => id !== nodeId);
     save(); render();
@@ -368,57 +338,73 @@ function renderAddButton(mean) {
 }
 
 function renderCoverage() {
-  const wrap = document.createElement('div');
-  wrap.className = 'panel-card';
-  wrap.innerHTML = '<h3 class="fr-h6 fr-mb-2w">Lacunes</h3>';
+  const wrap = document.createElement('section');
+  wrap.className = 'objectifs-coverage';
+
+  const heading = document.createElement('h2');
+  heading.className = 'fr-h5 objectifs-coverage__title';
+  heading.textContent = 'Lacunes';
+  wrap.appendChild(heading);
 
   const coverage = meansByNode();
   const orphans = orphanNodes();
   const unknown = unknownNodeRefs();
 
+  // Synthèse chiffrée en tête de section (compact, en chips).
+  const totalMeans = allMeans().length;
+  const totalObj = state.data.axes.reduce((s, a) => s + a.objectives.length, 0);
+  const totalLinks = allMeans().reduce((s, m) => s + (m.nodes?.length || 0), 0);
+  const summary = document.createElement('div');
+  summary.className = 'objectifs-coverage__summary';
+  summary.innerHTML = `
+    <span class="roadmap-stat"><strong>${state.data.axes.length}</strong> axes</span>
+    <span class="roadmap-stat"><strong>${totalObj}</strong> objectifs</span>
+    <span class="roadmap-stat"><strong>${totalMeans}</strong> moyens</span>
+    <span class="roadmap-stat"><strong>${totalLinks}</strong> liaisons</span>
+    <span class="roadmap-stat"><strong>${coverage.size}</strong> nœuds couverts</span>
+  `;
+  wrap.appendChild(summary);
+
+  // Nœuds orphelins
   const sec1 = document.createElement('div');
-  sec1.className = 'fr-mb-3w';
-  sec1.innerHTML = `<p class="fr-text--sm fr-mb-1w"><strong>${orphans.length}</strong> nœud${orphans.length > 1 ? 's' : ''} d'arborescence sans moyen rattaché :</p>`;
+  sec1.className = 'objectifs-coverage__block';
+  sec1.innerHTML = `<h3 class="fr-h6">${orphans.length} nœud${orphans.length > 1 ? 's' : ''} sans moyen rattaché</h3>`;
   if (orphans.length === 0) {
-    sec1.innerHTML += '<p class="fr-text--xs panel-empty" style="margin:0;">Aucun — tous les nœuds sont couverts.</p>';
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Aucun — tous les nœuds sont couverts.';
+    sec1.appendChild(p);
   } else {
-    const ul = document.createElement('ul');
-    ul.className = 'orphan-list';
+    const list = document.createElement('div');
+    list.className = 'objectifs-coverage__list';
     for (const n of orphans) {
-      const li = document.createElement('li');
-      li.innerHTML = `<span class="badge-id">${escape(n.id)}</span> ${escape(n.label)}`;
-      ul.appendChild(li);
+      const badge = document.createElement('span');
+      badge.className = `node-link-badge node-link-badge--typed type-${n.type || 'editorial'}`;
+      badge.title = `${n.label} (${n.id}) — niveau ${n.depth}`;
+      badge.innerHTML = `<span class="badge-level">L${n.depth}</span> <span class="badge-label">${escape(n.label)}</span>`;
+      list.appendChild(badge);
     }
-    sec1.appendChild(ul);
+    sec1.appendChild(list);
   }
   wrap.appendChild(sec1);
 
+  // Références introuvables
   if (unknown.length > 0) {
     const sec2 = document.createElement('div');
-    sec2.className = 'fr-mb-3w';
-    sec2.innerHTML = `<p class="fr-text--sm fr-mb-1w"><strong>${unknown.length}</strong> référence${unknown.length > 1 ? 's' : ''} de nœud introuvable${unknown.length > 1 ? 's' : ''} :</p>`;
-    const ul = document.createElement('ul');
-    ul.className = 'orphan-list';
+    sec2.className = 'objectifs-coverage__block';
+    sec2.innerHTML = `<h3 class="fr-h6">${unknown.length} référence${unknown.length > 1 ? 's' : ''} de nœud introuvable${unknown.length > 1 ? 's' : ''}</h3>`;
+    const list = document.createElement('div');
+    list.className = 'objectifs-coverage__list';
     for (const u of unknown) {
-      const li = document.createElement('li');
-      li.innerHTML = `<span class="badge-id">${escape(u.meanId)}</span> → <span class="badge-id badge-id--err">${escape(u.nodeId)}</span>`;
-      ul.appendChild(li);
+      const item = document.createElement('span');
+      item.className = 'objectifs-coverage__unknown';
+      item.innerHTML = `<span class="badge-id">${escape(u.meanId)}</span> → <span class="badge-id badge-id--err">${escape(u.nodeId)}</span>`;
+      list.appendChild(item);
     }
-    sec2.appendChild(ul);
+    sec2.appendChild(list);
     wrap.appendChild(sec2);
   }
-
-  // Synthèse chiffrée
-  const totalMeans = allMeans().length;
-  const totalLinks = allMeans().reduce((s, m) => s + (m.nodes?.length || 0), 0);
-  const summary = document.createElement('div');
-  summary.className = 'fr-text--xs';
-  summary.style.color = 'var(--text-mention-grey, #666)';
-  summary.innerHTML = `
-    <p style="margin:0.25rem 0;">${state.data.axes.length} axes · ${state.data.axes.reduce((s, a) => s + a.objectives.length, 0)} objectifs · ${totalMeans} moyens.</p>
-    <p style="margin:0.25rem 0;">${totalLinks} liaisons vers ${coverage.size} nœud${coverage.size > 1 ? 's' : ''}.</p>
-  `;
-  wrap.appendChild(summary);
 
   return wrap;
 }

@@ -166,7 +166,7 @@ function renderNodesSection(item, ctx) {
 }
 
 // Boot: load tree (no forced identification), set up the cartography editor.
-// Identity rendering is handled by header-identity.js.
+// Identity rendering is handled by layout.js.
 // Identification is requested lazily on first save attempt.
 (async function boot() {
   try {

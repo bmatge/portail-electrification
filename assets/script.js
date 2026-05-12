@@ -17,19 +17,25 @@ const TYPES = {
   private:     { label: 'Espace privé' },
 };
 
-const PRIORITIES = {
-  mvp: 'MVP',
-  v1:  'V1',
-  v2:  'V2',
-  v3:  'V3',
+const DEADLINES = {
+  juin:       'Juin 2026',
+  septembre:  'Septembre 2026',
+  decembre:   'Décembre 2026',
+  y2027:      '2027+',
 };
 
-const PRIORITY_RANK = { mvp: 0, v1: 1, v2: 2, v3: 3 };
+const DEADLINE_ORDER = ['juin', 'septembre', 'decembre', 'y2027'];
 
-const COMPLEXITIES = {
-  low:    'Faible',
-  medium: 'Moyenne',
-  high:   'Élevée',
+const AUDIENCES = {
+  particuliers:   'Particuliers',
+  coproprietes:   'Copropriétés',
+  collectivites:  'Collectivités',
+  pros:           'Pros',
+  industriels:    'Industriels',
+  agriculteurs:   'Agriculteurs',
+  partenaires:    'Partenaires',
+  agents:         'Agents publics',
+  outremer:       'Outre-mer',
 };
 
 const DEFAULT_TREE_URL = 'assets/data/tree.json';
@@ -45,11 +51,22 @@ const state = {
   selectedId: 'root',
   collapsed: loadCollapsed(),
   search: '',
-  priority: 'all',
+  deadline: 'all',
   commentCounts: {},
   saveStatus: 'idle', // 'idle' | 'saving' | 'saved' | 'error' | 'conflict'
   saveMessage: '',
+  // Tracks which panel-accordion sections (by id: 'config' | 'dispositifs' | 'objectives')
+  // the user has opened, so re-renders of the panel don't snap them shut.
+  openAccordions: new Set(),
 };
+
+function bindAccordion(details, id) {
+  if (state.openAccordions.has(id)) details.open = true;
+  details.addEventListener('toggle', () => {
+    if (details.open) state.openAccordions.add(id);
+    else state.openAccordions.delete(id);
+  });
+}
 
 let saveTimer = null;
 let inFlight = false;
@@ -128,18 +145,70 @@ function makeNode(label = 'Nouveau nœud') {
   return {
     id: newId(),
     label,
-    type: 'editorial',
+    types: ['editorial'],
     format: '',
     tldr: '',
     url: '',
-    priority: '',
-    complexity: '',
+    deadline: 'y2027',
+    time_tech: null,
+    time_edito: null,
     auth: false,
-    mesure_plan: '',
-    audience: '',
+    mesures: [],
+    audiences: [],
     dispositifs: [],
+    blocks: [],
+    improvements: [],
     children: [],
   };
+}
+
+function newBlockId() {
+  return 'b' + Math.random().toString(36).slice(2, 8);
+}
+
+function makeBlock() {
+  return { id: newBlockId(), title: '', description: '' };
+}
+
+function newImprovementId() {
+  return 'i' + Math.random().toString(36).slice(2, 8);
+}
+
+function makeImprovement() {
+  return { id: newImprovementId(), deadline: '', title: '', description: '' };
+}
+
+function primaryType(node) {
+  return (node.types && node.types[0]) || node.type || 'editorial';
+}
+
+const OLD_PRIORITY_TO_DEADLINE = { mvp: 'juin', v1: 'septembre', v2: 'decembre', v3: 'y2027' };
+
+function normalizeNode(node) {
+  // Backfills missing fields so historical revisions (with priority/complexity/audience/type)
+  // remain readable without crashing the UI. Does not save; just mutates in-memory.
+  if (typeof node.deadline === 'undefined') {
+    node.deadline = node.priority ? (OLD_PRIORITY_TO_DEADLINE[node.priority] ?? '') : '';
+  }
+  if (typeof node.time_tech === 'undefined') node.time_tech = null;
+  if (typeof node.time_edito === 'undefined') node.time_edito = null;
+  if (!Array.isArray(node.types)) {
+    node.types = node.type ? [node.type] : ['editorial'];
+  }
+  if (!Array.isArray(node.audiences)) {
+    node.audiences = node.audience ? [node.audience] : [];
+  }
+  if (!Array.isArray(node.blocks)) node.blocks = [];
+  else for (const b of node.blocks) { if (!b.id) b.id = newBlockId(); }
+  if (!Array.isArray(node.improvements)) node.improvements = [];
+  else for (const imp of node.improvements) { if (!imp.id) imp.id = newImprovementId(); }
+  if (!Array.isArray(node.mesures)) {
+    node.mesures = node.mesure_plan ? [node.mesure_plan] : [];
+  }
+  if (!Array.isArray(node.dispositifs)) node.dispositifs = [];
+  if (!Array.isArray(node.children)) node.children = [];
+  // Legacy fields (priority, complexity, audience, type) are left untouched but never written.
+  for (const c of node.children) normalizeNode(c);
 }
 
 function parentOf(id) {
@@ -159,9 +228,9 @@ function ancestorOf(targetId, candidateId) {
   return false;
 }
 
-function audienceFor(node) {
-  // Use explicit audience if set, else inherit from the closest ancestor that has one.
-  if (node.audience) return node.audience;
+function audiencesFor(node) {
+  // Use explicit audiences if any, else inherit from the closest ancestor that has some.
+  if (node.audiences && node.audiences.length) return node.audiences;
   function findPath(root, targetId, acc) {
     if (root.id === targetId) return acc;
     for (const c of root.children ?? []) {
@@ -172,9 +241,9 @@ function audienceFor(node) {
   }
   const ancestors = findPath(state.tree, node.id, []) ?? [];
   for (let i = ancestors.length - 1; i >= 0; i--) {
-    if (ancestors[i].audience) return ancestors[i].audience;
+    if (ancestors[i].audiences && ancestors[i].audiences.length) return ancestors[i].audiences;
   }
-  return '';
+  return [];
 }
 
 // ---- Rendering ----
@@ -187,18 +256,13 @@ const counterEl = document.getElementById('counter');
 function matchesFilters(node) {
   const term = state.search.trim().toLowerCase();
   const labelMatch = !term || node.label.toLowerCase().includes(term) || (node.tldr || '').toLowerCase().includes(term);
-  const priorityMatch = matchesPriority(node);
-  return labelMatch && priorityMatch;
+  return labelMatch && matchesDeadline(node);
 }
 
-function matchesPriority(node) {
-  if (state.priority === 'all') return true;
-  if (state.priority === 'none') return !node.priority;
-  const cap = PRIORITY_RANK[state.priority];
-  if (cap === undefined) return true;
-  if (!node.priority) return false;
-  const rank = PRIORITY_RANK[node.priority];
-  return rank !== undefined && rank <= cap;
+function matchesDeadline(node) {
+  if (state.deadline === 'all') return true;
+  if (state.deadline === 'none') return !node.deadline;
+  return node.deadline === state.deadline;
 }
 
 function subtreeMatches(node) {
@@ -298,14 +362,14 @@ function renderNodeRow(node, parents) {
   }
   row.appendChild(toggle);
 
-  // Column 2: audience
+  // Column 2: audiences (multi, inherited from ancestors if empty)
   const aud = document.createElement('div');
   aud.className = 'flat-row__audience';
-  const audText = audienceFor(node);
-  if (audText) {
+  const inherited = !(node.audiences && node.audiences.length);
+  for (const key of audiencesFor(node)) {
     const tag = document.createElement('span');
-    tag.className = 'audience-tag';
-    tag.textContent = audText;
+    tag.className = 'audience-tag' + (inherited ? ' audience-tag--inherited' : '');
+    tag.textContent = AUDIENCES[key] ?? key;
     aud.appendChild(tag);
   }
   row.appendChild(aud);
@@ -319,14 +383,22 @@ function renderNodeRow(node, parents) {
   text.appendChild(lbl);
   row.appendChild(text);
 
-  // Column 4: version pill (priority) + comments if any
+  // Column 4: deadline pill + blocks counter + comments if any
   const tags = document.createElement('div');
   tags.className = 'flat-row__tags';
-  if (node.priority) {
+  if (node.deadline) {
     const pri = document.createElement('span');
-    pri.className = `priority-pill ${node.priority}`;
-    pri.textContent = PRIORITIES[node.priority];
+    pri.className = `deadline-pill ${node.deadline}`;
+    pri.textContent = DEADLINES[node.deadline] ?? node.deadline;
     tags.appendChild(pri);
+  }
+  const blockN = (node.blocks ?? []).length;
+  if (blockN > 0) {
+    const b = document.createElement('span');
+    b.className = 'blocks-pill';
+    b.textContent = `▦ ${blockN}`;
+    b.title = `${blockN} bloc${blockN > 1 ? 's' : ''} de contenu`;
+    tags.appendChild(b);
   }
   const commentN = state.commentCounts[node.id] || 0;
   if (commentN > 0) {
@@ -459,8 +531,52 @@ function renderPanel() {
   const { node, parent } = found;
   panelEl.innerHTML = '';
 
+  // Block 1 — non collapsible: identity + label + tag strip + description
+  const block1 = document.createElement('section');
+  block1.className = 'panel-block panel-block--main';
+  block1.appendChild(titleField(node));
+  const id = document.createElement('p');
+  id.className = 'panel-id';
+  id.textContent = `id : ${node.id}`;
+  block1.appendChild(id);
+  block1.appendChild(renderMetaStrip(node));
+  block1.appendChild(field('tldr', 'Description', node.tldr, 'textarea'));
+  panelEl.appendChild(block1);
+
+  // Block 2 — non collapsible: content blocks
+  const block2 = document.createElement('section');
+  block2.className = 'panel-block';
+  block2.appendChild(renderBlocksSection(node));
+  panelEl.appendChild(block2);
+
+  // Block 3 — collapsible: detailed configuration
+  panelEl.appendChild(renderDetailsAccordion(node));
+
+  // Block 4 — collapsible: improvements (feeds the roadmap)
+  panelEl.appendChild(renderImprovementsSection(node));
+
+  // Block 5 — collapsible: official plan measures (M1-M22) this page implements
+  panelEl.appendChild(renderMesuresSection(node));
+
+  // Block 6 — collapsible: linked dispositifs (with count badge)
+  panelEl.appendChild(renderDispositifsSection(node));
+
+  // Block 7 — collapsible: covered objectives (with count badge)
+  panelEl.appendChild(renderObjectivesSection(node.id));
+
+  // Block 6 — non collapsible: comments
+  const block6 = document.createElement('section');
+  block6.className = 'panel-block';
+  block6.appendChild(renderCommentsSection(node.id));
+  panelEl.appendChild(block6);
+
+  // Action buttons at the bottom
+  panelEl.appendChild(renderActionButtons(node, parent));
+}
+
+function renderActionButtons(node, parent) {
   const actions = document.createElement('div');
-  actions.className = 'panel-actions panel-actions--top';
+  actions.className = 'panel-actions panel-actions--bottom';
 
   const addChild = button('Sous-rubrique', 'fr-btn--secondary fr-icon-add-line fr-btn--icon-left', () => {
     const child = makeNode();
@@ -492,34 +608,53 @@ function renderPanel() {
     actions.appendChild(promote);
     actions.appendChild(demote);
   }
-  panelEl.appendChild(actions);
+  return actions;
+}
 
-  // Meta tag strip between actions and ID: type, mesure, complexity, auth, comments
+function titleField(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fr-input-group panel-title-group';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'fr-input panel-title-input';
+  input.value = node.label || '';
+  input.setAttribute('aria-label', 'Libellé du nœud');
+  input.addEventListener('input', () => {
+    node.label = input.value;
+    save();
+    renderTree();
+  });
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function renderMetaStrip(node) {
   const metaStrip = document.createElement('div');
   metaStrip.className = 'panel-meta-strip';
-  const typePill = document.createElement('span');
-  typePill.className = `type-pill type-${node.type}`;
-  typePill.textContent = TYPES[node.type]?.label ?? node.type;
-  metaStrip.appendChild(typePill);
-  if (node.mesure_plan) {
-    const mp = document.createElement('span');
-    mp.className = 'mesure-pill';
-    mp.textContent = `Mesure ${node.mesure_plan}`;
-    metaStrip.appendChild(mp);
+  const types = (node.types && node.types.length) ? node.types : [primaryType(node)];
+  for (const t of types) {
+    const typePill = document.createElement('span');
+    typePill.className = `type-pill type-${t}`;
+    typePill.textContent = TYPES[t]?.label ?? t;
+    metaStrip.appendChild(typePill);
   }
-  if (node.complexity) {
-    const cx = document.createElement('span');
-    cx.className = `complexity-pill ${node.complexity}`;
-    cx.textContent = COMPLEXITIES[node.complexity];
-    cx.title = `Complexité ${COMPLEXITIES[node.complexity].toLowerCase()}`;
-    metaStrip.appendChild(cx);
+  if (node.deadline) {
+    const dl = document.createElement('span');
+    dl.className = `deadline-pill ${node.deadline}`;
+    dl.textContent = DEADLINES[node.deadline] ?? node.deadline;
+    metaStrip.appendChild(dl);
   }
-  if (node.auth) {
-    const auth = document.createElement('span');
-    auth.className = 'auth-pill';
-    auth.textContent = 'Auth';
-    auth.title = 'Authentification requise';
-    metaStrip.appendChild(auth);
+  const tTech = Number.isFinite(+node.time_tech) ? +node.time_tech : null;
+  const tEdito = Number.isFinite(+node.time_edito) ? +node.time_edito : null;
+  if (tTech !== null || tEdito !== null) {
+    const t = document.createElement('span');
+    t.className = 'time-pill';
+    const parts = [];
+    if (tTech !== null) parts.push(`Tech ${tTech}j`);
+    if (tEdito !== null) parts.push(`Édito ${tEdito}j`);
+    t.textContent = parts.join(' · ');
+    t.title = 'Charge estimée (jours)';
+    metaStrip.appendChild(t);
   }
   const panelCommentN = state.commentCounts[node.id] || 0;
   if (panelCommentN > 0) {
@@ -528,27 +663,31 @@ function renderPanel() {
     c.textContent = `💬 ${panelCommentN}`;
     metaStrip.appendChild(c);
   }
-  panelEl.appendChild(metaStrip);
+  return metaStrip;
+}
 
-  const id = document.createElement('p');
-  id.className = 'panel-id';
-  id.textContent = `id : ${node.id}`;
-  panelEl.appendChild(id);
+function renderDetailsAccordion(node) {
+  const details = document.createElement('details');
+  details.className = 'panel-accordion';
+  const summary = document.createElement('summary');
+  summary.className = 'panel-accordion__summary';
+  const title = document.createElement('span');
+  title.className = 'panel-accordion__title';
+  title.textContent = 'Configuration détaillée';
+  summary.appendChild(title);
+  details.appendChild(summary);
 
-  panelEl.appendChild(field('label', 'Libellé', node.label, 'input'));
-  panelEl.appendChild(field('tldr', 'TL;DR', node.tldr, 'textarea'));
-  panelEl.appendChild(field('audience', 'Public cible (hérité du parent si vide)', node.audience, 'input'));
-  panelEl.appendChild(typeField(node));
-  panelEl.appendChild(priorityField(node));
-  panelEl.appendChild(complexityField(node));
-  panelEl.appendChild(authField(node));
-  panelEl.appendChild(field('mesure_plan', 'Mesure du plan (M1-M22)', node.mesure_plan, 'input'));
-  panelEl.appendChild(field('format', 'Format', node.format, 'input'));
-  panelEl.appendChild(field('url', 'URL (renvoi externe)', node.url, 'input', 'url'));
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
 
-  panelEl.appendChild(renderDispositifsSection(node));
-  panelEl.appendChild(renderObjectivesSection(node.id));
-  panelEl.appendChild(renderCommentsSection(node.id));
+  body.appendChild(deadlineField(node));
+  body.appendChild(audiencesField(node));
+  body.appendChild(typeField(node));
+  body.appendChild(timeFields(node));
+
+  details.appendChild(body);
+  bindAccordion(details, 'config');
+  return details;
 }
 
 function moveSibling(parent, node, delta) {
@@ -592,102 +731,444 @@ function field(key, labelText, value, kind, type = 'text') {
 
 function typeField(node) {
   const wrap = document.createElement('div');
-  wrap.className = 'fr-select-group';
+  wrap.className = 'fr-input-group type-field';
   const label = document.createElement('label');
   label.className = 'fr-label';
-  label.setAttribute('for', 'field-type');
-  label.textContent = 'Type';
+  label.textContent = 'Types de page';
   wrap.appendChild(label);
-  const select = document.createElement('select');
-  select.className = 'fr-select';
-  select.id = 'field-type';
+
+  if (!Array.isArray(node.types)) node.types = [];
+  const chipsWrap = document.createElement('div');
+  chipsWrap.className = 'type-chips';
   for (const [key, def] of Object.entries(TYPES)) {
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = def.label;
-    if (key === node.type) opt.selected = true;
-    select.appendChild(opt);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const isOn = node.types.includes(key);
+    chip.className = `type-chip type-chip--${key}` + (isOn ? ' type-chip--on' : '');
+    chip.textContent = def.label;
+    chip.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    chip.addEventListener('click', () => {
+      const idx = node.types.indexOf(key);
+      if (idx >= 0) node.types.splice(idx, 1);
+      else node.types.push(key);
+      save(); renderTree(); renderPanel();
+    });
+    chipsWrap.appendChild(chip);
   }
-  select.addEventListener('change', () => {
-    node.type = select.value;
-    save(); renderTree();
-  });
-  wrap.appendChild(select);
+  wrap.appendChild(chipsWrap);
   return wrap;
 }
 
-function priorityField(node) {
+function deadlineField(node) {
   const wrap = document.createElement('div');
-  wrap.className = 'fr-select-group';
+  wrap.className = 'fr-input-group deadline-field';
   const label = document.createElement('label');
   label.className = 'fr-label';
-  label.setAttribute('for', 'field-priority');
-  label.textContent = 'Priorité de mise en œuvre';
+  label.textContent = 'Échéance';
   wrap.appendChild(label);
-  const select = document.createElement('select');
-  select.className = 'fr-select';
-  select.id = 'field-priority';
-  const options = [['', '— non définie —'], ['mvp', 'MVP'], ['v1', 'V1'], ['v2', 'V2'], ['v3', 'V3']];
-  for (const [val, txt] of options) {
-    const opt = document.createElement('option');
-    opt.value = val;
-    opt.textContent = txt;
-    if (val === (node.priority || '')) opt.selected = true;
-    select.appendChild(opt);
+
+  const chipsWrap = document.createElement('div');
+  chipsWrap.className = 'deadline-chips';
+  for (const key of DEADLINE_ORDER) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const isOn = node.deadline === key;
+    chip.className = `deadline-chip deadline-chip--${key}` + (isOn ? ' deadline-chip--on' : '');
+    chip.textContent = DEADLINES[key];
+    chip.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    chip.addEventListener('click', () => {
+      node.deadline = isOn ? '' : key;
+      save(); renderTree(); renderPanel();
+    });
+    chipsWrap.appendChild(chip);
   }
-  select.addEventListener('change', () => {
-    node.priority = select.value;
-    save(); renderTree();
-  });
-  wrap.appendChild(select);
+  wrap.appendChild(chipsWrap);
   return wrap;
 }
 
-function complexityField(node) {
+function timeFields(node) {
   const wrap = document.createElement('div');
-  wrap.className = 'fr-select-group';
+  wrap.className = 'time-fields';
+
+  const label = document.createElement('div');
+  label.className = 'fr-label time-fields__label';
+  label.textContent = 'Charge estimée (jours)';
+  wrap.appendChild(label);
+
+  const row = document.createElement('div');
+  row.className = 'time-fields__row';
+
+  for (const [key, labelTxt] of [['time_tech', 'Tech'], ['time_edito', 'Édito']]) {
+    const cell = document.createElement('label');
+    cell.className = 'time-cell';
+    cell.setAttribute('for', `field-${key}`);
+
+    const tag = document.createElement('span');
+    tag.className = 'time-cell__label';
+    tag.textContent = labelTxt;
+    cell.appendChild(tag);
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '0.5';
+    input.className = 'time-cell__input';
+    input.id = `field-${key}`;
+    input.placeholder = '—';
+    input.value = node[key] ?? '';
+    input.addEventListener('input', () => {
+      const v = input.value.trim();
+      node[key] = v === '' ? null : Number(v);
+      save();
+      renderPanel();
+    });
+    cell.appendChild(input);
+
+    const unit = document.createElement('span');
+    unit.className = 'time-cell__unit';
+    unit.textContent = 'j';
+    cell.appendChild(unit);
+
+    row.appendChild(cell);
+  }
+  wrap.appendChild(row);
+  return wrap;
+}
+
+function audiencesField(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'fr-input-group audiences-field';
+
   const label = document.createElement('label');
   label.className = 'fr-label';
-  label.setAttribute('for', 'field-complexity');
-  label.textContent = 'Niveau de complexité';
+  label.textContent = 'Publics cibles (hérités du parent si vide)';
   wrap.appendChild(label);
-  const select = document.createElement('select');
-  select.className = 'fr-select';
-  select.id = 'field-complexity';
-  const options = [['', '— non défini —'], ['low', 'Faible'], ['medium', 'Moyenne'], ['high', 'Élevée']];
-  for (const [val, txt] of options) {
-    const opt = document.createElement('option');
-    opt.value = val;
-    opt.textContent = txt;
-    if (val === (node.complexity || '')) opt.selected = true;
-    select.appendChild(opt);
+
+  const chipsWrap = document.createElement('div');
+  chipsWrap.className = 'audience-chips';
+  const selected = new Set(node.audiences || []);
+
+  for (const [key, txt] of Object.entries(AUDIENCES)) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'audience-chip' + (selected.has(key) ? ' audience-chip--on' : '');
+    chip.textContent = txt;
+    chip.dataset.key = key;
+    chip.setAttribute('aria-pressed', selected.has(key) ? 'true' : 'false');
+    chip.addEventListener('click', () => {
+      if (!Array.isArray(node.audiences)) node.audiences = [];
+      const idx = node.audiences.indexOf(key);
+      if (idx >= 0) node.audiences.splice(idx, 1);
+      else node.audiences.push(key);
+      save();
+      renderTree();
+      renderPanel();
+    });
+    chipsWrap.appendChild(chip);
   }
-  select.addEventListener('change', () => {
-    node.complexity = select.value;
-    save(); renderTree();
-  });
-  wrap.appendChild(select);
+  wrap.appendChild(chipsWrap);
+
+  if ((node.audiences ?? []).length === 0) {
+    const hint = document.createElement('p');
+    hint.className = 'fr-text--xs audiences-hint';
+    const inherited = audiencesFor(node);
+    hint.textContent = inherited.length
+      ? `Hérité : ${inherited.map(k => AUDIENCES[k] ?? k).join(', ')}`
+      : 'Aucun public hérité du parent.';
+    wrap.appendChild(hint);
+  }
   return wrap;
 }
 
-function authField(node) {
-  const wrap = document.createElement('div');
-  wrap.className = 'fr-toggle fr-toggle--label-left';
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.className = 'fr-toggle__input';
-  input.id = 'field-auth';
-  input.checked = !!node.auth;
-  const label = document.createElement('label');
-  label.className = 'fr-toggle__label';
-  label.setAttribute('for', 'field-auth');
-  label.textContent = 'Authentification requise (téléservice, espace privé)';
-  input.addEventListener('change', () => {
-    node.auth = input.checked;
-    save(); renderTree();
+function renderBlocksSection(node) {
+  const section = document.createElement('section');
+  section.className = 'blocks-section';
+
+  const h = document.createElement('h3');
+  h.className = 'fr-h6';
+  h.textContent = 'Contenus de la page';
+  section.appendChild(h);
+
+  if (!Array.isArray(node.blocks)) node.blocks = [];
+
+  const list = document.createElement('div');
+  list.className = 'blocks-list';
+
+  if (node.blocks.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Aucun bloc défini. Ajoutez un bloc pour décrire un élément de contenu de la page (texte, vidéo, lien, CTA…).';
+    list.appendChild(p);
+  } else {
+    for (const block of node.blocks) list.appendChild(renderBlockCard(node, block));
+  }
+  section.appendChild(list);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'fr-btn fr-btn--tertiary fr-btn--sm fr-icon-add-line fr-btn--icon-left blocks-add';
+  addBtn.textContent = 'Ajouter un bloc';
+  addBtn.addEventListener('click', () => {
+    node.blocks.push(makeBlock());
+    save(`Ajout d'un bloc à ${node.id}`);
+    renderPanel();
+    renderTree();
   });
-  wrap.append(input, label);
+  section.appendChild(addBtn);
+
+  return section;
+}
+
+function renderBlockCard(node, block) {
+  const card = document.createElement('div');
+  card.className = 'block-card';
+  card.dataset.blockId = block.id;
+  card.draggable = true;
+
+  card.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/x-block-id', block.id);
+    card.classList.add('block-card--dragging');
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('block-card--dragging');
+    document.querySelectorAll('.block-card').forEach(c => c.classList.remove('block-card--over-before', 'block-card--over-after'));
+  });
+  card.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('text/x-block-id')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = card.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    card.classList.toggle('block-card--over-before', before);
+    card.classList.toggle('block-card--over-after', !before);
+  });
+  card.addEventListener('dragleave', () => {
+    card.classList.remove('block-card--over-before', 'block-card--over-after');
+  });
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const srcId = e.dataTransfer.getData('text/x-block-id');
+    const before = card.classList.contains('block-card--over-before');
+    card.classList.remove('block-card--over-before', 'block-card--over-after');
+    moveBlock(node, srcId, block.id, before);
+  });
+
+  const handle = document.createElement('span');
+  handle.className = 'block-card__handle';
+  handle.textContent = '⋮⋮';
+  handle.title = 'Glisser pour réordonner';
+  card.appendChild(handle);
+
+  const fields = document.createElement('div');
+  fields.className = 'block-card__fields';
+
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'fr-input block-card__title';
+  titleInput.placeholder = 'Titre du bloc';
+  titleInput.value = block.title || '';
+  titleInput.addEventListener('input', () => {
+    block.title = titleInput.value;
+    save();
+  });
+  fields.appendChild(titleInput);
+
+  const desc = document.createElement('textarea');
+  desc.className = 'fr-input block-card__desc';
+  desc.placeholder = 'Description du contenu (ex. « Vidéo de 3 min expliquant… », « Lien vers le simulateur »)';
+  desc.rows = 2;
+  desc.value = block.description || '';
+  desc.addEventListener('input', () => {
+    block.description = desc.value;
+    save();
+  });
+  fields.appendChild(desc);
+  card.appendChild(fields);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'block-card__delete fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-icon-delete-line';
+  del.setAttribute('aria-label', 'Supprimer ce bloc');
+  del.title = 'Supprimer';
+  del.addEventListener('click', () => {
+    node.blocks = node.blocks.filter(b => b.id !== block.id);
+    save(`Suppression d'un bloc de ${node.id}`);
+    renderPanel();
+    renderTree();
+  });
+  card.appendChild(del);
+
+  return card;
+}
+
+function moveBlock(node, srcId, targetId, before) {
+  if (!srcId || srcId === targetId) return;
+  const blocks = node.blocks;
+  const srcIdx = blocks.findIndex(b => b.id === srcId);
+  if (srcIdx < 0) return;
+  const [src] = blocks.splice(srcIdx, 1);
+  const tgtIdx = blocks.findIndex(b => b.id === targetId);
+  const insertAt = before ? tgtIdx : tgtIdx + 1;
+  blocks.splice(insertAt, 0, src);
+  save(`Réorganisation des blocs de ${node.id}`);
+  renderPanel();
+}
+
+// ---- Improvements section (feeds the roadmap) ----
+
+function renderImprovementsSection(node) {
+  if (!Array.isArray(node.improvements)) node.improvements = [];
+  const wrap = document.createElement('details');
+  wrap.className = 'panel-accordion improvements-section';
+  wrap.appendChild(accordionSummary('Améliorations', node.improvements.length));
+
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
+
+  const list = document.createElement('div');
+  list.className = 'improvements-list';
+
+  if (node.improvements.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Aucune amélioration planifiée. Ajoutez une amélioration pour la voir apparaître dans la roadmap à l\'échéance correspondante.';
+    list.appendChild(p);
+  } else {
+    for (const imp of node.improvements) list.appendChild(renderImprovementCard(node, imp));
+  }
+  body.appendChild(list);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'fr-btn fr-btn--tertiary fr-btn--sm fr-icon-add-line fr-btn--icon-left improvements-add';
+  addBtn.textContent = 'Ajouter une amélioration';
+  addBtn.addEventListener('click', () => {
+    node.improvements.push(makeImprovement());
+    save(`Ajout d'une amélioration à ${node.id}`);
+    renderPanel();
+  });
+  body.appendChild(addBtn);
+
+  wrap.appendChild(body);
+  bindAccordion(wrap, 'improvements');
   return wrap;
+}
+
+function renderImprovementCard(node, imp) {
+  const card = document.createElement('div');
+  card.className = 'block-card improvement-card';
+  card.dataset.improvementId = imp.id;
+  card.draggable = true;
+
+  card.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/x-improvement-id', imp.id);
+    card.classList.add('block-card--dragging');
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('block-card--dragging');
+    document.querySelectorAll('.improvement-card').forEach(c => c.classList.remove('block-card--over-before', 'block-card--over-after'));
+  });
+  card.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes('text/x-improvement-id')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = card.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    card.classList.toggle('block-card--over-before', before);
+    card.classList.toggle('block-card--over-after', !before);
+  });
+  card.addEventListener('dragleave', () => {
+    card.classList.remove('block-card--over-before', 'block-card--over-after');
+  });
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const srcId = e.dataTransfer.getData('text/x-improvement-id');
+    const before = card.classList.contains('block-card--over-before');
+    card.classList.remove('block-card--over-before', 'block-card--over-after');
+    moveImprovement(node, srcId, imp.id, before);
+  });
+
+  const handle = document.createElement('span');
+  handle.className = 'block-card__handle';
+  handle.textContent = '⋮⋮';
+  handle.title = 'Glisser pour réordonner';
+  card.appendChild(handle);
+
+  const fields = document.createElement('div');
+  fields.className = 'block-card__fields';
+
+  // Deadline mini-chips (single-select, toggle off when re-clicked)
+  const deadlineRow = document.createElement('div');
+  deadlineRow.className = 'improvement-card__deadline';
+  for (const key of DEADLINE_ORDER) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    const isOn = imp.deadline === key;
+    chip.className = `deadline-chip deadline-chip--${key}` + (isOn ? ' deadline-chip--on' : '');
+    chip.textContent = DEADLINES[key];
+    chip.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    chip.addEventListener('click', () => {
+      imp.deadline = isOn ? '' : key;
+      save(`Échéance amélioration de ${node.id}`);
+      renderPanel();
+    });
+    deadlineRow.appendChild(chip);
+  }
+  fields.appendChild(deadlineRow);
+
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'fr-input block-card__title';
+  titleInput.placeholder = 'Titre de l\'amélioration';
+  titleInput.value = imp.title || '';
+  titleInput.addEventListener('input', () => {
+    imp.title = titleInput.value;
+    save();
+  });
+  fields.appendChild(titleInput);
+
+  const desc = document.createElement('textarea');
+  desc.className = 'fr-input block-card__desc';
+  desc.placeholder = 'Description (ex. « Ajouter un témoignage vidéo », « Intégrer le score environnemental »)';
+  desc.rows = 2;
+  desc.value = imp.description || '';
+  desc.addEventListener('input', () => {
+    imp.description = desc.value;
+    save();
+  });
+  fields.appendChild(desc);
+  card.appendChild(fields);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'block-card__delete fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-icon-delete-line';
+  del.setAttribute('aria-label', 'Supprimer cette amélioration');
+  del.title = 'Supprimer';
+  del.addEventListener('click', () => {
+    node.improvements = node.improvements.filter(i => i.id !== imp.id);
+    save(`Suppression d'une amélioration de ${node.id}`);
+    renderPanel();
+  });
+  card.appendChild(del);
+
+  return card;
+}
+
+function moveImprovement(node, srcId, targetId, before) {
+  if (!srcId || srcId === targetId) return;
+  const list = node.improvements;
+  const srcIdx = list.findIndex(i => i.id === srcId);
+  if (srcIdx < 0) return;
+  const [src] = list.splice(srcIdx, 1);
+  const tgtIdx = list.findIndex(i => i.id === targetId);
+  const insertAt = before ? tgtIdx : tgtIdx + 1;
+  list.splice(insertAt, 0, src);
+  save(`Réorganisation des améliorations de ${node.id}`);
+  renderPanel();
 }
 
 function button(text, classes, onClick) {
@@ -742,7 +1223,9 @@ function renderIdentity() {
 // ---- Dispositifs linkage (read dispositifs data, manage node.dispositifs from the panel) ----
 
 const DISPOSITIFS_URL = 'assets/data/dispositifs.json';
+const MESURES_URL     = 'assets/data/mesures.json';
 let dispositifsIndex = new Map();
+let mesuresIndex     = new Map();   // id → { id, title, axe, deadline }
 
 async function loadDispositifs() {
   try {
@@ -755,16 +1238,123 @@ async function loadDispositifs() {
   } catch { /* non-fatal */ }
 }
 
+async function loadMesures() {
+  try {
+    const res = await fetch(MESURES_URL, { cache: 'no-cache' });
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const m of data.mesures ?? []) {
+      mesuresIndex.set(m.id, { id: m.id, title: m.title, axe: m.axe, deadline: m.deadline });
+    }
+  } catch { /* non-fatal */ }
+}
+
+function renderMesuresSection(node) {
+  if (!Array.isArray(node.mesures)) node.mesures = [];
+  const wrap = document.createElement('details');
+  wrap.className = 'panel-accordion mesures-section';
+  wrap.appendChild(accordionSummary('Mesures du plan', node.mesures.length));
+
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
+
+  const list = document.createElement('div');
+  list.className = 'mesure-link-list';
+
+  if (node.mesures.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Aucune mesure du plan rattachée. Reliez les mesures officielles dont cette page concrétise l\'engagement.';
+    list.appendChild(p);
+  } else {
+    for (const mId of node.mesures) list.appendChild(renderMesureBadge(node, mId));
+  }
+  body.appendChild(list);
+  body.appendChild(renderAddMesureButton(node));
+  wrap.appendChild(body);
+  bindAccordion(wrap, 'mesures');
+  return wrap;
+}
+
+function renderMesureBadge(node, mId) {
+  const m = mesuresIndex.get(mId);
+  const badge = document.createElement('button');
+  badge.type = 'button';
+  badge.className = m ? 'mesure-link-badge' : 'mesure-link-badge mesure-link-badge--unknown';
+  badge.title = m
+    ? `${m.title} (${mId}) — cliquer pour retirer · Maj+clic pour ouvrir la fiche`
+    : `${mId} introuvable — cliquer pour retirer`;
+  badge.innerHTML = `<span class="badge-id">${escapeHtml(mId)}</span> <span class="badge-label">${escapeHtml(m ? m.title : '?')}</span> <span class="badge-x">×</span>`;
+  badge.addEventListener('click', (e) => {
+    if (e.shiftKey && m) {
+      window.open(`mesures.html#${encodeURIComponent(mId)}`, '_blank', 'noopener');
+      return;
+    }
+    node.mesures = (node.mesures || []).filter(id => id !== mId);
+    save(`Retrait mesure ${mId} de ${node.id}`);
+    renderPanel(); renderTree();
+  });
+  return badge;
+}
+
+function renderAddMesureButton(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'add-link';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'add-link__btn fr-btn fr-btn--tertiary fr-btn--sm';
+  btn.textContent = '+ lier une mesure du plan';
+  wrap.appendChild(btn);
+
+  btn.addEventListener('click', () => {
+    btn.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'fr-input add-link__input';
+    input.placeholder = 'rechercher une mesure (id Mxx ou libellé)…';
+    const dropdown = document.createElement('ul');
+    dropdown.className = 'add-link__dropdown';
+    wrap.append(input, dropdown);
+    input.focus();
+
+    function refresh() {
+      const term = input.value.trim().toLowerCase();
+      dropdown.innerHTML = '';
+      if (!term) return;
+      const already = new Set(node.mesures || []);
+      const matches = [...mesuresIndex.values()]
+        .filter(m => !already.has(m.id) && (m.title.toLowerCase().includes(term) || m.id.toLowerCase().includes(term)))
+        .slice(0, 8);
+      for (const m of matches) {
+        const li = document.createElement('li');
+        li.className = 'add-link__option';
+        li.innerHTML = `<span class="badge-id">${escapeHtml(m.id)}</span> ${escapeHtml(m.title)}`;
+        li.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          if (!node.mesures) node.mesures = [];
+          node.mesures.push(m.id);
+          save(`Ajout mesure ${m.id} à ${node.id}`);
+          renderPanel(); renderTree();
+        });
+        dropdown.appendChild(li);
+      }
+    }
+    input.addEventListener('input', refresh);
+    input.addEventListener('blur', () => setTimeout(() => renderPanel(), 200));
+  });
+  return wrap;
+}
+
 function renderDispositifsSection(node) {
-  const wrap = document.createElement('section');
-  wrap.className = 'dispositifs-section';
-
-  const h = document.createElement('h3');
-  h.className = 'fr-h6 fr-mt-4w';
-  h.textContent = 'Dispositifs existants rattachés';
-  wrap.appendChild(h);
-
   if (!node.dispositifs) node.dispositifs = [];
+  const wrap = document.createElement('details');
+  wrap.className = 'panel-accordion dispositifs-section';
+  wrap.appendChild(accordionSummary('Dispositifs rattachés', node.dispositifs.length));
+
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
 
   const list = document.createElement('div');
   list.className = 'dispositif-link-list';
@@ -778,9 +1368,25 @@ function renderDispositifsSection(node) {
   } else {
     for (const dispId of node.dispositifs) list.appendChild(renderDispositifBadge(node, dispId));
   }
-  wrap.appendChild(list);
-  wrap.appendChild(renderAddDispositifButton(node));
+  body.appendChild(list);
+  body.appendChild(renderAddDispositifButton(node));
+  wrap.appendChild(body);
+  bindAccordion(wrap, 'dispositifs');
   return wrap;
+}
+
+function accordionSummary(title, count) {
+  const summary = document.createElement('summary');
+  summary.className = 'panel-accordion__summary';
+  const txt = document.createElement('span');
+  txt.className = 'panel-accordion__title';
+  txt.textContent = title;
+  summary.appendChild(txt);
+  const badge = document.createElement('span');
+  badge.className = 'panel-accordion__count' + (count > 0 ? '' : ' panel-accordion__count--empty');
+  badge.textContent = count;
+  summary.appendChild(badge);
+  return summary;
 }
 
 function renderDispositifBadge(node, dispId) {
@@ -906,23 +1512,24 @@ function unlinkObjective(meanId, nodeId) {
 function truncate(s, n) { s = String(s ?? ''); return s.length > n ? s.slice(0, n) + '…' : s; }
 
 function renderObjectivesSection(nodeId) {
-  const wrap = document.createElement('section');
-  wrap.className = 'objectives-section';
+  const linked = objectifsData ? meansForNode(nodeId) : [];
+  const wrap = document.createElement('details');
+  wrap.className = 'panel-accordion objectives-section';
+  wrap.appendChild(accordionSummary('Objectifs couverts', linked.length));
 
-  const h = document.createElement('h3');
-  h.className = 'fr-h6 fr-mt-4w';
-  h.textContent = 'Objectifs couverts par cette page';
-  wrap.appendChild(h);
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
 
   if (!objectifsData) {
     const p = document.createElement('p');
     p.className = 'panel-empty fr-text--xs';
     p.textContent = 'Pyramide stratégique non chargée — réessayez dans quelques instants.';
-    wrap.appendChild(p);
+    body.appendChild(p);
+    wrap.appendChild(body);
+    bindAccordion(wrap, 'objectives');
     return wrap;
   }
 
-  const linked = meansForNode(nodeId);
   const list = document.createElement('div');
   list.className = 'objective-link-list';
 
@@ -935,8 +1542,10 @@ function renderObjectivesSection(nodeId) {
   } else {
     for (const mean of linked) list.appendChild(renderMeanBadge(mean, nodeId));
   }
-  wrap.appendChild(list);
-  wrap.appendChild(renderAddObjectiveButton(nodeId));
+  body.appendChild(list);
+  body.appendChild(renderAddObjectiveButton(nodeId));
+  wrap.appendChild(body);
+  bindAccordion(wrap, 'objectives');
   return wrap;
 }
 
@@ -1198,6 +1807,11 @@ async function openHistoryDialog() {
         });
         actions.appendChild(revertBtn);
       }
+      const exportBtn = button('Exporter JSON', 'fr-btn--secondary fr-icon-download-line fr-btn--icon-left', () => {
+        const payload = JSON.stringify({ revision: r, tree: cur.tree }, null, 2);
+        showExport(`Révision #${r.id} — JSON`, payload, `revision-${r.id}.json`, 'application/json');
+      });
+      actions.appendChild(exportBtn);
       const close = button('Fermer', 'fr-btn--tertiary', () => dlg.dialog.close());
       actions.appendChild(close);
       right.appendChild(actions);
@@ -1217,6 +1831,7 @@ function countNodes(root) {
 
 async function reloadFromServer() {
   const { tree, revision } = await collab.fetchTree();
+  normalizeNode(tree);
   state.tree = tree;
   collab.currentRevisionId = revision.id;
   if (!find(state.selectedId)) state.selectedId = state.tree.id;
@@ -1238,9 +1853,10 @@ function buildMermaidSource() {
   const escape = (s) => String(s).replace(/"/g, '#quot;');
   function rec(node) {
     const sid = safeId(node.id);
-    const typeLabel = TYPES[node.type]?.label ?? node.type;
+    const t = primaryType(node);
+    const typeLabel = TYPES[t]?.label ?? t;
     const label = `${escape(node.label)}<br/><i>${escape(typeLabel)}</i>`;
-    lines.push(`  ${sid}["${label}"]:::t-${node.type}`);
+    lines.push(`  ${sid}["${label}"]:::t-${t}`);
     for (const c of node.children ?? []) {
       lines.push(`  ${sid} --> ${safeId(c.id)}`);
       rec(c);
@@ -1319,10 +1935,23 @@ function openDialog(title) {
   dialog.id = 'app-dialog';
   dialog.className = 'app-dialog';
 
+  const header = document.createElement('div');
+  header.className = 'app-dialog__header';
+
   const h = document.createElement('h2');
-  h.className = 'fr-h6';
+  h.className = 'fr-h6 app-dialog__title';
   h.textContent = title;
-  dialog.appendChild(h);
+  header.appendChild(h);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'app-dialog__close';
+  closeBtn.setAttribute('aria-label', 'Fermer');
+  closeBtn.innerHTML = '&times;';
+  closeBtn.addEventListener('click', () => dialog.close());
+  header.appendChild(closeBtn);
+
+  dialog.appendChild(header);
 
   const body = document.createElement('div');
   body.className = 'app-dialog__body';
@@ -1365,6 +1994,7 @@ function importJson(file) {
     try {
       const parsed = JSON.parse(reader.result);
       if (!parsed.id || !parsed.label) throw new Error('Format invalide');
+      normalizeNode(parsed);
       state.tree = parsed;
       state.selectedId = parsed.id;
       save('Import JSON');
@@ -1388,18 +2018,6 @@ document.querySelectorAll('[data-action]').forEach(btn => {
         state.tree.children.push(child);
         state.selectedId = child.id;
         save(); renderTree(); renderPanel();
-        break;
-      }
-      case 'expand-all':
-        state.collapsed.clear();
-        saveCollapsed(); renderTree();
-        break;
-      case 'collapse-all': {
-        state.collapsed.clear();
-        for (const { node } of walk(state.tree)) {
-          if ((node.children ?? []).length && node.id !== state.tree.id) state.collapsed.add(node.id);
-        }
-        saveCollapsed(); renderTree();
         break;
       }
       case 'export-json': exportJson(); break;
@@ -1432,8 +2050,8 @@ document.getElementById('search-input').addEventListener('input', (e) => {
   renderTree();
 });
 
-document.getElementById('priority-filter').addEventListener('change', (e) => {
-  state.priority = e.target.value;
+document.getElementById('deadline-filter').addEventListener('change', (e) => {
+  state.deadline = e.target.value;
   renderTree();
 });
 
@@ -1444,7 +2062,10 @@ async function init() {
   // Default tree (used by "Réinitialiser") fetched independently of history.
   try {
     const res = await fetch(DEFAULT_TREE_URL, { cache: 'no-cache' });
-    if (res.ok) defaultTree = await res.json();
+    if (res.ok) {
+      defaultTree = await res.json();
+      normalizeNode(defaultTree);
+    }
   } catch { /* non-fatal */ }
 
   // Pyramide stratégique (used by the "Objectifs couverts" field in the panel).
@@ -1453,14 +2074,20 @@ async function init() {
   // Dispositifs (used by the "Dispositifs rattachés" field in the panel).
   loadDispositifs().then(() => { if (state.tree) renderPanel(); });
 
+  // Mesures du plan (used by the "Mesures du plan" field in the panel).
+  loadMesures().then(() => { if (state.tree) renderPanel(); });
+
   await ensureIdentified();
   renderIdentity();
 
   try {
     const { tree, revision } = await collab.fetchTree();
+    normalizeNode(tree);
     state.tree = tree;
     collab.currentRevisionId = revision.id;
-    state.selectedId = tree.id;
+    // Honour ?node=<id> handoff from the roadmap, falling back to root.
+    const requested = new URL(window.location.href).searchParams.get('node');
+    state.selectedId = (requested && find(requested, tree)) ? requested : tree.id;
     state.saveStatus = 'saved';
   } catch (e) {
     treeEl.innerHTML = `<p class="panel-empty">Impossible de charger l'arborescence depuis le serveur : ${e.message}.</p>`;

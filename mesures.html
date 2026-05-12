@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Roadmap fonctionnelle — Hub d'info plan d'électrification</title>
-  <meta name="description" content="Roadmap fonctionnelle du hub : user stories cadrées par échéance et par moment-clé du parcours utilisateur.">
+  <title>Mesures du plan — Hub d'info plan d'électrification</title>
+  <meta name="description" content="Les 22 mesures du plan d'électrification, par axe, public et échéance.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
   <link rel="stylesheet" href="assets/style.css">
 </head>
-<body data-page="roadmap">
+<body data-page="mesures">
   <header role="banner" class="fr-header" data-app-header></header>
 
   <main role="main" id="main">
@@ -19,8 +19,8 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Roadmap fonctionnelle</h1>
-          <p class="fr-text--lg fr-mb-2w">Vue d'ensemble dérivée de l'arborescence : un nœud apparaît dans la colonne correspondant à son échéance, et chacune de ses améliorations dans la colonne de sa propre échéance.</p>
+          <h1 class="fr-h3 fr-mb-1w">Mesures du plan d'électrification</h1>
+          <p class="fr-text--lg fr-mb-0">Les 22 mesures du plan, classées par axe et échéance. Cliquez sur une mesure pour voir les nœuds du hub qui la portent.</p>
         </div>
       </div>
 
@@ -29,27 +29,35 @@
         <div class="fr-grid-row fr-grid-row--gutters fr-grid-row--bottom">
           <div class="fr-col-12 fr-col-md-6">
             <div class="fr-input-group">
-              <label class="fr-label" for="search-input">Rechercher un nœud ou une amélioration</label>
-              <input class="fr-input" type="search" id="search-input" placeholder="ex. leasing, carte, simulateur…">
+              <label class="fr-label" for="search-input">Rechercher</label>
+              <input class="fr-input" type="search" id="search-input" placeholder="ex. leasing, PAC, bornes…">
             </div>
           </div>
-          <div class="fr-col-12 fr-col-md-6">
-            <fieldset class="fr-fieldset roadmap-mode" aria-label="Mode de regroupement par ligne">
-              <legend class="fr-fieldset__legend fr-text--xs">Lignes</legend>
-              <div class="roadmap-mode__buttons">
-                <button type="button" class="roadmap-mode__btn roadmap-mode__btn--on" data-mode="types">Types de page</button>
-                <button type="button" class="roadmap-mode__btn" data-mode="audiences">Publics cibles</button>
-              </div>
-            </fieldset>
+          <div class="fr-col-12 fr-col-md-3">
+            <div class="fr-select-group">
+              <label class="fr-label" for="axe-filter">Axe</label>
+              <select class="fr-select" id="axe-filter">
+                <option value="all">Tous les axes</option>
+              </select>
+            </div>
+          </div>
+          <div class="fr-col-12 fr-col-md-3">
+            <div class="fr-select-group">
+              <label class="fr-label" for="audience-filter">Public</label>
+              <select class="fr-select" id="audience-filter">
+                <option value="all">Tous les publics</option>
+              </select>
+            </div>
           </div>
         </div>
-        <div id="roadmap-stats" class="roadmap-stats"></div>
-        <div id="save-status" class="save-status" aria-live="polite"></div>
+        <div id="mesures-stats" class="roadmap-stats"></div>
       </section>
 
-      <div id="roadmap-board" class="roadmap-board" role="region" aria-label="Tableau roadmap">
-        <p class="panel-empty">Chargement de la roadmap…</p>
+      <div id="mesures-board" class="mesures-board" role="region" aria-label="Mesures par échéance">
+        <p class="panel-empty">Chargement des mesures…</p>
       </div>
+
+      <div id="mesure-detail" class="mesure-detail" hidden></div>
 
     </div>
   </main>
@@ -59,6 +67,6 @@
   <script src="assets/layout.js" type="module"></script>
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
-  <script src="assets/roadmap.js" type="module"></script>
+  <script src="assets/mesures.js" type="module"></script>
 </body>
 </html>
