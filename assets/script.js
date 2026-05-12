@@ -226,10 +226,14 @@ function renderTree() {
 }
 
 function renderNodeRow(node, parents) {
+  const depth = parents.length;
   const row = document.createElement('div');
   row.className = 'flat-row';
   row.dataset.id = node.id;
+  row.dataset.depth = String(depth);
+  row.style.setProperty('--depth', String(depth));
   row.setAttribute('role', 'treeitem');
+  row.setAttribute('aria-level', String(depth + 1));
   if (node.id === state.selectedId) row.classList.add('selected');
 
   // Drag handle: drag any row except root.
@@ -283,28 +287,28 @@ function renderNodeRow(node, parents) {
   }
   row.appendChild(aud);
 
-  // Column 2: label + tldr
+  // Column 2: indent + label (no TL;DR — kept only in the detail panel)
   const text = document.createElement('div');
   text.className = 'flat-row__text';
-  const lbl = document.createElement('div');
+
+  // Indent guides: one vertical line per ancestor level
+  if (depth > 0) {
+    const guides = document.createElement('span');
+    guides.className = 'flat-row__guides';
+    for (let i = 0; i < depth; i++) {
+      const g = document.createElement('span');
+      g.className = 'flat-row__guide';
+      // The last guide shows a tee/elbow connector
+      if (i === depth - 1) g.classList.add('flat-row__guide--connector');
+      guides.appendChild(g);
+    }
+    text.appendChild(guides);
+  }
+
+  const lbl = document.createElement('span');
   lbl.className = 'flat-row__label';
-  if (parents.length > 0) {
-    const bc = document.createElement('span');
-    bc.className = 'flat-row__breadcrumb';
-    bc.textContent = parents.map(p => p.label).join(' › ') + ' › ';
-    lbl.appendChild(bc);
-  }
-  const lblText = document.createElement('span');
-  lblText.className = 'flat-row__label-text';
-  lblText.textContent = node.label;
-  lbl.appendChild(lblText);
+  lbl.textContent = node.label;
   text.appendChild(lbl);
-  if (node.tldr) {
-    const tldr = document.createElement('div');
-    tldr.className = 'flat-row__tldr';
-    tldr.textContent = node.tldr;
-    text.appendChild(tldr);
-  }
   row.appendChild(text);
 
   // Column 3: tags (priority, type, auth, mesure_plan, comments)
