@@ -189,7 +189,9 @@ export function formatDate(iso) {
 
 // ---- Tree diff ----
 
-const NODE_ATTRS = ['label', 'type', 'tldr', 'format', 'url', 'priority', 'complexity', 'auth', 'deadline', 'objectif'];
+// Scalar attrs compared as-is (after canonicalisation).
+const NODE_ATTRS = ['label', 'tldr', 'format', 'url', 'priority', 'complexity', 'auth', 'deadline', 'objectif'];
+// Set-valued fields. Legacy singular fallbacks live in `canonicalSet`.
 const SET_FIELDS = ['types', 'audiences', 'mesures', 'dispositifs'];
 // item-array fields keyed by `id`; values are the per-item scalar attrs we compare.
 const LIST_FIELDS = {
@@ -197,11 +199,22 @@ const LIST_FIELDS = {
   improvements: ['title', 'description', 'deadline'],
 };
 
+// Resolve a set-valued field with the same fallbacks as normalizeNode in script.js,
+// so revisions saved before normalisation (legacy `type`/`audience`/`mesure_plan`)
+// don't all light up as "types added" once the field is canonicalised.
+function canonicalSet(node, field) {
+  if (Array.isArray(node[field])) return [...node[field]];
+  if (field === 'types' && node.type) return [node.type];
+  if (field === 'audiences' && node.audience) return [node.audience];
+  if (field === 'mesures' && node.mesure_plan) return [node.mesure_plan];
+  return [];
+}
+
 function flattenTree(root) {
   const map = new Map();
   function rec(node, parentId, index) {
     const childIds = (node.children ?? []).map(c => c.id);
-    const sets = Object.fromEntries(SET_FIELDS.map(k => [k, Array.isArray(node[k]) ? [...node[k]] : []]));
+    const sets = Object.fromEntries(SET_FIELDS.map(k => [k, canonicalSet(node, k)]));
     const lists = Object.fromEntries(
       Object.keys(LIST_FIELDS).map(k => [k, Array.isArray(node[k]) ? node[k].map(it => ({ ...it })) : []])
     );

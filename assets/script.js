@@ -1734,6 +1734,7 @@ async function openHistoryDialog() {
   }
 
   left.innerHTML = '';
+  const itemsById = new Map();
   for (const r of revisions) {
     const item = document.createElement('button');
     item.type = 'button';
@@ -1748,10 +1749,18 @@ async function openHistoryDialog() {
       <div class="history-item__date">${escapeHtml(formatDate(r.created_at))}${r.reverts_id ? ` · revert de #${r.reverts_id}` : ''}</div>
     `;
     item.addEventListener('click', () => showRevisionDetail(r));
+    itemsById.set(r.id, item);
     left.appendChild(item);
   }
 
+  function highlightSelection(id) {
+    for (const [rid, el] of itemsById) {
+      el.classList.toggle('history-item--selected', rid === id);
+    }
+  }
+
   async function showRevisionDetail(r) {
+    highlightSelection(r.id);
     right.innerHTML = '<p class="panel-empty">Chargement du diff…</p>';
     try {
       const cur = await collab.fetchRevision(r.id);

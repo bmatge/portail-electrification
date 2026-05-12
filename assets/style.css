@@ -1206,6 +1206,12 @@ dialog.app-dialog::backdrop {
   border-color: #6a6af4;
 }
 
+.history-item--selected {
+  background: var(--selected-bg);
+  border-color: var(--selected-border);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+}
+
 .history-item__head {
   display: flex;
   justify-content: space-between;
