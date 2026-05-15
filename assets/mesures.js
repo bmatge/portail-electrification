@@ -2,29 +2,9 @@
 // Source : mesures.json (statique). Reverse lookup vers tree.json pour les nœuds porteurs.
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
+import { AUDIENCES, DEADLINES, DEADLINE_ORDER as COLUMNS } from './vocab.js';
 
 // Données chargées via collab.fetchData('mesures') et collab.fetchTree() — scoped projet.
-
-const AUDIENCES = {
-  particuliers:   'Particuliers',
-  coproprietes:   'Copropriétés',
-  collectivites:  'Collectivités',
-  pros:           'Pros',
-  industriels:    'Industriels',
-  agriculteurs:   'Agriculteurs',
-  partenaires:    'Partenaires',
-  agents:         'Agents publics',
-  outremer:       'Outre-mer',
-};
-
-const DEADLINES = {
-  juin:       'Juin 2026',
-  septembre:  'Septembre 2026',
-  decembre:   'Décembre 2026',
-  y2027:      '2027+',
-};
-
-const COLUMNS = ['juin', 'septembre', 'decembre', 'y2027'];
 
 const state = {
   data: null,

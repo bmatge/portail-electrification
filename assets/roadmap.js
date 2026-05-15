@@ -2,41 +2,9 @@
 // Pas de persistance dédiée : la source de vérité est l'arborescence.
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
+import { TYPES, AUDIENCES, DEADLINES as COLUMN_LABELS, DEADLINE_ORDER as COLUMNS } from './vocab.js';
 
 // Tree chargé via collab.fetchTree() — scoped projet.
-
-const TYPES = {
-  hub:         { label: 'Hub' },
-  editorial:   { label: 'Éditorial' },
-  service:     { label: 'Service' },
-  simulator:   { label: 'Simulateur' },
-  map:         { label: 'Carte' },
-  external:    { label: 'Renvoi externe' },
-  marketplace: { label: 'Marketplace' },
-  kit:         { label: 'Kit' },
-  form:        { label: 'Formulaire' },
-  private:     { label: 'Espace privé' },
-};
-
-const AUDIENCES = {
-  particuliers:   'Particuliers',
-  coproprietes:   'Copropriétés',
-  collectivites:  'Collectivités',
-  pros:           'Pros',
-  industriels:    'Industriels',
-  agriculteurs:   'Agriculteurs',
-  partenaires:    'Partenaires',
-  agents:         'Agents publics',
-  outremer:       'Outre-mer',
-};
-
-const COLUMNS = ['juin', 'septembre', 'decembre', 'y2027'];
-const COLUMN_LABELS = {
-  juin:       'Juin 2026',
-  septembre:  'Septembre 2026',
-  decembre:   'Décembre 2026',
-  y2027:      '2027+',
-};
 
 const state = {
   tree: null,

@@ -1,43 +1,10 @@
 // Tree editor for the hub d'info arborescence. Persisted server-side via /api.
 
 import { collab, ensureIdentified, escapeHtml, formatDate, renderDiff } from './collab.js';
+import { TYPES, AUDIENCES, DEADLINES, DEADLINE_ORDER } from './vocab.js';
 
 const COLLAPSED_KEY = 'latelier.collapsed.v1';
 const COLLAPSED_KEY_LEGACY = 'portail-electrification.collapsed.v1';
-
-const TYPES = {
-  hub:         { label: 'Hub' },
-  editorial:   { label: 'Éditorial' },
-  service:     { label: 'Service' },
-  simulator:   { label: 'Simulateur' },
-  map:         { label: 'Carte' },
-  external:    { label: 'Renvoi externe' },
-  marketplace: { label: 'Marketplace' },
-  kit:         { label: 'Kit' },
-  form:        { label: 'Formulaire' },
-  private:     { label: 'Espace privé' },
-};
-
-const DEADLINES = {
-  juin:       'Juin 2026',
-  septembre:  'Septembre 2026',
-  decembre:   'Décembre 2026',
-  y2027:      '2027+',
-};
-
-const DEADLINE_ORDER = ['juin', 'septembre', 'decembre', 'y2027'];
-
-const AUDIENCES = {
-  particuliers:   'Particuliers',
-  coproprietes:   'Copropriétés',
-  collectivites:  'Collectivités',
-  pros:           'Pros',
-  industriels:    'Industriels',
-  agriculteurs:   'Agriculteurs',
-  partenaires:    'Partenaires',
-  agents:         'Agents publics',
-  outremer:       'Outre-mer',
-};
 
 const DEFAULT_TREE_URL = 'assets/data/tree.json';
 
