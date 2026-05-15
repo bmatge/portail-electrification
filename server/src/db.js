@@ -38,6 +38,67 @@ function readJsonOrNull(path) {
   try { return JSON.parse(readFileSync(path, 'utf-8')); } catch { return null; }
 }
 
+// Vocabulaires (audiences, échéances, types de page) éditables par projet.
+// Stockés dans la clé `vocab` de project_data. Le frontend lit ce JSON au boot
+// et le matérialise dans assets/vocab.js (live ESM bindings). Si la clé est
+// absente, le frontend retombe sur LEGACY_VOCAB (= ce qui était hardcodé).
+//
+// LEGACY_VOCAB = ce qui était hardcodé dans le code historique (plan
+// d'électrification : 9 publics, 4 échéances 2026-2027, 10 types de nœud).
+// Sert à initialiser **rétroactivement** le projet 1 et tout projet existant
+// qui n'aurait pas encore de clé vocab — pour ne casser aucune référence.
+export const LEGACY_VOCAB = {
+  audiences: [
+    { key: 'particuliers',   label: 'Particuliers'  },
+    { key: 'coproprietes',   label: 'Copropriétés'  },
+    { key: 'collectivites',  label: 'Collectivités' },
+    { key: 'pros',           label: 'Pros'          },
+    { key: 'industriels',    label: 'Industriels'   },
+    { key: 'agriculteurs',   label: 'Agriculteurs'  },
+    { key: 'partenaires',    label: 'Partenaires'   },
+    { key: 'agents',         label: 'Agents publics'},
+    { key: 'outremer',       label: 'Outre-mer'     },
+  ],
+  deadlines: [
+    { key: 'juin',      label: 'Juin 2026'      },
+    { key: 'septembre', label: 'Septembre 2026' },
+    { key: 'decembre',  label: 'Décembre 2026'  },
+    { key: 'y2027',     label: '2027+'          },
+  ],
+  page_types: [
+    { key: 'hub',         label: 'Hub'           },
+    { key: 'editorial',   label: 'Éditorial'     },
+    { key: 'service',     label: 'Service'       },
+    { key: 'simulator',   label: 'Simulateur'    },
+    { key: 'map',         label: 'Carte'         },
+    { key: 'external',    label: 'Renvoi externe'},
+    { key: 'marketplace', label: 'Marketplace'   },
+    { key: 'kit',         label: 'Kit'           },
+    { key: 'form',        label: 'Formulaire'    },
+    { key: 'private',     label: 'Espace privé'  },
+  ],
+};
+
+// Seed minimal neutre pour un nouveau projet : un public générique, 3 horizons
+// temporels génériques, 3 types qui matchent l'heuristique seedMaquette
+// (hub/editorial/service). L'utilisateur enrichit depuis la page « Modèle de
+// données ».
+export const DEFAULT_VOCAB = {
+  audiences: [
+    { key: 'tous-publics', label: 'Tous publics' },
+  ],
+  deadlines: [
+    { key: 'court-terme',  label: 'Court terme'  },
+    { key: 'moyen-terme',  label: 'Moyen terme'  },
+    { key: 'long-terme',   label: 'Long terme'   },
+  ],
+  page_types: [
+    { key: 'hub',         label: 'Hub'        },
+    { key: 'editorial',   label: 'Éditorial'  },
+    { key: 'service',     label: 'Service'    },
+  ],
+};
+
 // Modèle de données par défaut (cible Drupal/DSFR sous le capot).
 // Le schéma de chaque composant reste hardcodé côté front (assets/maquette.js) ;
 // ce seed n'expose que ce qui est éditable : la liste des codes activés,
@@ -115,6 +176,11 @@ function seedDefaultProjectContent(projectId, sysUserId) {
   }
   // Structure Drupal par défaut (rétro-actif pour le projet historique)
   insertData.run(projectId, 'drupal_structure', JSON.stringify(DEFAULT_DRUPAL_STRUCTURE), sysUserId);
+  // Vocabulaires : pour le projet historique on injecte LEGACY_VOCAB pour
+  // préserver les références existantes (audiences/deadlines/types
+  // hardcodées dans le code historique). INSERT OR IGNORE protège la valeur
+  // si la clé existe déjà.
+  insertData.run(projectId, 'vocab', JSON.stringify(LEGACY_VOCAB), sysUserId);
 }
 
 const sysId = getOrCreateSystemUser();
@@ -157,13 +223,14 @@ export function createProject({ slug, name, description = '' }) {
     INSERT INTO roadmap_revisions (project_id, parent_id, data_json, author_id, message)
     VALUES (?, NULL, ?, ?, ?)
   `).run(projectId, JSON.stringify({ meta: {}, items: [] }), sysUserId, 'Création du projet');
-  // Catalogues vides + Structure Drupal par défaut
+  // Catalogues vides + Structure Drupal par défaut + vocabulaires neutres
   const insertData = db.prepare('INSERT OR IGNORE INTO project_data (project_id, key, json_value, updated_by) VALUES (?, ?, ?, ?)');
   for (const [key, value] of [
     ['dispositifs',      { dispositifs: [] }],
     ['mesures',          { mesures: [] }],
-    ['objectifs',        { axes: [], objectifs: [], moyens: [] }],
+    ['objectifs',        { axes: [], objectives: [], means: [] }],
     ['drupal_structure', DEFAULT_DRUPAL_STRUCTURE],
+    ['vocab',            DEFAULT_VOCAB],
   ]) {
     insertData.run(projectId, key, JSON.stringify(value), sysUserId);
   }
@@ -217,7 +284,7 @@ export function deleteProject(projectId) {
 
 // ---- Export / Import bundle ---------------------------------------------
 
-const EXPORT_KEYS = ['dispositifs', 'mesures', 'objectifs', 'drupal_structure'];
+const EXPORT_KEYS = ['dispositifs', 'mesures', 'objectifs', 'drupal_structure', 'vocab'];
 
 // Construit un bundle JSON autosuffisant pour un projet : métadonnées + état
 // courant (tree head, roadmap head, project_data). N'inclut pas l'historique
@@ -303,8 +370,9 @@ export function importProjectFromBundle(bundle, sysUserId, { slugOverride } = {}
     const fallbacks = {
       dispositifs:      { dispositifs: [] },
       mesures:          { mesures: [] },
-      objectifs:        { axes: [], objectifs: [], moyens: [] },
+      objectifs:        { axes: [], objectives: [], means: [] },
       drupal_structure: DEFAULT_DRUPAL_STRUCTURE,
+      vocab:            DEFAULT_VOCAB,
     };
     for (const key of EXPORT_KEYS) {
       const value = (key in dataBundle && dataBundle[key] !== null && typeof dataBundle[key] === 'object')

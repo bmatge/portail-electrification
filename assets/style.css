@@ -3397,11 +3397,13 @@ dialog.app-dialog::backdrop {
   min-width: 12rem;
 }
 
-/* ---- Page Structure Drupal ---- */
+/* ---- Page Modèle de données ---- */
 
+/* sd-panel sits on top of .panel-accordion (which provides border, summary
+ * chevron, body padding). Only the inter-section spacing is added here. */
 .sd-panel {
-  margin-bottom: 1.5rem;
-  padding: 1.25rem 1.5rem;
+  margin-bottom: 0.5rem;
+  background: #fff;
 }
 
 .sd-panel__hint {
@@ -3470,12 +3472,19 @@ dialog.app-dialog::backdrop {
   height: 1.1rem;
 }
 
-.sd-paragraph-code {
+.sd-paragraph-code,
+.sd-vocab__key {
   font-size: 0.8125rem;
   color: #555;
   background: #f0f0f0;
   padding: 0.1rem 0.35rem;
   border-radius: 0.2rem;
+}
+
+.sd-vocab__key {
+  flex: 0 0 auto;
+  min-width: 6rem;
+  font-family: monospace;
 }
 
 .sd-paragraph-label {

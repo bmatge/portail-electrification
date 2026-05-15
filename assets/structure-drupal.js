@@ -8,14 +8,31 @@ import {
   DEFAULT_DRUPAL_TYPES,
   defaultDrupalStructure,
 } from './drupal-vocab.js';
+import {
+  LEGACY_VOCAB,
+  DEFAULT_VOCAB,
+  applyVocab,
+  saveVocab,
+  slugify,
+  uniqueKey,
+} from './vocab.js';
 
 // ---- État ----
 
+// Identifiants stables des accordéons (ordre = ordre d'affichage). Sert au
+// bouton « Tout déplier / Tout replier » dans la barre d'outils.
+const ALL_SECTIONS = ['audiences', 'deadlines', 'page_types', 'content_types', 'paragraphs', 'taxonomies'];
+
 const state = {
   config: null, // { content_types, paragraphs, paragraph_labels, taxonomies }
+  vocab:  null, // { audiences, deadlines, page_types }
+  // Sections actuellement ouvertes ; persisté entre re-renders pour ne pas
+  // refermer un accordéon que l'utilisateur vient d'ouvrir. Vide par défaut.
+  openSections: new Set(),
 };
 
 let saveTimer = null;
+let vocabSaveTimer = null;
 
 function scheduleSave() {
   setStatus('saving');
@@ -32,6 +49,34 @@ async function flushSave() {
       await ensureIdentified();
       try {
         await collab.saveData('drupal_structure', state.config);
+        setStatus('saved');
+      } catch (e2) {
+        setStatus('error', e2.message);
+      }
+    } else {
+      setStatus('error', e.message);
+    }
+  }
+}
+
+// Le vocab a sa propre debounce et utilise saveVocab() qui met aussi à jour
+// les bindings ESM en mémoire (pour que les autres pages voient la nouvelle
+// valeur sans reload, le cas échéant).
+function scheduleVocabSave() {
+  setStatus('saving');
+  if (vocabSaveTimer) clearTimeout(vocabSaveTimer);
+  vocabSaveTimer = setTimeout(flushVocabSave, 500);
+}
+
+async function flushVocabSave() {
+  try {
+    await saveVocab(state.vocab);
+    setStatus('saved');
+  } catch (e) {
+    if (e.status === 401) {
+      await ensureIdentified();
+      try {
+        await saveVocab(state.vocab);
         setStatus('saved');
       } catch (e2) {
         setStatus('error', e2.message);
@@ -82,15 +127,127 @@ function render() {
   if (!root) return;
   root.innerHTML = '';
 
+  // Vocabulaires de projet : lus aussi par l'arborescence, la roadmap, la
+  // page Politiques publiques. Affichés en premier car structurants.
+  root.appendChild(renderVocabSection({
+    id: 'audiences',
+    title: 'Publics cibles',
+    hint: 'Audiences ciblées par le projet. Cochées sur chaque nœud de l\'arborescence et héritées dans les enfants.',
+    items: state.vocab.audiences,
+    placeholder: 'Nouveau public…',
+    duplicateMsg: 'Ce public existe déjà.',
+    onChange: () => scheduleVocabSave(),
+    onMutate: (next) => { state.vocab.audiences = next; },
+  }));
+  root.appendChild(renderVocabSection({
+    id: 'deadlines',
+    title: 'Échéances',
+    hint: 'Horizons temporels du projet, utilisés par la roadmap (colonnes) et par chaque nœud (deadline).',
+    items: state.vocab.deadlines,
+    placeholder: 'Nouvelle échéance…',
+    duplicateMsg: 'Cette échéance existe déjà.',
+    onChange: () => scheduleVocabSave(),
+    onMutate: (next) => { state.vocab.deadlines = next; },
+  }));
+  root.appendChild(renderVocabSection({
+    id: 'page_types',
+    title: 'Types de nœud',
+    hint: 'Catégorisation fonctionnelle des nœuds (hub, éditorial, simulateur…). Différent du « type de page » CMS, qui est ci-dessous.',
+    items: state.vocab.page_types,
+    placeholder: 'Nouveau type…',
+    duplicateMsg: 'Ce type existe déjà.',
+    onChange: () => scheduleVocabSave(),
+    onMutate: (next) => { state.vocab.page_types = next; },
+  }));
+
+  // Modèle CMS (ex-« Structure Drupal »)
   root.appendChild(renderContentTypes());
   root.appendChild(renderParagraphs());
   root.appendChild(renderTaxonomies());
 }
 
+// Liste générique de { key, label } éditables. La key est auto-générée du
+// label à la création (slugify + uniqueKey) puis figée — l'utilisateur ne
+// peut éditer que le label, ce qui garantit qu'aucune référence existante
+// (par exemple `node.audiences` qui pointe vers `particuliers`) ne casse.
+function renderVocabSection({ id, title, hint, items, placeholder, duplicateMsg, onChange, onMutate }) {
+  const card = panel(id, title, hint, items.length);
+  const list = document.createElement('div');
+  list.className = 'sd-list';
+
+  items.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'sd-row';
+
+    const keyTag = document.createElement('code');
+    keyTag.className = 'sd-vocab__key';
+    keyTag.textContent = item.key;
+    keyTag.title = `Clé technique : ${item.key} (figée)`;
+    row.appendChild(keyTag);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'fr-input fr-input--sm';
+    input.value = item.label;
+    input.setAttribute('aria-label', `Libellé pour ${item.key}`);
+    input.addEventListener('input', () => {
+      item.label = input.value;
+      onChange();
+    });
+    row.appendChild(input);
+
+    const rm = iconBtn('×', `Supprimer ${item.label}`, () => {
+      if (!confirm(`Supprimer « ${item.label} » ? Les nœuds qui référencent la clé "${item.key}" garderont la référence mais elle ne sera plus traduite par l'application.`)) return;
+      const next = items.filter((_, i) => i !== idx);
+      onMutate(next);
+      onChange();
+      render();
+    });
+    row.appendChild(rm);
+
+    list.appendChild(row);
+  });
+  card.appendChild(list);
+
+  // Zone d'ajout : on saisit le label, la key est dérivée par slugify.
+  const addBox = document.createElement('div');
+  addBox.className = 'sd-add';
+  const addInput = document.createElement('input');
+  addInput.type = 'text';
+  addInput.className = 'fr-input fr-input--sm';
+  addInput.placeholder = placeholder;
+  addInput.setAttribute('aria-label', `Ajouter une entrée : ${title}`);
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left';
+  addBtn.textContent = 'Ajouter';
+  const doAdd = () => {
+    const label = addInput.value.trim();
+    if (!label) return;
+    if (items.some(it => it.label.toLowerCase() === label.toLowerCase())) {
+      setStatus('error', duplicateMsg);
+      return;
+    }
+    const taken = new Set(items.map(it => it.key));
+    const key = uniqueKey(label, taken);
+    const next = [...items, { key, label }];
+    onMutate(next);
+    addInput.value = '';
+    onChange();
+    render();
+  };
+  addBtn.addEventListener('click', doAdd);
+  addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } });
+  addBox.append(addInput, addBtn);
+  card.appendChild(addBox);
+
+  return card.parentElement; // returns the <details>
+}
+
 // --- Types de contenu ---
 
 function renderContentTypes() {
-  const card = panel('Types de page', 'Les types proposés sur chaque page. Le seed automatique de la maquette mappe les nœuds de l\'arborescence vers ces types.');
+  const card = panel('content_types', 'Types de page', 'Les types proposés sur chaque page. Le seed automatique de la maquette mappe les nœuds de l\'arborescence vers ces types.', state.config.content_types.length);
   const list = document.createElement('div');
   list.className = 'sd-list';
 
@@ -149,13 +306,13 @@ function renderContentTypes() {
   addBox.append(addInput, addBtn);
   card.appendChild(addBox);
 
-  return card;
+  return card.parentElement;
 }
 
 // --- Composants ---
 
 function renderParagraphs() {
-  const card = panel('Composants activés', 'Cochez les composants mobilisables sur les pages. Le libellé affiché peut être personnalisé ; le schéma des champs reste hardcodé côté front.');
+  const card = panel('paragraphs', 'Composants activés', 'Cochez les composants mobilisables sur les pages. Le libellé affiché peut être personnalisé ; le schéma des champs reste hardcodé côté front.', state.config.paragraphs.length);
 
   const enabled = new Set(state.config.paragraphs);
   const list = document.createElement('div');
@@ -204,13 +361,13 @@ function renderParagraphs() {
   }
 
   card.appendChild(list);
-  return card;
+  return card.parentElement;
 }
 
 // --- Taxonomies ---
 
 function renderTaxonomies() {
-  const card = panel('Taxonomies', 'Les vocabulaires utilisés pour qualifier chaque page (type éditorial, public, etc.). La clé est l\'identifiant interne — éviter de la modifier si du contenu existe déjà.');
+  const card = panel('taxonomies', 'Taxonomies', 'Les vocabulaires utilisés pour qualifier chaque page (type éditorial, public, etc.). La clé est l\'identifiant interne — éviter de la modifier si du contenu existe déjà.', state.config.taxonomies.length);
 
   const wrap = document.createElement('div');
   wrap.className = 'sd-taxo-list';
@@ -242,7 +399,7 @@ function renderTaxonomies() {
   });
   card.appendChild(addBtn);
 
-  return card;
+  return card.parentElement;
 }
 
 function renderOneTaxonomy(taxo, idx) {
@@ -354,20 +511,44 @@ function renderOneTaxonomy(taxo, idx) {
 
 // ---- Helpers UI ----
 
-function panel(title, hint) {
-  const card = document.createElement('section');
-  card.className = 'panel-card sd-panel';
-  const h = document.createElement('h2');
-  h.className = 'fr-h6 fr-mb-1w';
-  h.textContent = title;
-  card.appendChild(h);
+// Returns the `<div class="panel-accordion__body">` so callers keep their
+// existing `card.appendChild(...)` flow. The owning `<details>` is reachable
+// via `body.parentElement` and is what should be appended to the page root.
+function panel(id, title, hint, count) {
+  const details = document.createElement('details');
+  details.className = 'panel-accordion sd-panel';
+  details.dataset.sectionId = id;
+  details.open = state.openSections.has(id);
+  details.addEventListener('toggle', () => {
+    if (details.open) state.openSections.add(id);
+    else state.openSections.delete(id);
+    updateToggleAllButton();
+  });
+
+  const summary = document.createElement('summary');
+  summary.className = 'panel-accordion__summary';
+  const txt = document.createElement('span');
+  txt.className = 'panel-accordion__title';
+  txt.textContent = title;
+  summary.appendChild(txt);
+  if (typeof count === 'number') {
+    const badge = document.createElement('span');
+    badge.className = 'panel-accordion__count' + (count > 0 ? '' : ' panel-accordion__count--empty');
+    badge.textContent = count;
+    summary.appendChild(badge);
+  }
+  details.appendChild(summary);
+
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
   if (hint) {
     const p = document.createElement('p');
     p.className = 'fr-text--sm fr-mb-2w sd-panel__hint';
     p.textContent = hint;
-    card.appendChild(p);
+    body.appendChild(p);
   }
-  return card;
+  details.appendChild(body);
+  return body;
 }
 
 function iconBtn(label, title, onClick) {
@@ -381,13 +562,29 @@ function iconBtn(label, title, onClick) {
   return b;
 }
 
+// Met à jour le label du bouton « Tout déplier / Tout replier » selon l'état
+// courant : si au moins une section est ouverte, le clic suivant tout fermera.
+function updateToggleAllButton() {
+  const btn = document.getElementById('structure-toggle-all');
+  if (!btn) return;
+  const anyOpen = state.openSections.size > 0;
+  btn.textContent = anyOpen ? 'Tout replier' : 'Tout déplier';
+}
+
 // ---- Boot ----
 
 (async function boot() {
   const root = document.getElementById('structure-root');
   try {
-    const { data } = await collab.fetchData('drupal_structure');
-    state.config = normalize(data);
+    const [structureRes, vocabRes] = await Promise.all([
+      collab.fetchData('drupal_structure'),
+      collab.fetchData('vocab').catch(() => ({ data: null })), // tolère l'absence de la clé
+    ]);
+    state.config = normalize(structureRes.data);
+    state.vocab  = normalizeVocab(vocabRes.data);
+    // Propage côté assets/vocab.js pour que les autres pages voient l'état
+    // courant si l'utilisateur navigue sans recharger.
+    applyVocab(state.vocab);
   } catch (e) {
     root.innerHTML = `<p class="panel-empty">Impossible de charger la configuration : ${escapeHtml(e.message)}</p>`;
     return;
@@ -397,12 +594,41 @@ function iconBtn(label, title, onClick) {
   const resetBtn = document.getElementById('structure-reset');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      if (!confirm('Réinitialiser le modèle de données aux valeurs par défaut ? Les personnalisations actuelles seront perdues.')) return;
+      if (!confirm('Réinitialiser le modèle de données et les vocabulaires aux valeurs par défaut ? Les personnalisations actuelles seront perdues.')) return;
       state.config = defaultDrupalStructure();
+      state.vocab  = JSON.parse(JSON.stringify(DEFAULT_VOCAB));
       scheduleSave();
+      scheduleVocabSave();
       render();
     });
   }
 
+  const toggleAllBtn = document.getElementById('structure-toggle-all');
+  if (toggleAllBtn) {
+    toggleAllBtn.addEventListener('click', () => {
+      if (state.openSections.size > 0) state.openSections.clear();
+      else state.openSections = new Set(ALL_SECTIONS);
+      render();
+      updateToggleAllButton();
+    });
+  }
+
   render();
+  updateToggleAllButton();
 })();
+
+// Garantit que vocab.audiences/deadlines/page_types sont toujours des
+// tableaux d'objets { key, label }. Si la clé est absente du JSON, on
+// retombe sur LEGACY_VOCAB pour ne pas vider les vocabs en cas de
+// désynchronisation.
+function normalizeVocab(data) {
+  const safe = (data && typeof data === 'object') ? data : {};
+  const norm = (list, fallback) => Array.isArray(list)
+    ? list.filter(it => it && it.key).map(it => ({ key: String(it.key), label: String(it.label || it.key) }))
+    : fallback.map(it => ({ ...it }));
+  return {
+    audiences:  norm(safe.audiences,  LEGACY_VOCAB.audiences),
+    deadlines:  norm(safe.deadlines,  LEGACY_VOCAB.deadlines),
+    page_types: norm(safe.page_types, LEGACY_VOCAB.page_types),
+  };
+}

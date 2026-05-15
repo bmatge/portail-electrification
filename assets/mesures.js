@@ -2,7 +2,7 @@
 // Source : mesures.json (statique). Reverse lookup vers tree.json pour les nœuds porteurs.
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
-import { AUDIENCES, DEADLINES, DEADLINE_ORDER as COLUMNS } from './vocab.js';
+import { AUDIENCES, DEADLINES, DEADLINE_ORDER as COLUMNS, loadVocab } from './vocab.js';
 
 // Données chargées via collab.fetchData('mesures') et collab.fetchTree() — scoped projet.
 
@@ -278,6 +278,7 @@ function renderIdentity() {
 // ---- Boot ----
 
 async function init() {
+  await loadVocab();
   await ensureIdentified();
   renderIdentity();
 

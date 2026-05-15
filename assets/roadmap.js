@@ -2,7 +2,7 @@
 // Pas de persistance dédiée : la source de vérité est l'arborescence.
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
-import { TYPES, AUDIENCES, DEADLINES as COLUMN_LABELS, DEADLINE_ORDER as COLUMNS } from './vocab.js';
+import { TYPES, AUDIENCES, DEADLINES as COLUMN_LABELS, DEADLINE_ORDER as COLUMNS, loadVocab } from './vocab.js';
 
 // Tree chargé via collab.fetchTree() — scoped projet.
 
@@ -420,6 +420,7 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 // ---- Boot ----
 
 async function init() {
+  await loadVocab();
   await ensureIdentified();
   renderIdentity();
 

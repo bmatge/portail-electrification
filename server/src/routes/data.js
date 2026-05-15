@@ -4,7 +4,7 @@ import { requireUser } from '../auth.js';
 
 export const dataRouter = Router({ mergeParams: true });
 
-const KEYS = new Set(['dispositifs', 'mesures', 'objectifs', 'drupal_structure']);
+const KEYS = new Set(['dispositifs', 'mesures', 'objectifs', 'drupal_structure', 'vocab']);
 
 const getData = db.prepare('SELECT json_value, updated_at FROM project_data WHERE project_id = ? AND key = ?');
 const upsertData = db.prepare(`

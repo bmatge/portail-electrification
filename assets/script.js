@@ -1,7 +1,7 @@
 // Tree editor for the hub d'info arborescence. Persisted server-side via /api.
 
 import { collab, ensureIdentified, escapeHtml, formatDate, renderDiff } from './collab.js';
-import { TYPES, AUDIENCES, DEADLINES, DEADLINE_ORDER } from './vocab.js';
+import { TYPES, AUDIENCES, DEADLINES, DEADLINE_ORDER, loadVocab } from './vocab.js';
 
 const COLLAPSED_KEY = 'latelier.collapsed.v1';
 const COLLAPSED_KEY_LEGACY = 'portail-electrification.collapsed.v1';
@@ -2117,6 +2117,9 @@ document.getElementById('deadline-filter').addEventListener('change', (e) => {
 
 async function init() {
   treeEl.innerHTML = '<p class="panel-empty">Chargement de l\'arborescence…</p>';
+  // Vocabulaires (publics, échéances, types) — lus depuis project_data.vocab.
+  // Si le fetch échoue, on retombe sur LEGACY_VOCAB (cf. assets/vocab.js).
+  await loadVocab();
   // Default tree (used by "Réinitialiser") fetched independently of history.
   try {
     const res = await fetch(DEFAULT_TREE_URL, { cache: 'no-cache' });
