@@ -1,0 +1,317 @@
+{
+  "version": 1,
+  "exported_at": "2026-05-16T10:00:00.000Z",
+  "project": {
+    "slug": "portail-aidants",
+    "name": "Portail Aidants",
+    "description": "Hub d'information et d'orientation pour les aidants familiaux : repères, droits, solutions de répit."
+  },
+  "tree": {
+    "id": "root",
+    "label": "Portail Aidants",
+    "type": "hub",
+    "types": ["hub"],
+    "tldr": "Hub central : reconnaître qu'on est aidant, comprendre ses droits, trouver du répit.",
+    "children": [
+      {
+        "id": "p1",
+        "label": "Suis-je aidant ?",
+        "types": ["editorial"],
+        "tldr": "Définition simple, exemples concrets, première reconnaissance.",
+        "audiences": ["particuliers"],
+        "deadline": "juin",
+        "children": []
+      },
+      {
+        "id": "p2",
+        "label": "Mes droits",
+        "types": ["editorial"],
+        "tldr": "Congé proche aidant, AJPA, RTT, dédommagement.",
+        "audiences": ["particuliers"],
+        "deadline": "juin",
+        "dispositifs": ["D-AID01"],
+        "mesures": ["M1"],
+        "children": []
+      },
+      {
+        "id": "p3",
+        "label": "Trouver du répit",
+        "types": ["service", "map"],
+        "tldr": "Carte des solutions de répit (accueil de jour, séjours, relais à domicile).",
+        "audiences": ["particuliers"],
+        "deadline": "septembre",
+        "dispositifs": ["D-AID02", "D-AID03"],
+        "mesures": ["M2"],
+        "children": []
+      },
+      {
+        "id": "p4",
+        "label": "Pour les pros",
+        "types": ["editorial"],
+        "tldr": "Repères pour aider un proche tout en travaillant — DRH, médecine du travail.",
+        "audiences": ["pros"],
+        "deadline": "decembre",
+        "children": []
+      }
+    ]
+  },
+  "roadmap": {
+    "meta": {
+      "title": "Roadmap Portail Aidants",
+      "subtitle": "Trois moments du parcours : se reconnaître, se renseigner, agir.",
+      "calendrier": [
+        { "id": "mvp", "label": "MVP",  "echeance": "juin 2026" },
+        { "id": "v1",  "label": "V1",   "echeance": "septembre 2026" },
+        { "id": "v2",  "label": "V2",   "echeance": "décembre 2026" }
+      ],
+      "actions": [
+        { "id": "comprendre", "label": "Je comprends", "desc": "Me reconnaître comme aidant, lever les freins." },
+        { "id": "agir",       "label": "J'agis",       "desc": "Demander un droit, trouver une solution." }
+      ]
+    },
+    "items": [
+      {
+        "id": "rm-001",
+        "slice": "mvp",
+        "action": "comprendre",
+        "story": "Comprendre que je suis aidant et que ce n'est pas anormal d'avoir besoin d'aide.",
+        "status": "pending",
+        "notes": "",
+        "nodes": ["p1"],
+        "dispositifs": []
+      },
+      {
+        "id": "rm-002",
+        "slice": "mvp",
+        "action": "comprendre",
+        "story": "Connaître les principaux droits liés à mon statut d'aidant.",
+        "status": "pending",
+        "notes": "",
+        "nodes": ["p2"],
+        "dispositifs": ["D-AID01"]
+      },
+      {
+        "id": "rm-003",
+        "slice": "v1",
+        "action": "agir",
+        "story": "Trouver un accueil de jour proche de chez moi pour mon proche.",
+        "status": "pending",
+        "notes": "",
+        "nodes": ["p3"],
+        "dispositifs": ["D-AID02"]
+      },
+      {
+        "id": "rm-004",
+        "slice": "v2",
+        "action": "comprendre",
+        "story": "En tant que DRH, savoir comment soutenir un salarié aidant.",
+        "status": "pending",
+        "notes": "",
+        "nodes": ["p4"],
+        "dispositifs": []
+      }
+    ]
+  },
+  "data": {
+    "dispositifs": {
+      "meta": {
+        "title": "Dispositifs utiles aux aidants",
+        "context": "Recensement de premier niveau pour le portail Aidants — services publics et opérateurs.",
+        "date": "2026-05-16",
+        "version": 1,
+        "categories": ["Droits", "Répit", "Information"],
+        "note_methodologique": "Sélection des dispositifs nationaux les plus matures."
+      },
+      "dispositifs": [
+        {
+          "id": "D-AID01",
+          "category": "Droits",
+          "audience": "Particuliers",
+          "name": "Service-public.fr — Aidants",
+          "url": "https://www.service-public.fr/particuliers/vosdroits/N469",
+          "description": "Page de référence sur les droits des aidants familiaux : congé proche aidant, AJPA, dédommagement APA.",
+          "porteur": "DILA",
+          "tutelle": "PM",
+          "type": "Portail orienté information",
+          "reutilisable": "Oui — renvoi privilégié.",
+          "maturite": "Mature",
+          "commentaire": "Source officielle des droits."
+        },
+        {
+          "id": "D-AID02",
+          "category": "Répit",
+          "audience": "Particuliers",
+          "name": "Pour les Personnes Âgées — annuaire",
+          "url": "https://www.pour-les-personnes-agees.gouv.fr/annuaire",
+          "description": "Annuaire des établissements et services pour personnes âgées, dont les accueils de jour et hébergements temporaires.",
+          "porteur": "CNSA",
+          "tutelle": "MASF",
+          "type": "Annuaire géolocalisé",
+          "reutilisable": "Oui — intégration cartographique possible.",
+          "maturite": "Mature",
+          "commentaire": ""
+        },
+        {
+          "id": "D-AID03",
+          "category": "Information",
+          "audience": "Particuliers",
+          "name": "Ma Boussole Aidants",
+          "url": "https://www.ma-boussole-aidants.fr",
+          "description": "Plateforme d'orientation personnalisée pour aidants — questionnaire et propositions de ressources.",
+          "porteur": "Croix-Rouge française + MASF",
+          "tutelle": "MASF",
+          "type": "Simulateur d'orientation",
+          "reutilisable": "Oui — renvoi tracé.",
+          "maturite": "Récent",
+          "commentaire": ""
+        }
+      ]
+    },
+    "mesures": {
+      "meta": {
+        "title": "Stratégie nationale Aidants 2024-2027",
+        "source": "Plan ministériel — extrait simplifié",
+        "axes": [
+          { "id": "reconnaissance", "label": "Axe 1 — Reconnaître et informer" },
+          { "id": "repit",          "label": "Axe 2 — Développer les solutions de répit" }
+        ],
+        "objectifs": {
+          "reconnaissance": [
+            { "id": "rec-1", "label": "Mieux informer les aidants sur leurs droits" }
+          ],
+          "repit": [
+            { "id": "rep-1", "label": "Doubler le nombre de places en accueil de jour d'ici 2027" }
+          ]
+        }
+      },
+      "mesures": [
+        {
+          "id": "M1",
+          "axe": "reconnaissance",
+          "objectif": "rec-1",
+          "title": "Lancer un portail unique aidants",
+          "summary": "Hub national d'information et d'orientation pour les 11 millions d'aidants.",
+          "description": "Portail unique regroupant droits, démarches, répit et orientation, avec liens tracés vers les opérateurs.",
+          "qui": "Tous les aidants familiaux.",
+          "quand": "MVP juin 2026, V1 septembre 2026.",
+          "objectif_chiffre": "1 portail national, 200 000 visiteurs/mois la première année.",
+          "audiences": ["particuliers", "partenaires"],
+          "deadline": "juin"
+        },
+        {
+          "id": "M2",
+          "axe": "repit",
+          "objectif": "rep-1",
+          "title": "Cartographier les solutions de répit",
+          "summary": "Carte interactive des accueils de jour et hébergements temporaires.",
+          "description": "Intégration cartographique de l'annuaire CNSA pour permettre une recherche géolocalisée des solutions de répit.",
+          "qui": "Aidants en recherche active.",
+          "quand": "V1 septembre 2026.",
+          "objectif_chiffre": "Couverture 100% du territoire métropolitain.",
+          "audiences": ["particuliers"],
+          "deadline": "septembre"
+        }
+      ]
+    },
+    "objectifs": {
+      "meta": {
+        "title": "Pyramide stratégique — Portail Aidants",
+        "promise": "Vous n'êtes pas seul. L'État vous aide à vous reconnaître comme aidant, à connaître vos droits et à trouver du répit.",
+        "subtitle": "Un portail unique, des droits clairs, des solutions près de chez vous.",
+        "note": "Seuls les moyens portés directement par le portail sont listés ici.",
+        "calendrier": [
+          { "id": "mvp", "label": "MVP", "echeance": "juin 2026" },
+          { "id": "v1",  "label": "V1",  "echeance": "septembre 2026" },
+          { "id": "v2",  "label": "V2",  "echeance": "décembre 2026" }
+        ]
+      },
+      "axes": [
+        {
+          "id": "A1",
+          "name": "Faire reconnaître la situation d'aidant",
+          "description": "Beaucoup d'aidants ne se reconnaissent pas comme tels. Le portail doit lever ce premier frein.",
+          "objectives": [
+            {
+              "id": "A1.O1",
+              "name": "Permettre une auto-identification simple",
+              "means": [
+                {
+                  "id": "A1.O1.M1",
+                  "text": "Page d'entrée « Suis-je aidant ? » avec définition courte et exemples concrets.",
+                  "nodes": ["p1"],
+                  "dispositifs": []
+                },
+                {
+                  "id": "A1.O1.M2",
+                  "text": "Orientation personnalisée via Ma Boussole Aidants.",
+                  "nodes": ["p1", "p3"],
+                  "dispositifs": ["D-AID03"]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "A2",
+          "name": "Faciliter l'accès aux droits et aux solutions",
+          "description": "Réduire le temps entre la prise de conscience et l'accès à un soutien concret.",
+          "objectives": [
+            {
+              "id": "A2.O1",
+              "name": "Clarifier les droits",
+              "means": [
+                {
+                  "id": "A2.O1.M1",
+                  "text": "Page « Mes droits » avec renvoi tracé vers Service-public.fr.",
+                  "nodes": ["p2"],
+                  "dispositifs": ["D-AID01"]
+                }
+              ]
+            },
+            {
+              "id": "A2.O2",
+              "name": "Géolocaliser le répit",
+              "means": [
+                {
+                  "id": "A2.O2.M1",
+                  "text": "Carte des solutions de répit intégrant l'annuaire CNSA.",
+                  "nodes": ["p3"],
+                  "dispositifs": ["D-AID02"]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "drupal_structure": {
+      "content_types": ["Accueil", "Rubrique", "Article", "Page neutre", "Webform"],
+      "paragraphs": [
+        "accordion", "tabs", "cards-row", "tiles-row", "summary",
+        "button", "highlight", "callout", "image-text", "quote",
+        "download-block", "download-links"
+      ],
+      "paragraph_labels": {},
+      "taxonomies": [
+        {
+          "key": "univers",
+          "label": "Type éditorial",
+          "multi": false,
+          "options": ["Actualité", "Page rubrique", "Fiche pratique", "Témoignage", "Outil"]
+        },
+        {
+          "key": "cibles",
+          "label": "Public",
+          "multi": true,
+          "options": ["Tous publics", "Aidants familiaux", "Pros (DRH, médico-social)", "Partenaires"]
+        },
+        {
+          "key": "mesures",
+          "label": "Mesure",
+          "multi": true,
+          "options": ["M1", "M2"]
+        }
+      ]
+    }
+  }
+}

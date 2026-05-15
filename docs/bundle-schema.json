@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latelier.bercy.matge.com/schemas/bundle.json",
+  "title": "L'atelier — Bundle d'import projet",
+  "description": "Format d'export/import d'un projet (version 1). Cf. docs/bundle-format.md pour la spec narrative et docs/bundle-example.json pour un exemple complet.",
+  "type": "object",
+  "required": ["version", "project"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "exported_at": {
+      "type": "string",
+      "description": "ISO 8601 (informatif, non rejoué à l'import)."
+    },
+    "project": { "$ref": "#/$defs/project" },
+    "tree": { "$ref": "#/$defs/treeRoot" },
+    "roadmap": { "$ref": "#/$defs/roadmap" },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dispositifs":      { "$ref": "#/$defs/dispositifsCatalog" },
+        "mesures":          { "$ref": "#/$defs/mesuresCatalog" },
+        "objectifs":        { "$ref": "#/$defs/objectifsCatalog" },
+        "drupal_structure": { "$ref": "#/$defs/drupalStructure" }
+      }
+    }
+  },
+  "$defs": {
+    "project": {
+      "type": "object",
+      "required": ["slug", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$",
+          "maxLength": 50
+        },
+        "name":        { "type": "string", "minLength": 1, "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 500 }
+      }
+    },
+
+    "deadline": {
+      "type": "string",
+      "enum": ["juin", "septembre", "decembre", "y2027"]
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "particuliers", "coproprietes", "collectivites",
+        "pros", "industriels", "agriculteurs",
+        "partenaires", "agents", "outremer"
+      ]
+    },
+    "nodeType": {
+      "type": "string",
+      "enum": [
+        "hub", "editorial", "service", "simulator", "map",
+        "external", "marketplace", "kit", "form", "private"
+      ]
+    },
+
+    "treeRoot": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id":   { "const": "root" },
+        "type": { "const": "hub" },
+        "types": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nodeType" }
+        },
+        "label":    { "type": "string", "minLength": 1 },
+        "tldr":     { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/treeNode" }
+        }
+      },
+      "additionalProperties": true
+    },
+
+    "treeNode": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id":     { "type": "string", "minLength": 1 },
+        "label":  { "type": "string", "minLength": 1 },
+        "types":  { "type": "array", "items": { "$ref": "#/$defs/nodeType" } },
+        "type":   { "$ref": "#/$defs/nodeType", "description": "Legacy — préférer types[]." },
+        "tldr":   { "type": "string" },
+        "format": { "type": "string" },
+        "url":    { "type": "string" },
+        "deadline":   { "$ref": "#/$defs/deadline" },
+        "time_tech":  { "type": ["number", "null"] },
+        "time_edito": { "type": ["number", "null"] },
+        "auth":       { "type": "boolean" },
+        "audiences":   { "type": "array", "items": { "$ref": "#/$defs/audience" } },
+        "dispositifs": { "type": "array", "items": { "type": "string" } },
+        "mesures":     { "type": "array", "items": { "type": "string" } },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id":          { "type": "string" },
+              "title":       { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "improvements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "additionalProperties": false,
+            "properties": {
+              "id":          { "type": "string" },
+              "deadline":    { "$ref": "#/$defs/deadline" },
+              "title":       { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/treeNode" } }
+      }
+    },
+
+    "roadmap": {
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title":    { "type": "string" },
+            "subtitle": { "type": "string" },
+            "calendrier": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label"],
+                "additionalProperties": false,
+                "properties": {
+                  "id":       { "type": "string" },
+                  "label":    { "type": "string" },
+                  "echeance": { "type": "string" }
+                }
+              }
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label"],
+                "additionalProperties": false,
+                "properties": {
+                  "id":    { "type": "string" },
+                  "label": { "type": "string" },
+                  "desc":  { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "slice", "action", "story"],
+            "additionalProperties": false,
+            "properties": {
+              "id":     { "type": "string" },
+              "slice":  { "type": "string", "description": "Réfère à meta.calendrier[].id" },
+              "action": { "type": "string", "description": "Réfère à meta.actions[].id" },
+              "story":  { "type": "string" },
+              "status": { "type": "string" },
+              "notes":  { "type": "string" },
+              "nodes":       { "type": "array", "items": { "type": "string" } },
+              "dispositifs": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+
+    "dispositifsCatalog": {
+      "type": "object",
+      "required": ["dispositifs"],
+      "additionalProperties": false,
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title":               { "type": "string" },
+            "context":             { "type": "string" },
+            "date":                { "type": "string" },
+            "version":             { "type": "number" },
+            "categories":          { "type": "array", "items": { "type": "string" } },
+            "note_methodologique": { "type": "string" }
+          }
+        },
+        "dispositifs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "id":           { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$" },
+              "category":     { "type": "string" },
+              "audience":     { "type": "string" },
+              "name":         { "type": "string" },
+              "url":          { "type": "string" },
+              "tel":          { "type": "string" },
+              "description":  { "type": "string" },
+              "porteur":      { "type": "string" },
+              "tutelle":      { "type": "string" },
+              "type":         { "type": "string" },
+              "reutilisable": { "type": "string" },
+              "maturite":     { "type": "string" },
+              "commentaire":  { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "mesuresCatalog": {
+      "type": "object",
+      "required": ["mesures"],
+      "additionalProperties": false,
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title":  { "type": "string" },
+            "source": { "type": "string" },
+            "axes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label"],
+                "additionalProperties": false,
+                "properties": {
+                  "id":    { "type": "string" },
+                  "label": { "type": "string" }
+                }
+              }
+            },
+            "objectifs": {
+              "type": "object",
+              "description": "Map { [axeId]: [{ id, label }, …] }",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "label"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id":    { "type": "string" },
+                    "label": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mesures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "axe"],
+            "additionalProperties": false,
+            "properties": {
+              "id":               { "type": "string" },
+              "axe":              { "type": "string" },
+              "objectif":         { "type": ["string", "null"] },
+              "title":            { "type": "string" },
+              "summary":          { "type": "string" },
+              "description":      { "type": "string" },
+              "qui":              { "type": "string" },
+              "quand":            { "type": "string" },
+              "objectif_chiffre": { "type": "string" },
+              "audiences":        { "type": "array", "items": { "$ref": "#/$defs/audience" } },
+              "deadline":         { "$ref": "#/$defs/deadline" }
+            }
+          }
+        }
+      }
+    },
+
+    "objectifsCatalog": {
+      "type": "object",
+      "required": ["axes"],
+      "additionalProperties": false,
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title":    { "type": "string" },
+            "promise":  { "type": "string" },
+            "subtitle": { "type": "string" },
+            "note":     { "type": "string" },
+            "calendrier": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label"],
+                "additionalProperties": false,
+                "properties": {
+                  "id":       { "type": "string" },
+                  "label":    { "type": "string" },
+                  "echeance": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "axes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "id":          { "type": "string" },
+              "name":        { "type": "string" },
+              "description": { "type": "string" },
+              "objectives": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "name"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id":   { "type": "string" },
+                    "name": { "type": "string" },
+                    "means": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "text"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "id":          { "type": "string" },
+                          "text":        { "type": "string" },
+                          "nodes":       { "type": "array", "items": { "type": "string" } },
+                          "dispositifs": { "type": "array", "items": { "type": "string" } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "drupalStructure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "content_types": { "type": "array", "items": { "type": "string" } },
+        "paragraphs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "accordion", "tabs", "cards-row", "tiles-row", "auto-list", "summary",
+              "button", "highlight", "callout", "image-text", "quote", "table",
+              "video", "download-block", "download-links", "cards-download", "code"
+            ]
+          }
+        },
+        "paragraph_labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "taxonomies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "label", "options"],
+            "additionalProperties": false,
+            "properties": {
+              "key":     { "type": "string" },
+              "label":   { "type": "string" },
+              "multi":   { "type": "boolean" },
+              "options": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}
