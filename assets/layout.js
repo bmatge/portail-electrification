@@ -11,6 +11,7 @@ import { collab, ensureIdentified } from './collab.js';
 const NAV_ITEMS = [
   { page: 'objectifs',    href: './',                label: 'Objectifs du site' },
   { page: 'arborescence', href: 'arborescence.html', label: 'Arborescence' },
+  { page: 'maquette',     href: 'maquette.html',     label: 'Maquette' },
   { page: 'roadmap',      href: 'roadmap.html',      label: 'Roadmap' },
   { page: 'mesures',      href: 'mesures.html',      label: 'Mesures du plan' },
   { page: 'dispositifs',  href: 'dispositifs.html',  label: 'Dispositifs existants' },

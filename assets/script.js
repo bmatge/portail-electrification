@@ -564,6 +564,9 @@ function renderPanel() {
   // Block 7 — collapsible: covered objectives (with count badge)
   panelEl.appendChild(renderObjectivesSection(node.id));
 
+  // Block 8 — collapsible: Drupal properties (read-only mirror of the maquette page)
+  panelEl.appendChild(renderMaquetteSection(node));
+
   // Block 6 — non collapsible: comments
   const block6 = document.createElement('section');
   block6.className = 'panel-block';
@@ -1375,6 +1378,80 @@ function renderDispositifsSection(node) {
   return wrap;
 }
 
+function renderMaquetteSection(node) {
+  const m = node.maquette;
+  const tax = (m && m.taxonomy) || {};
+  const paragraphs = (m && m.paragraphs) || [];
+  // Compteur synthétique (drupal_type compte pour 1 si renseigné)
+  let count = 0;
+  if (m && m.drupal_type) count++;
+  if (tax.univers) count++;
+  if (Array.isArray(tax.cibles)) count += tax.cibles.length;
+  if (Array.isArray(tax.mesures)) count += tax.mesures.length;
+  count += paragraphs.length;
+
+  const wrap = document.createElement('details');
+  wrap.className = 'panel-accordion maquette-section';
+  wrap.appendChild(accordionSummary('Propriétés Drupal', count));
+
+  const body = document.createElement('div');
+  body.className = 'panel-accordion__body';
+
+  if (!m) {
+    const p = document.createElement('p');
+    p.className = 'panel-empty fr-text--xs';
+    p.style.margin = '0';
+    p.textContent = 'Pas encore de propriétés Drupal pour ce nœud. Ouvrez la maquette pour les initialiser.';
+    body.appendChild(p);
+  } else {
+    body.appendChild(maquetteRow('Type de contenu', m.drupal_type || '—'));
+    body.appendChild(maquetteRow('Type éditorial', tax.univers || '—'));
+    body.appendChild(maquetteRow('Public', (tax.cibles || []).join(', ') || '—'));
+    body.appendChild(maquetteRow('Mesure(s)', (tax.mesures || []).join(', ') || '—'));
+
+    const parWrap = document.createElement('div');
+    parWrap.className = 'maquette-section__row';
+    const lab = document.createElement('span');
+    lab.className = 'maquette-section__label';
+    lab.textContent = `Paragraphes (${paragraphs.length})`;
+    parWrap.appendChild(lab);
+    const val = document.createElement('span');
+    val.className = 'maquette-section__value';
+    if (paragraphs.length === 0) {
+      val.textContent = '—';
+    } else {
+      val.innerHTML = paragraphs.map(p =>
+        `<span class="maquette-section__chip" title="${escapeHtml(p.title || '')}">${escapeHtml(p.code)}${p.title || p.data != null ? ' ✎' : ''}</span>`
+      ).join(' ');
+    }
+    parWrap.appendChild(val);
+    body.appendChild(parWrap);
+  }
+
+  const link = document.createElement('a');
+  link.href = `maquette.html#${encodeURIComponent(node.id)}`;
+  link.className = 'fr-btn fr-btn--sm fr-btn--secondary fr-icon-edit-line fr-btn--icon-left fr-mt-2w';
+  link.textContent = 'Éditer dans la maquette';
+  body.appendChild(link);
+
+  wrap.appendChild(body);
+  bindAccordion(wrap, 'maquette');
+  return wrap;
+}
+
+function maquetteRow(label, value) {
+  const row = document.createElement('div');
+  row.className = 'maquette-section__row';
+  const lab = document.createElement('span');
+  lab.className = 'maquette-section__label';
+  lab.textContent = label;
+  const val = document.createElement('span');
+  val.className = 'maquette-section__value';
+  val.textContent = value;
+  row.append(lab, val);
+  return row;
+}
+
 function accordionSummary(title, count) {
   const summary = document.createElement('summary');
   summary.className = 'panel-accordion__summary';
@@ -2035,13 +2112,24 @@ document.querySelectorAll('[data-action]').forEach(btn => {
       case 'import-json':
         document.getElementById('import-file').click();
         break;
-      case 'reset':
+      case 'reset-proposition':
         if (!defaultTree) { alert('Données par défaut non chargées.'); break; }
-        if (confirm('Réinitialiser l\'arborescence aux données par défaut ?\n\nCela crée une nouvelle révision (l\'historique est conservé).')) {
+        if (confirm('Recharger l\'arborescence depuis la proposition tree.json ?\n\nCela crée une nouvelle révision (l\'historique est conservé).')) {
           state.tree = structuredClone(defaultTree);
           state.selectedId = state.tree.id;
           state.collapsed.clear();
           save('Réinitialisation depuis tree.json'); saveCollapsed(); renderTree(); renderPanel();
+        }
+        break;
+      case 'reset-scratch':
+        if (!defaultTree) { alert('Données par défaut non chargées.'); break; }
+        if (confirm('Repartir d\'une arborescence vide ?\n\nLa racine (« ' + defaultTree.label + ' ») est conservée, tous ses enfants sont retirés. Cela crée une nouvelle révision (l\'historique est conservé).')) {
+          const emptyRoot = structuredClone(defaultTree);
+          emptyRoot.children = [];
+          state.tree = emptyRoot;
+          state.selectedId = state.tree.id;
+          state.collapsed.clear();
+          save('Réinitialisation : arborescence vidée'); saveCollapsed(); renderTree(); renderPanel();
         }
         break;
     }
