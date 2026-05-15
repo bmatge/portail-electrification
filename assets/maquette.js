@@ -568,7 +568,7 @@ function renderPage(node, parents) {
   parWrap.className = 'maquette-page__paragraphs';
   const list = node.maquette.paragraphs || [];
   if (list.length === 0) {
-    parWrap.appendChild(emptyHint('Aucun paragraphe configuré sur cette page.'));
+    parWrap.appendChild(emptyHint('Aucun composant configuré sur cette page.'));
   } else {
     list.forEach((p, idx) => {
       parWrap.appendChild(renderParagraphPreview(p, node, idx, list.length));
@@ -771,7 +771,7 @@ function renderMockHtml(code, d, p, node) {
     case 'code':
       return `<div class="code-mock">⚠ ${escapeHtml(d || 'Bloc Code (hors SFD) — iframe officielle ou carte interactive. Dev complémentaire à demander à Actimage.')}</div>`;
     default:
-      return `<p class="placeholder">Aperçu non disponible pour ce paragraphe.</p>`;
+      return `<p class="placeholder">Aperçu non disponible pour ce composant.</p>`;
   }
 }
 
@@ -814,7 +814,7 @@ function commitEditParagraph(node, idx) {
   p.title = (state.editDraft.title || '').trim();
   p.data = state.editDraft.data;
   node.maquette.seeded = false;
-  scheduleSave(`Maquette ${node.id} : ¶${idx + 1} édité`);
+  scheduleSave(`Maquette ${node.id} : composant ${idx + 1} édité`);
   state.editingParagraphIdx = null;
   state.editDraft = null;
   renderPage(node, state.currentParents);
@@ -1003,7 +1003,7 @@ function moveParagraph(node, idx, dir) {
   if (j < 0 || j >= arr.length) return;
   [arr[idx], arr[j]] = [arr[j], arr[idx]];
   node.maquette.seeded = false;
-  scheduleSave(`Maquette ${node.id} : paragraphes réordonnés`);
+  scheduleSave(`Maquette ${node.id} : composants réordonnés`);
   renderPage(node, state.currentParents);
 }
 
@@ -1014,14 +1014,14 @@ function moveParagraphTo(node, from, to) {
   const insertAt = from < to ? to - 1 : to;
   arr.splice(insertAt, 0, item);
   node.maquette.seeded = false;
-  scheduleSave(`Maquette ${node.id} : paragraphes réordonnés`);
+  scheduleSave(`Maquette ${node.id} : composants réordonnés`);
   renderPage(node, state.currentParents);
 }
 
 function removeParagraph(node, idx) {
   node.maquette.paragraphs.splice(idx, 1);
   node.maquette.seeded = false;
-  scheduleSave(`Maquette ${node.id} : paragraphe retiré`);
+  scheduleSave(`Maquette ${node.id} : composant retiré`);
   renderPage(node, state.currentParents);
   renderProps(node, state.currentParents);
 }
@@ -1030,7 +1030,7 @@ function addParagraph(node, code) {
   if (!code) return;
   node.maquette.paragraphs.push({ code, title: '', data: undefined });
   node.maquette.seeded = false;
-  scheduleSave(`Maquette ${node.id} : paragraphe ajouté (${code})`);
+  scheduleSave(`Maquette ${node.id} : composant ajouté (${code})`);
   renderPage(node, state.currentParents);
   renderProps(node, state.currentParents);
 }
@@ -1040,10 +1040,10 @@ function renderAddParagraph(node) {
   wrap.className = 'paragraph-add';
   const sel = document.createElement('select');
   sel.className = 'fr-select paragraph-add__select';
-  sel.setAttribute('aria-label', 'Ajouter un paragraphe');
+  sel.setAttribute('aria-label', 'Ajouter un composant');
   const placeholder = document.createElement('option');
   placeholder.value = '';
-  placeholder.textContent = '+ Ajouter un paragraphe…';
+  placeholder.textContent = '+ Ajouter un composant…';
   sel.appendChild(placeholder);
   for (const [code, p] of Object.entries(PARAGRAPHS)) {
     const opt = document.createElement('option');
@@ -1096,9 +1096,9 @@ function renderProps(node, parents) {
   idLine.innerHTML = `<code>${escapeHtml(node.id)}</code> · <a href="arborescence.html?node=${encodeURIComponent(node.id)}" title="Éditer ce nœud dans l'arborescence">éditer le nœud</a>`;
   el.appendChild(idLine);
 
-  // Drupal type
+  // Type de page
   el.appendChild(makeSelect({
-    label: 'Type de contenu Drupal SFD',
+    label: 'Type de page',
     value: node.maquette.drupal_type,
     options: DRUPAL_TYPES.map(t => ({ value: t, label: t })),
     onChange: (v) => {
@@ -1113,7 +1113,7 @@ function renderProps(node, parents) {
   //  et réordonnancement par drag-and-drop ou ↑/↓.)
   const parNote = document.createElement('p');
   parNote.className = 'fr-text--xs maquette-props__hint';
-  parNote.textContent = 'Paragraphes : modifiez-les directement dans la preview à gauche.';
+  parNote.textContent = 'Composants : modifiez-les directement dans la preview à gauche.';
   el.appendChild(parNote);
 
   // Taxonomies
@@ -1163,7 +1163,7 @@ function renderProps(node, parents) {
   reset.textContent = 'Réinitialiser';
   reset.title = 'Remplacer les propriétés par le seed automatique';
   reset.addEventListener('click', () => {
-    if (!confirm('Remplacer les propriétés Drupal de cette page par le seed automatique ?')) return;
+    if (!confirm('Remplacer les propriétés de cette page par le seed automatique ?')) return;
     node.maquette = seedMaquette(node, parents);
     scheduleSave(`Maquette ${node.id} : reset seed`);
     renderProps(node, parents);

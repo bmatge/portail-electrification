@@ -99,7 +99,7 @@ function renderNodesSection(item, ctx) {
     const p = document.createElement('p');
     p.className = 'panel-empty fr-text--xs';
     p.style.margin = '0';
-    p.textContent = 'Aucun nœud rattaché à ce dispositif.';
+    p.textContent = 'Aucun nœud rattaché à cette ressource.';
     list.appendChild(p);
   } else {
     for (const node of linked) {
@@ -197,7 +197,7 @@ function renderNodesSection(item, ctx) {
     ],
 
     newItem: (id) => ({
-      id, category: '', audience: '', name: 'Nouveau dispositif',
+      id, category: '', audience: '', name: 'Nouvelle ressource',
       url: '', tel: '', description: '',
       porteur: '', tutelle: '', type: '',
       reutilisable: '', maturite: '',

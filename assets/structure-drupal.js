@@ -90,7 +90,7 @@ function render() {
 // --- Types de contenu ---
 
 function renderContentTypes() {
-  const card = panel('Types de contenu', 'Les types Drupal proposés sur chaque page. Le seed automatique de la maquette mappe les nœuds de l\'arborescence vers ces types.');
+  const card = panel('Types de page', 'Les types proposés sur chaque page. Le seed automatique de la maquette mappe les nœuds de l\'arborescence vers ces types.');
   const list = document.createElement('div');
   list.className = 'sd-list';
 
@@ -152,10 +152,10 @@ function renderContentTypes() {
   return card;
 }
 
-// --- Paragraphes ---
+// --- Composants ---
 
 function renderParagraphs() {
-  const card = panel('Paragraphes activés', 'Cochez les composants Drupal mobilisables sur les pages. Le libellé affiché peut être personnalisé ; le schéma des champs reste hardcodé côté front.');
+  const card = panel('Composants activés', 'Cochez les composants mobilisables sur les pages. Le libellé affiché peut être personnalisé ; le schéma des champs reste hardcodé côté front.');
 
   const enabled = new Set(state.config.paragraphs);
   const list = document.createElement('div');
@@ -397,7 +397,7 @@ function iconBtn(label, title, onClick) {
   const resetBtn = document.getElementById('structure-reset');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      if (!confirm('Réinitialiser la structure Drupal aux valeurs par défaut ? Les personnalisations actuelles seront perdues.')) return;
+      if (!confirm('Réinitialiser le modèle de données aux valeurs par défaut ? Les personnalisations actuelles seront perdues.')) return;
       state.config = defaultDrupalStructure();
       scheduleSave();
       render();

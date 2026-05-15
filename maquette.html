@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
   <title>Maquette interactive — L'atelier 🪢</title>
-  <meta name="description" content="Mini-maquette navigable du futur hub : prévisualisation page par page et édition des propriétés Drupal (type de contenu, paragraphes, taxonomies).">
+  <meta name="description" content="Mini-maquette navigable du futur site : prévisualisation page par page et édition des propriétés (type de page, composants, taxonomies).">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%F0%9F%AA%A2%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
@@ -20,7 +20,7 @@
       <div class="fr-grid-row fr-mb-2w">
         <div class="fr-col-12">
           <h1 class="fr-h3 fr-mb-1w">Maquette interactive</h1>
-          <p class="fr-text--lg fr-mb-0">Prévisualisation page par page du futur hub. À droite, les propriétés Drupal (type de contenu, paragraphes, taxonomies) sont éditables et persistées.</p>
+          <p class="fr-text--lg fr-mb-0">Prévisualisation page par page du futur site. À droite, les propriétés de la page (type, composants, taxonomies) sont éditables et persistées.</p>
         </div>
       </div>
 
@@ -50,7 +50,7 @@
 
         <aside class="fr-col-12 fr-col-lg-5" aria-labelledby="maquette-props-title">
           <div class="panel-card panel-detail maquette-props">
-            <h2 id="maquette-props-title" class="fr-h6 fr-mb-2w">Propriétés Drupal</h2>
+            <h2 id="maquette-props-title" class="fr-h6 fr-mb-2w">Propriétés de la page</h2>
             <div id="maquette-props"></div>
           </div>
         </aside>
@@ -62,12 +62,12 @@
         <div class="fr-mt-2w fr-text--sm">
           <p>
             <strong>Objectif.</strong> Visualiser la structure du futur site comme un mini-prototype navigable, et
-            valider page par page les choix de modélisation Drupal SFD : type de contenu, paragraphes
+            valider page par page les choix de modélisation : type de page, composants
             mobilisés, termes de taxonomie.
           </p>
           <p>
-            <strong>Seed automatique.</strong> Les propriétés Drupal sont initialisées par dérivation du type
-            éditorial existant et de la position du nœud dans l'arborescence (cf. <em>synthese-config-drupal.md</em>).
+            <strong>Seed automatique.</strong> Les propriétés sont initialisées par dérivation du type
+            éditorial existant et de la position du nœud dans l'arborescence.
             Toutes les valeurs restent éditables et sont persistées dans le même JSON que l'arborescence.
           </p>
           <p>

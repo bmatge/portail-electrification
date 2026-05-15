@@ -1388,7 +1388,7 @@ function renderMaquetteSection(node) {
 
   const wrap = document.createElement('details');
   wrap.className = 'panel-accordion maquette-section';
-  wrap.appendChild(accordionSummary('Propriétés Drupal', count));
+  wrap.appendChild(accordionSummary('Propriétés de la page', count));
 
   const body = document.createElement('div');
   body.className = 'panel-accordion__body';
@@ -1397,10 +1397,10 @@ function renderMaquetteSection(node) {
     const p = document.createElement('p');
     p.className = 'panel-empty fr-text--xs';
     p.style.margin = '0';
-    p.textContent = 'Pas encore de propriétés Drupal pour ce nœud. Ouvrez la maquette pour les initialiser.';
+    p.textContent = 'Pas encore de propriétés pour ce nœud. Ouvrez la maquette pour les initialiser.';
     body.appendChild(p);
   } else {
-    body.appendChild(maquetteRow('Type de contenu', m.drupal_type || '—'));
+    body.appendChild(maquetteRow('Type de page', m.drupal_type || '—'));
     body.appendChild(maquetteRow('Type éditorial', tax.univers || '—'));
     body.appendChild(maquetteRow('Public', (tax.cibles || []).join(', ') || '—'));
     body.appendChild(maquetteRow('Mesure(s)', (tax.mesures || []).join(', ') || '—'));
@@ -1409,7 +1409,7 @@ function renderMaquetteSection(node) {
     parWrap.className = 'maquette-section__row';
     const lab = document.createElement('span');
     lab.className = 'maquette-section__label';
-    lab.textContent = `Paragraphes (${paragraphs.length})`;
+    lab.textContent = `Composants (${paragraphs.length})`;
     parWrap.appendChild(lab);
     const val = document.createElement('span');
     val.className = 'maquette-section__value';

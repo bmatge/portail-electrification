@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { page: 'roadmap',          slug: 'roadmap',          label: 'Roadmap' },
   { page: 'mesures',          slug: 'mesures',          label: 'Politiques publiques' },
   { page: 'dispositifs',      slug: 'dispositifs',      label: 'Ressources & services' },
-  { page: 'structure-drupal', slug: 'structure-drupal', label: 'Structure Drupal' },
+  { page: 'structure-drupal', slug: 'structure-drupal', label: 'Modèle de données' },
 ];
 
 const currentPage = document.body.dataset.page || '';
