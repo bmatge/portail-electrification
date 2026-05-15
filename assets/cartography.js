@@ -1,5 +1,8 @@
-// Shared list+detail editor for the dispositifs page.
+// Shared list+detail editor for the dispositifs / mesures / etc. pages.
+// Server-backed: load/save via /api/projects/:slug/data/:key (collab.fetchData).
 // Each page calls setup(config) with its own data shape and field definitions.
+
+import { collab, ensureIdentified } from './collab.js';
 
 export function setup(config) {
   const state = {
@@ -14,16 +17,33 @@ export function setup(config) {
   const counterEl = document.getElementById('counter');
   const searchEl  = document.getElementById('search-input');
 
-  // ---- Storage ----
+  // ---- Storage (server-backed, debounced) ----
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(config.storageKey);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  }
+  let saveTimer = null;
+  let inFlight = false;
+  let pendingSave = false;
   function save() {
-    localStorage.setItem(config.storageKey, JSON.stringify(state.data));
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 500);
+  }
+  async function flushSave() {
+    if (inFlight) { pendingSave = true; return; }
+    inFlight = true;
+    pendingSave = false;
+    try {
+      await collab.saveData(config.dataKey, state.data);
+    } catch (e) {
+      if (e.status === 401) {
+        await ensureIdentified();
+        try { await collab.saveData(config.dataKey, state.data); }
+        catch (e2) { alert('Erreur enregistrement : ' + e2.message); }
+      } else {
+        alert('Erreur enregistrement : ' + e.message);
+      }
+    } finally {
+      inFlight = false;
+      if (pendingSave) flushSave();
+    }
   }
 
   // ---- Data helpers ----
@@ -246,6 +266,10 @@ export function setup(config) {
     reader.readAsText(file);
   }
 
+  function emptyData() {
+    return { ...(config.emptyExtras || {}), [config.itemsKey]: [] };
+  }
+
   document.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('click', () => {
       const action = btn.dataset.action;
@@ -262,12 +286,10 @@ export function setup(config) {
           document.getElementById('import-file').click();
           break;
         case 'reset':
-          if (!confirm('Réinitialiser la cartographie aux données par défaut ?')) break;
-          fetchDefault().then(d => {
-            state.data = d;
-            state.selectedId = null;
-            save(); render();
-          });
+          if (!confirm('Vider ce catalogue pour ce projet ?')) break;
+          state.data = emptyData();
+          state.selectedId = null;
+          save(); render();
           break;
       }
     });
@@ -286,18 +308,13 @@ export function setup(config) {
 
   // ---- Boot ----
 
-  async function fetchDefault() {
-    const res = await fetch(config.dataUrl, { cache: 'no-cache' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }
-
   async function init() {
     listEl.innerHTML = '<p class="panel-empty">Chargement…</p>';
     try {
-      state.data = load() ?? await fetchDefault();
+      const { data } = await collab.fetchData(config.dataKey);
+      state.data = data || emptyData();
     } catch (e) {
-      listEl.innerHTML = `<p class="panel-empty">Impossible de charger ${config.dataUrl} : ${e.message}. Servez le projet via un serveur HTTP.</p>`;
+      listEl.innerHTML = `<p class="panel-empty">Impossible de charger les données : ${e.message}.</p>`;
       return;
     }
     populateFilters();

@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Objectifs du site — Hub d'info plan d'électrification</title>
-  <meta name="description" content="Pyramide stratégique du hub d'info plan d'électrification : axes, objectifs et moyens portés par le site, avec couverture par l'arborescence.">
+  <title>Outil de cadrage — Liste des projets</title>
+  <meta name="description" content="Outil de cadrage de sites institutionnels : choisissez un projet existant ou créez-en un nouveau.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
-  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="/assets/style.css">
 </head>
-<body data-page="objectifs">
+<body data-page="picker">
   <header role="banner" class="fr-header" data-app-header></header>
 
   <main role="main" id="main">
@@ -19,13 +19,46 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Objectifs du site</h1>
-          <p class="fr-text--lg fr-mb-0">Pyramide stratégique du hub : axes, objectifs et moyens portés par le site, avec leur couverture par l'arborescence.</p>
+          <h1 class="fr-h3 fr-mb-1w">Vos projets de cadrage</h1>
+          <p class="fr-text--lg fr-mb-0">Sélectionnez un projet pour entrer dans son espace, ou créez-en un nouveau.</p>
         </div>
       </div>
 
-      <div id="objectifs-root">
-        <p class="panel-empty">Chargement de la pyramide stratégique…</p>
+      <div class="fr-grid-row fr-grid-row--gutters">
+
+        <section class="fr-col-12 fr-col-lg-7" aria-labelledby="projects-list-heading">
+          <div class="panel-card">
+            <h2 id="projects-list-heading" class="fr-h6 fr-mb-2w">Projets existants</h2>
+            <div id="projects-list" role="list">
+              <p class="panel-empty">Chargement…</p>
+            </div>
+          </div>
+        </section>
+
+        <aside class="fr-col-12 fr-col-lg-5" aria-labelledby="new-project-heading">
+          <div class="panel-card">
+            <h2 id="new-project-heading" class="fr-h6 fr-mb-2w">Nouveau projet</h2>
+            <form id="new-project-form">
+              <div class="fr-input-group">
+                <label class="fr-label" for="np-name">Nom du projet</label>
+                <input class="fr-input" id="np-name" type="text" required maxlength="100" placeholder="Ex. Hub Logement">
+              </div>
+              <div class="fr-input-group">
+                <label class="fr-label" for="np-slug">Identifiant URL (slug)
+                  <span class="fr-hint-text">a-z, 0-9, tirets — utilisé dans /p/&lt;slug&gt;/...</span>
+                </label>
+                <input class="fr-input" id="np-slug" type="text" required maxlength="50" pattern="[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?" placeholder="hub-logement">
+              </div>
+              <div class="fr-input-group">
+                <label class="fr-label" for="np-desc">Description (optionnel)</label>
+                <textarea class="fr-input" id="np-desc" rows="3" maxlength="500" placeholder="À quoi sert ce projet ?"></textarea>
+              </div>
+              <div id="np-error" class="fr-error-text" hidden></div>
+              <button type="submit" class="fr-btn fr-icon-add-line fr-btn--icon-left fr-mt-2w">Créer le projet</button>
+            </form>
+          </div>
+        </aside>
+
       </div>
 
     </div>
@@ -33,9 +66,9 @@
 
   <footer class="fr-footer" role="contentinfo" data-app-footer></footer>
 
-  <script src="assets/layout.js" type="module"></script>
+  <script src="/assets/layout.js" type="module"></script>
   <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
   <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
-  <script src="assets/objectifs.js" type="module"></script>
+  <script src="/assets/picker.js" type="module"></script>
 </body>
 </html>

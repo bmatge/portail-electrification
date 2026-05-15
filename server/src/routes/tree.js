@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { db, getHeadRevision } from '../db.js';
 import { requireUser } from '../auth.js';
 
-export const treeRouter = Router();
+// mergeParams = true pour récupérer :slug du parent, et req.project posé par loadProject.
+export const treeRouter = Router({ mergeParams: true });
 
 function serializeRevision(row) {
   return {
@@ -15,8 +16,8 @@ function serializeRevision(row) {
   };
 }
 
-treeRouter.get('/tree', (_req, res) => {
-  const head = getHeadRevision();
+treeRouter.get('/tree', (req, res) => {
+  const head = getHeadRevision(req.project.id);
   if (!head) return res.status(404).json({ error: 'no_revision' });
   res.json({
     revision: serializeRevision(head),
@@ -25,8 +26,8 @@ treeRouter.get('/tree', (_req, res) => {
 });
 
 const insertRevision = db.prepare(`
-  INSERT INTO revisions (parent_id, tree_json, author_id, message)
-  VALUES (?, ?, ?, ?)
+  INSERT INTO revisions (project_id, parent_id, tree_json, author_id, message)
+  VALUES (?, ?, ?, ?, ?)
   RETURNING id, parent_id, message, created_at, reverts_id, author_id
 `);
 
@@ -36,7 +37,7 @@ treeRouter.put('/tree', requireUser, (req, res) => {
     return res.status(400).json({ error: 'invalid_tree' });
   }
 
-  const head = getHeadRevision();
+  const head = getHeadRevision(req.project.id);
   const expectedParent = req.get('If-Match');
   if (expectedParent !== undefined && expectedParent !== '' && head &&
       String(head.id) !== String(expectedParent)) {
@@ -48,7 +49,7 @@ treeRouter.put('/tree', requireUser, (req, res) => {
 
   const parentId = head ? head.id : null;
   const msg = String(message || '').slice(0, 200);
-  const inserted = insertRevision.get(parentId, JSON.stringify(tree), req.user.id, msg);
+  const inserted = insertRevision.get(req.project.id, parentId, JSON.stringify(tree), req.user.id, msg);
   res.json({
     revision: {
       id: inserted.id,

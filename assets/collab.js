@@ -1,7 +1,11 @@
 // Collaboration layer: identification, server-side persistence, history, comments.
 // Exposes a singleton `collab` consumed by script.js.
 
+import { projectScopedApi } from './project.js';
+
 const API = '/api';
+// Wrapper pour les endpoints scopés par projet.
+const P = (path) => projectScopedApi(path);
 
 async function http(method, url, body, extraHeaders = {}) {
   const opts = {
@@ -61,52 +65,52 @@ class Collab {
   }
 
   async fetchTree() {
-    const data = await http('GET', `${API}/tree`);
+    const data = await http('GET', P('/tree'));
     this.currentRevisionId = data.revision.id;
     return data;
   }
 
   async saveTree(tree, message = '') {
     const headers = this.currentRevisionId != null ? { 'If-Match': String(this.currentRevisionId) } : {};
-    const data = await http('PUT', `${API}/tree`, { tree, message }, headers);
+    const data = await http('PUT', P('/tree'), { tree, message }, headers);
     this.currentRevisionId = data.revision.id;
     this._emit('saved', data.revision);
     return data;
   }
 
   async fetchHistory(limit = 100) {
-    return http('GET', `${API}/history?limit=${limit}`);
+    return http('GET', P(`/history?limit=${limit}`));
   }
 
   async fetchRevision(id) {
-    return http('GET', `${API}/revisions/${id}`);
+    return http('GET', P(`/revisions/${id}`));
   }
 
   async revert(id, message) {
-    const data = await http('POST', `${API}/revisions/${id}/revert`, { message });
+    const data = await http('POST', P(`/revisions/${id}/revert`), { message });
     this.currentRevisionId = data.revision.id;
     this._emit('saved', data.revision);
     return data;
   }
 
   async fetchCommentCounts() {
-    return http('GET', `${API}/comments`);
+    return http('GET', P('/comments'));
   }
 
   async fetchComments(nodeId) {
-    return http('GET', `${API}/comments?node_id=${encodeURIComponent(nodeId)}`);
+    return http('GET', P(`/comments?node_id=${encodeURIComponent(nodeId)}`));
   }
 
   async postComment(nodeId, body) {
-    return http('POST', `${API}/comments`, { node_id: nodeId, body });
+    return http('POST', P('/comments'), { node_id: nodeId, body });
   }
 
   async deleteComment(id) {
-    return http('DELETE', `${API}/comments/${id}`);
+    return http('DELETE', P(`/comments/${id}`));
   }
 
   async fetchRoadmap() {
-    const data = await http('GET', `${API}/roadmap`);
+    const data = await http('GET', P('/roadmap'));
     this.currentRoadmapRevisionId = data.revision.id;
     return data;
   }
@@ -115,10 +119,19 @@ class Collab {
     const headers = this.currentRoadmapRevisionId != null
       ? { 'If-Match': String(this.currentRoadmapRevisionId) }
       : {};
-    const data = await http('PUT', `${API}/roadmap`, { roadmap, message }, headers);
+    const data = await http('PUT', P('/roadmap'), { roadmap, message }, headers);
     this.currentRoadmapRevisionId = data.revision.id;
     this._emit('roadmap-saved', data.revision);
     return data;
+  }
+
+  // Catalogues per-projet (dispositifs / mesures / objectifs / drupal_structure)
+  async fetchData(key) {
+    return http('GET', P(`/data/${encodeURIComponent(key)}`));
+  }
+
+  async saveData(key, data) {
+    return http('PUT', P(`/data/${encodeURIComponent(key)}`), { data });
   }
 }
 

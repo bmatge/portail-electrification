@@ -1225,17 +1225,14 @@ function renderIdentity() {
 
 // ---- Dispositifs linkage (read dispositifs data, manage node.dispositifs from the panel) ----
 
-const DISPOSITIFS_URL = 'assets/data/dispositifs.json';
-const MESURES_URL     = 'assets/data/mesures.json';
+// Catalogues chargés via collab.fetchData('dispositifs'|'mesures'), scoped projet.
 let dispositifsIndex = new Map();
 let mesuresIndex     = new Map();   // id → { id, title, axe, deadline }
 
 async function loadDispositifs() {
   try {
-    const res = await fetch(DISPOSITIFS_URL, { cache: 'no-cache' });
-    if (!res.ok) return;
-    const data = await res.json();
-    for (const d of data.dispositifs ?? []) {
+    const { data } = await collab.fetchData('dispositifs');
+    for (const d of (data?.dispositifs ?? [])) {
       dispositifsIndex.set(d.id, { id: d.id, name: d.name, audience: d.audience, category: d.category });
     }
   } catch { /* non-fatal */ }
@@ -1243,10 +1240,8 @@ async function loadDispositifs() {
 
 async function loadMesures() {
   try {
-    const res = await fetch(MESURES_URL, { cache: 'no-cache' });
-    if (!res.ok) return;
-    const data = await res.json();
-    for (const m of data.mesures ?? []) {
+    const { data } = await collab.fetchData('mesures');
+    for (const m of (data?.mesures ?? [])) {
       mesuresIndex.set(m.id, { id: m.id, title: m.title, axe: m.axe, deadline: m.deadline });
     }
   } catch { /* non-fatal */ }
@@ -1532,24 +1527,22 @@ function renderAddDispositifButton(node) {
 
 // ---- Objectives linkage (reverse of objectifs.js: from a node, manage its means) ----
 
-const OBJECTIFS_STORAGE_KEY = 'portail-electrification.objectifs.v1';
-const OBJECTIFS_DATA_URL = 'assets/data/objectifs.json';
 let objectifsData = null;
 
 async function loadObjectifs() {
   try {
-    const raw = localStorage.getItem(OBJECTIFS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  try {
-    const res = await fetch(OBJECTIFS_DATA_URL, { cache: 'no-cache' });
-    if (res.ok) return await res.json();
-  } catch { /* ignore */ }
-  return null;
+    const { data } = await collab.fetchData('objectifs');
+    return data || null;
+  } catch { return null; }
 }
 
+let objectifsSaveTimer = null;
 function saveObjectifs() {
-  if (objectifsData) localStorage.setItem(OBJECTIFS_STORAGE_KEY, JSON.stringify(objectifsData));
+  if (!objectifsData) return;
+  if (objectifsSaveTimer) clearTimeout(objectifsSaveTimer);
+  objectifsSaveTimer = setTimeout(() => {
+    collab.saveData('objectifs', objectifsData).catch(() => { /* non-fatal */ });
+  }, 500);
 }
 
 function allMeans() {

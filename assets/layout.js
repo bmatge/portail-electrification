@@ -1,31 +1,30 @@
-// Injects the shared header (with nav menu) and footer into every page.
+// Injects the shared header (with nav menu, project switcher) and footer.
 // Each page declares its identifier via <body data-page="..."> and provides
 // empty <header data-app-header> / <footer data-app-footer> placeholders.
-//
-// Order matters: this script must run before DSFR initialises the header
-// components (it is loaded as a non-async module in <head>/early <body>, so
-// it executes after DOM parse but before deferred DSFR scripts).
 
 import { collab, ensureIdentified } from './collab.js';
+import { getProjectSlug, projectPath, getCurrentProject, listAllProjects } from './project.js';
 
 const NAV_ITEMS = [
-  { page: 'objectifs',    href: './',                label: 'Objectifs du site' },
-  { page: 'arborescence', href: 'arborescence.html', label: 'Arborescence' },
-  { page: 'maquette',     href: 'maquette.html',     label: 'Maquette' },
-  { page: 'roadmap',      href: 'roadmap.html',      label: 'Roadmap' },
-  { page: 'mesures',      href: 'mesures.html',      label: 'Mesures du plan' },
-  { page: 'dispositifs',  href: 'dispositifs.html',  label: 'Dispositifs existants' },
-  { page: 'decision',     href: 'decision.html',     label: 'Arbre de décision' },
+  { page: 'objectifs',        slug: 'objectifs',        label: 'Objectifs du site' },
+  { page: 'arborescence',     slug: 'arborescence',     label: 'Arborescence' },
+  { page: 'maquette',         slug: 'maquette',         label: 'Maquette' },
+  { page: 'roadmap',          slug: 'roadmap',          label: 'Roadmap' },
+  { page: 'mesures',          slug: 'mesures',          label: 'Politiques publiques' },
+  { page: 'dispositifs',      slug: 'dispositifs',      label: 'Ressources & services' },
+  { page: 'structure-drupal', slug: 'structure-drupal', label: 'Structure Drupal' },
 ];
 
 const currentPage = document.body.dataset.page || '';
 const isArborescencePage = currentPage === 'arborescence';
+const slug = getProjectSlug();
 
 function navHtml() {
+  if (!slug) return '';
   return NAV_ITEMS.map(item => {
     const isCurrent = item.page === currentPage;
     const aria = isCurrent ? ' aria-current="page"' : '';
-    return `<li class="fr-nav__item"><a class="fr-nav__link" href="${item.href}" target="_self"${aria}>${item.label}</a></li>`;
+    return `<li class="fr-nav__item"><a class="fr-nav__link" href="${projectPath(item.slug)}" target="_self"${aria}>${item.label}</a></li>`;
   }).join('\n            ');
 }
 
@@ -46,14 +45,15 @@ function renderHeader() {
               </div>
             </div>
             <div class="fr-header__service">
-              <a href="./" title="Accueil — Hub d'info plan d'électrification">
-                <p class="fr-header__service-title">Hub d'info — Plan d'électrification</p>
+              <a href="/" title="Accueil — Sélection de projet">
+                <p class="fr-header__service-title">Hub d'info — outil de cadrage</p>
               </a>
-              <p class="fr-header__service-tagline">Prototype de cadrage</p>
+              <p class="fr-header__service-tagline" id="project-tagline">${slug ? '…' : 'Aucun projet sélectionné'}</p>
             </div>
           </div>
           <div class="fr-header__tools">
             <div class="fr-header__tools-links">
+              <div id="project-switcher" class="project-switcher"></div>
               <div id="identity-zone" class="identity-zone"></div>
               <ul class="fr-btns-group">
                 <li>
@@ -89,10 +89,9 @@ function renderFooter() {
           <p class="fr-logo">République<br>Française</p>
         </div>
         <div class="fr-footer__content">
-          <p class="fr-footer__content-desc">Prototype de cadrage du volet numérique du plan d'électrification.</p>
+          <p class="fr-footer__content-desc">Outil générique de cadrage d'un site institutionnel : arborescence, maquette, roadmap, ressources et politiques publiques par projet.</p>
           <ul class="fr-footer__content-list">
-            <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="https://www.economie.gouv.fr" target="_blank" rel="noopener">economie.gouv.fr</a></li>
-            <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="https://www.ecologie.gouv.fr" target="_blank" rel="noopener">ecologie.gouv.fr</a></li>
+            <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="/" target="_self">Liste des projets</a></li>
             <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="https://www.systeme-de-design.gouv.fr" target="_blank" rel="noopener">Système de design</a></li>
           </ul>
         </div>
@@ -142,9 +141,43 @@ function renderIdentity() {
   }
 }
 
+async function renderProjectContext() {
+  if (!slug) return;
+  // Tagline = nom du projet courant
+  try {
+    const project = await getCurrentProject();
+    const tagline = document.getElementById('project-tagline');
+    if (tagline && project) tagline.textContent = `Projet : ${project.name}`;
+  } catch { /* non-fatal */ }
+
+  // Switcher = liste tous les projets dans un select
+  const sw = document.getElementById('project-switcher');
+  if (!sw) return;
+  try {
+    const projects = await listAllProjects();
+    if (projects.length <= 1) return; // pas la peine d'afficher un switcher
+    const select = document.createElement('select');
+    select.className = 'fr-select fr-select--sm project-switcher__select';
+    select.setAttribute('aria-label', 'Changer de projet');
+    for (const p of projects) {
+      const opt = document.createElement('option');
+      opt.value = p.slug;
+      opt.textContent = p.name;
+      if (p.slug === slug) opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.addEventListener('change', () => {
+      const next = select.value;
+      if (next && next !== slug) {
+        // Garde la même page si possible
+        window.location.href = `/p/${encodeURIComponent(next)}/${currentPage}`;
+      }
+    });
+    sw.appendChild(select);
+  } catch { /* non-fatal */ }
+}
+
 async function initIdentity() {
-  // The arborescence page runs its own ensureIdentified()/renderIdentity()
-  // lifecycle inside script.js. Skip here to avoid double prompts.
   if (isArborescencePage) return;
   try {
     await collab.me();
@@ -155,3 +188,4 @@ async function initIdentity() {
 renderHeader();
 renderFooter();
 initIdentity();
+renderProjectContext();

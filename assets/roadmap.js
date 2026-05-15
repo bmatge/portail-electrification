@@ -3,7 +3,7 @@
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
 
-const TREE_URL = 'assets/data/tree.json';
+// Tree chargé via collab.fetchTree() — scoped projet.
 
 const TYPES = {
   hub:         { label: 'Hub' },
@@ -455,19 +455,11 @@ async function init() {
   await ensureIdentified();
   renderIdentity();
 
-  // Source of truth: latest tree from the server (falls back to static JSON).
   try {
     const { tree } = await collab.fetchTree();
     state.tree = tree;
-  } catch {
-    try {
-      const res = await fetch(TREE_URL, { cache: 'no-cache' });
-      if (res.ok) state.tree = await res.json();
-    } catch {}
-  }
-
-  if (!state.tree) {
-    boardEl.innerHTML = '<p class="panel-empty">Impossible de charger l\'arborescence.</p>';
+  } catch (e) {
+    boardEl.innerHTML = `<p class="panel-empty">Impossible de charger l'arborescence : ${e.message}.</p>`;
     return;
   }
 

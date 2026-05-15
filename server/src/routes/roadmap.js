@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db, getRoadmapHeadRevision } from '../db.js';
 import { requireUser } from '../auth.js';
 
-export const roadmapRouter = Router();
+export const roadmapRouter = Router({ mergeParams: true });
 
 function serializeRevision(row) {
   return {
@@ -15,8 +15,8 @@ function serializeRevision(row) {
   };
 }
 
-roadmapRouter.get('/roadmap', (_req, res) => {
-  const head = getRoadmapHeadRevision();
+roadmapRouter.get('/roadmap', (req, res) => {
+  const head = getRoadmapHeadRevision(req.project.id);
   if (!head) return res.status(404).json({ error: 'no_revision' });
   res.json({
     revision: serializeRevision(head),
@@ -25,8 +25,8 @@ roadmapRouter.get('/roadmap', (_req, res) => {
 });
 
 const insertRoadmapRevision = db.prepare(`
-  INSERT INTO roadmap_revisions (parent_id, data_json, author_id, message)
-  VALUES (?, ?, ?, ?)
+  INSERT INTO roadmap_revisions (project_id, parent_id, data_json, author_id, message)
+  VALUES (?, ?, ?, ?, ?)
   RETURNING id, parent_id, message, created_at, reverts_id, author_id
 `);
 
@@ -36,7 +36,7 @@ roadmapRouter.put('/roadmap', requireUser, (req, res) => {
     return res.status(400).json({ error: 'invalid_roadmap' });
   }
 
-  const head = getRoadmapHeadRevision();
+  const head = getRoadmapHeadRevision(req.project.id);
   const expectedParent = req.get('If-Match');
   if (expectedParent !== undefined && expectedParent !== '' && head &&
       String(head.id) !== String(expectedParent)) {
@@ -48,7 +48,7 @@ roadmapRouter.put('/roadmap', requireUser, (req, res) => {
 
   const parentId = head ? head.id : null;
   const msg = String(message || '').slice(0, 200);
-  const inserted = insertRoadmapRevision.get(parentId, JSON.stringify(roadmap), req.user.id, msg);
+  const inserted = insertRoadmapRevision.get(req.project.id, parentId, JSON.stringify(roadmap), req.user.id, msg);
   res.json({
     revision: {
       id: inserted.id,
@@ -66,6 +66,7 @@ const listRoadmapRevisions = db.prepare(`
          u.id AS author_id, u.name AS author_name
   FROM roadmap_revisions r
   JOIN users u ON u.id = r.author_id
+  WHERE r.project_id = ?
   ORDER BY r.id DESC
   LIMIT ?
 `);
@@ -75,13 +76,13 @@ const getRoadmapRevision = db.prepare(`
          u.id AS author_id, u.name AS author_name
   FROM roadmap_revisions r
   JOIN users u ON u.id = r.author_id
-  WHERE r.id = ?
+  WHERE r.project_id = ? AND r.id = ?
 `);
 
 roadmapRouter.get('/roadmap/history', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
-  const rows = listRoadmapRevisions.all(limit);
-  const head = getRoadmapHeadRevision();
+  const rows = listRoadmapRevisions.all(req.project.id, limit);
+  const head = getRoadmapHeadRevision(req.project.id);
   res.json({
     head_id: head?.id ?? null,
     revisions: rows.map(serializeRevision),
@@ -91,7 +92,7 @@ roadmapRouter.get('/roadmap/history', (req, res) => {
 roadmapRouter.get('/roadmap/revisions/:id', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
-  const row = getRoadmapRevision.get(id);
+  const row = getRoadmapRevision.get(req.project.id, id);
   if (!row) return res.status(404).json({ error: 'not_found' });
   res.json({
     revision: serializeRevision(row),

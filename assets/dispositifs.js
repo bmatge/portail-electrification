@@ -178,8 +178,7 @@ function renderNodesSection(item, ctx) {
   }
 
   setup({
-    storageKey: 'portail-electrification.dispositifs.v1',
-    dataUrl: 'assets/data/dispositifs.json',
+    dataKey: 'dispositifs',
     itemsKey: 'dispositifs',
     idPrefix: 'D-N',
     exportFilename: 'dispositifs.json',

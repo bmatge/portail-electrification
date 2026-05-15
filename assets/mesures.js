@@ -3,8 +3,7 @@
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
 
-const MESURES_URL = 'assets/data/mesures.json';
-const TREE_URL    = 'assets/data/tree.json';
+// Données chargées via collab.fetchData('mesures') et collab.fetchTree() — scoped projet.
 
 const AUDIENCES = {
   particuliers:   'Particuliers',
@@ -303,25 +302,19 @@ async function init() {
   renderIdentity();
 
   try {
-    const mesuresResp = await fetch(MESURES_URL, { cache: 'no-cache' });
-    if (!mesuresResp.ok) throw new Error(`HTTP ${mesuresResp.status}`);
-    state.data = await mesuresResp.json();
+    const { data } = await collab.fetchData('mesures');
+    state.data = data || { mesures: [] };
   } catch (e) {
     gridEl.innerHTML = `<p class="panel-empty">Impossible de charger les mesures : ${escapeHtml(e.message)}.</p>`;
     return;
   }
 
-  // Source de vérité : tree latest depuis le serveur, fallback sur le JSON statique.
   try {
     const { tree } = await collab.fetchTree();
     state.tree = tree;
   } catch {
-    try {
-      const r = await fetch(TREE_URL, { cache: 'no-cache' });
-      if (r.ok) state.tree = await r.json();
-    } catch {}
+    state.tree = { id: 'root', children: [] };
   }
-  if (!state.tree) state.tree = { id: 'root', children: [] };
 
   buildReverseLookup();
   renderFilters();

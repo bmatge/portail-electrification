@@ -2,31 +2,31 @@ import { Router } from 'express';
 import { db, getHeadRevision } from '../db.js';
 import { requireUser } from '../auth.js';
 
-export const commentsRouter = Router();
+export const commentsRouter = Router({ mergeParams: true });
 
 const listForNode = db.prepare(`
   SELECT c.id, c.node_id, c.body, c.created_at, c.revision_id,
          u.id AS author_id, u.name AS author_name
   FROM comments c
   JOIN users u ON u.id = c.author_id
-  WHERE c.node_id = ? AND c.deleted_at IS NULL
+  WHERE c.project_id = ? AND c.node_id = ? AND c.deleted_at IS NULL
   ORDER BY c.created_at ASC
 `);
 
 const countByNode = db.prepare(`
   SELECT node_id, COUNT(*) AS n
   FROM comments
-  WHERE deleted_at IS NULL
+  WHERE project_id = ? AND deleted_at IS NULL
   GROUP BY node_id
 `);
 
 const insertComment = db.prepare(`
-  INSERT INTO comments (node_id, author_id, body, revision_id)
-  VALUES (?, ?, ?, ?)
+  INSERT INTO comments (project_id, node_id, author_id, body, revision_id)
+  VALUES (?, ?, ?, ?, ?)
   RETURNING id, node_id, body, created_at, revision_id
 `);
 
-const getComment = db.prepare('SELECT id, author_id FROM comments WHERE id = ? AND deleted_at IS NULL');
+const getComment = db.prepare('SELECT id, project_id, author_id FROM comments WHERE id = ? AND deleted_at IS NULL');
 const softDelete = db.prepare(`UPDATE comments SET deleted_at = datetime('now') WHERE id = ?`);
 
 function serialize(row) {
@@ -43,10 +43,10 @@ function serialize(row) {
 commentsRouter.get('/comments', (req, res) => {
   const nodeId = String(req.query.node_id || '');
   if (!nodeId) {
-    const counts = countByNode.all();
+    const counts = countByNode.all(req.project.id);
     return res.json({ counts: Object.fromEntries(counts.map(r => [r.node_id, r.n])) });
   }
-  const rows = listForNode.all(nodeId);
+  const rows = listForNode.all(req.project.id, nodeId);
   res.json({ comments: rows.map(serialize) });
 });
 
@@ -57,8 +57,8 @@ commentsRouter.post('/comments', requireUser, (req, res) => {
   if (!body) return res.status(400).json({ error: 'body_required' });
   if (body.length > 4000) return res.status(400).json({ error: 'body_too_long' });
 
-  const head = getHeadRevision();
-  const inserted = insertComment.get(nodeId, req.user.id, body, head?.id ?? null);
+  const head = getHeadRevision(req.project.id);
+  const inserted = insertComment.get(req.project.id, nodeId, req.user.id, body, head?.id ?? null);
   res.status(201).json({
     comment: {
       id: inserted.id,
@@ -76,6 +76,7 @@ commentsRouter.delete('/comments/:id', requireUser, (req, res) => {
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'invalid_id' });
   const c = getComment.get(id);
   if (!c) return res.status(404).json({ error: 'not_found' });
+  if (c.project_id !== req.project.id) return res.status(404).json({ error: 'not_found' });
   if (c.author_id !== req.user.id) return res.status(403).json({ error: 'forbidden' });
   softDelete.run(id);
   res.status(204).end();

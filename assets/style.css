@@ -3254,3 +3254,72 @@ dialog.app-dialog::backdrop {
 .items-editor__add {
   align-self: flex-start;
 }
+
+/* Project picker (page d'accueil) -------------------------------------- */
+
+.project-card {
+  display: block;
+  background: #fff;
+  background-image: none;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 0.75rem;
+  text-decoration: none;
+  color: #161616;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.project-card:hover {
+  border-color: #6a6af4;
+  box-shadow: 0 2px 8px rgba(106, 106, 244, 0.15);
+  transform: translateY(-1px);
+}
+
+.project-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.project-card__name {
+  font-size: 1.0625rem;
+  color: #000091;
+}
+
+.project-card__slug {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  color: #666;
+}
+
+.project-card__desc {
+  margin: 0.5rem 0 0;
+  color: #555;
+  font-size: 0.9375rem;
+}
+
+.project-card__meta {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Project switcher dans le header --------------------------------------- */
+
+.project-switcher {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.5rem;
+}
+
+.project-switcher__select {
+  font-size: 0.8125rem;
+  padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+  height: auto;
+  min-width: 12rem;
+}

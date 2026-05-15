@@ -1,9 +1,7 @@
 // Objectifs editor: pyramide stratégique with N:N links to arborescence nodes.
-// Loads objectifs.json + tree.json (for autocomplete and orphan detection).
+// Server-backed: collab.fetchData('objectifs') + collab.fetchTree() — scoped projet.
 
-const STORAGE_KEY = 'portail-electrification.objectifs.v1';
-const DATA_URL = 'assets/data/objectifs.json';
-const TREE_URL = 'assets/data/tree.json';
+import { collab, ensureIdentified } from './collab.js';
 
 const state = {
   data: null,
@@ -14,16 +12,33 @@ const state = {
 
 const rootEl = document.getElementById('objectifs-root');
 
-// ---- Persistence ----
+// ---- Persistence (server-backed, debounced) ----
 
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
+let saveTimer = null;
+let inFlight = false;
+let pendingSave = false;
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 500);
+}
+async function flushSave() {
+  if (inFlight) { pendingSave = true; return; }
+  inFlight = true;
+  pendingSave = false;
+  try {
+    await collab.saveData('objectifs', state.data);
+  } catch (e) {
+    if (e.status === 401) {
+      await ensureIdentified();
+      try { await collab.saveData('objectifs', state.data); }
+      catch (e2) { alert('Erreur enregistrement : ' + e2.message); }
+    } else {
+      alert('Erreur enregistrement : ' + e.message);
+    }
+  } finally {
+    inFlight = false;
+    if (pendingSave) flushSave();
+  }
 }
 
 // ---- Tree index for autocomplete ----
@@ -415,12 +430,6 @@ function escape(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
-async function fetchJSON(url) {
-  const res = await fetch(url, { cache: 'no-cache' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
-
 function exportJson() {
   const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -436,14 +445,14 @@ async function init() {
   if (!rootEl) return;
   rootEl.innerHTML = '<p class="panel-empty">Chargement de la pyramide stratégique…</p>';
   try {
-    const [data, tree] = await Promise.all([
-      load() ? Promise.resolve(load()) : fetchJSON(DATA_URL),
-      fetchJSON(TREE_URL),
+    const [{ data }, { tree }] = await Promise.all([
+      collab.fetchData('objectifs'),
+      collab.fetchTree(),
     ]);
-    state.data = data;
+    state.data = data || { axes: [], objectifs: [], moyens: [] };
     state.treeIndex = indexTree(tree);
   } catch (e) {
-    rootEl.innerHTML = `<p class="panel-empty">Impossible de charger : ${e.message}. Servez le projet via un serveur HTTP.</p>`;
+    rootEl.innerHTML = `<p class="panel-empty">Impossible de charger : ${e.message}.</p>`;
     return;
   }
   render();
