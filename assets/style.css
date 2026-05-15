@@ -3548,3 +3548,123 @@ dialog.app-dialog::backdrop {
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }
+
+/* ---- Inline edition (page Objectifs) ----
+ *
+ * editableLabel() renders a span that swaps to an input/textarea on click.
+ * The hover hint (dotted underline) signals editability without a button.
+ */
+.editable-label {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.editable-label__display {
+  cursor: text;
+  border-bottom: 1px dashed transparent;
+  padding: 0.0625rem 0.125rem;
+  border-radius: 2px;
+  transition: background 0.1s, border-color 0.1s;
+  display: inline-block;
+  min-width: 4ch;
+}
+
+.editable-label__display:hover {
+  background: #f4f4fc;
+  border-bottom-color: #6a6af4;
+}
+
+.editable-label__display--empty {
+  color: var(--text-mention-grey, #888);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.editable-label__input {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+/* Toolbar appended to each axe/objective/mean head: ↑ ↓ ×.
+ * Pushed to the far right via margin-left:auto so titles can flex. */
+.objectif-tools {
+  display: inline-flex;
+  gap: 0.125rem;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.objectif-tools--mean {
+  margin-left: 0;
+  margin-right: 0.25rem;
+}
+
+.objectif-icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-mention-grey, #666);
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.objectif-icon-btn:hover:not(:disabled) {
+  background: #f4f4fc;
+  color: #3a3a8c;
+  border-color: #d6d6f4;
+}
+
+.objectif-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Title wrappers : axe + objective titles are now <div> (not <h3>/<h4>) so
+ * the editableLabel can flex inside. Restore the visual weight. */
+.objectif-axe__title,
+.objectif-objective__title {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0;
+}
+
+/* "+ Ajouter un objectif / un moyen" : ghost button with leading + */
+.objectif-add {
+  display: inline-block;
+  background: none;
+  border: 1px dashed var(--border-soft, #ddd);
+  color: #3a3a8c;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.3125rem 0.75rem;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+}
+
+.objectif-add--objective {
+  margin-left: 1.75rem;
+}
+
+.objectif-add--mean {
+  margin-left: 1.75rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+}
+
+.objectif-add:hover {
+  background: #f4f4fc;
+  border-color: #6a6af4;
+}

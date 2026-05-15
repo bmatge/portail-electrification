@@ -41,6 +41,152 @@ async function flushSave() {
   }
 }
 
+// ---- ID generation ----
+//
+// IDs are opaque to the data model. Existing seed data uses semantic prefixes
+// (a1-axe, o2-orient, m3-marketplace) but new items just need to be unique
+// inside the project. Random suffix is enough.
+const newId = (prefix) => prefix + '-' + Math.random().toString(36).slice(2, 8);
+const newAxeId       = () => newId('a');
+const newObjectiveId = () => newId('o');
+const newMeanId      = () => newId('m');
+
+// ---- CRUD on the pyramid ----
+
+function addAxe() {
+  state.data.axes.push({
+    id: newAxeId(),
+    name: 'Nouvel axe',
+    description: '',
+    objectives: [],
+  });
+  save(); render();
+}
+
+function addObjective(axe) {
+  axe.objectives.push({
+    id: newObjectiveId(),
+    name: 'Nouvel objectif',
+    means: [],
+  });
+  state.collapsed.delete(axe.id); // keep the axe expanded so the user sees the new objective
+  save(); render();
+}
+
+function addMean(objective) {
+  objective.means.push({
+    id: newMeanId(),
+    text: 'Nouveau moyen',
+    nodes: [],
+  });
+  state.collapsed.delete(objective.id);
+  save(); render();
+}
+
+function removeAxe(axeId) {
+  const axe = state.data.axes.find(a => a.id === axeId);
+  if (!axe) return;
+  const meanCount = axe.objectives.reduce((s, o) => s + o.means.length, 0);
+  const objCount = axe.objectives.length;
+  let msg = `Supprimer l'axe « ${axe.name} » ?`;
+  if (objCount || meanCount) msg += `\n\n${objCount} objectif${objCount > 1 ? 's' : ''} et ${meanCount} moyen${meanCount > 1 ? 's' : ''} seront aussi supprimés.`;
+  if (!confirm(msg)) return;
+  state.data.axes = state.data.axes.filter(a => a.id !== axeId);
+  save(); render();
+}
+
+function removeObjective(axe, objectiveId) {
+  const obj = axe.objectives.find(o => o.id === objectiveId);
+  if (!obj) return;
+  let msg = `Supprimer l'objectif « ${obj.name} » ?`;
+  if (obj.means.length) msg += `\n\n${obj.means.length} moyen${obj.means.length > 1 ? 's' : ''} seront aussi supprimés.`;
+  if (!confirm(msg)) return;
+  axe.objectives = axe.objectives.filter(o => o.id !== objectiveId);
+  save(); render();
+}
+
+function removeMean(objective, meanId) {
+  const mean = objective.means.find(m => m.id === meanId);
+  if (!mean) return;
+  if (!confirm(`Supprimer le moyen « ${mean.text} » ?`)) return;
+  objective.means = objective.means.filter(m => m.id !== meanId);
+  save(); render();
+}
+
+// Reorder helper: moves the item at index `idx` by `dir` (-1 or +1) within `arr`.
+function move(arr, idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= arr.length) return;
+  [arr[idx], arr[j]] = [arr[j], arr[idx]];
+  save(); render();
+}
+
+// ---- Inline editing ----
+//
+// Renders a label that becomes an <input> on click. On Enter or blur, commits
+// the new value via `onCommit(newValue)`. On Escape, restores the original.
+// `onCommit` is responsible for persistence (save) and re-render.
+function editableLabel({ value, onCommit, className = '', placeholder = '', textarea = false, ariaLabel = '' }) {
+  const wrap = document.createElement('span');
+  wrap.className = 'editable-label ' + className;
+
+  const display = document.createElement('span');
+  display.className = 'editable-label__display';
+  display.textContent = value || placeholder || '—';
+  if (!value) display.classList.add('editable-label__display--empty');
+  display.title = 'Cliquer pour modifier';
+
+  display.addEventListener('click', () => {
+    const input = textarea ? document.createElement('textarea') : document.createElement('input');
+    input.className = 'fr-input fr-input--sm editable-label__input';
+    if (!textarea) input.type = 'text';
+    if (textarea) input.rows = 2;
+    input.value = value || '';
+    input.placeholder = placeholder || '';
+    if (ariaLabel) input.setAttribute('aria-label', ariaLabel);
+
+    let committed = false;
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      const next = input.value.trim();
+      onCommit(next);
+    };
+    const cancel = () => {
+      if (committed) return;
+      committed = true;
+      render();
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !textarea) { e.preventDefault(); commit(); }
+      else if (e.key === 'Enter' && textarea && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+
+    wrap.replaceChild(input, display);
+    input.focus();
+    if (!textarea) input.select();
+  });
+
+  wrap.appendChild(display);
+  return wrap;
+}
+
+// Small icon button (matches the style used in maquette.js).
+function iconBtn(label, title, onClick, { disabled = false } = {}) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'objectif-icon-btn';
+  b.textContent = label;
+  b.title = title;
+  b.setAttribute('aria-label', title);
+  b.disabled = !!disabled;
+  if (!disabled) b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  return b;
+}
+
 // ---- Tree index for autocomplete ----
 
 function indexTree(node, out = new Map(), depth = 0) {
@@ -116,19 +262,24 @@ function renderToolbar() {
   wrap.className = 'fr-mb-2w';
   wrap.innerHTML = `
     <ul class="fr-btns-group fr-btns-group--inline-md fr-btns-group--icon-left">
+      <li><button type="button" class="fr-btn fr-btn--secondary fr-icon-add-line" data-objectif-action="add-axe">Ajouter un axe</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-download-line" data-objectif-action="export">Export</button></li>
       <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-upload-line" data-objectif-action="import">Import</button></li>
-      <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-refresh-line" data-objectif-action="reset">Réinitialiser</button></li>
+      <li><button type="button" class="fr-btn fr-btn--tertiary fr-icon-delete-line" data-objectif-action="clear">Vider la pyramide</button></li>
       <input type="file" id="objectifs-import-file" accept=".json" hidden>
     </ul>
   `;
+  wrap.querySelector('[data-objectif-action="add-axe"]').addEventListener('click', addAxe);
   wrap.querySelector('[data-objectif-action="export"]').addEventListener('click', exportJson);
   wrap.querySelector('[data-objectif-action="import"]').addEventListener('click', () => {
     document.getElementById('objectifs-import-file').click();
   });
-  wrap.querySelector('[data-objectif-action="reset"]').addEventListener('click', () => {
-    if (!confirm('Réinitialiser la pyramide aux données par défaut ?')) return;
-    fetchJSON(DATA_URL).then(d => { state.data = d; save(); render(); });
+  wrap.querySelector('[data-objectif-action="clear"]').addEventListener('click', () => {
+    const total = (state.data.axes || []).length;
+    if (total === 0) return;
+    if (!confirm(`Vider la pyramide ? ${total} axe${total > 1 ? 's' : ''} et tout leur contenu seront supprimés. L'opération est réversible via l'historique de saisie de votre navigateur uniquement si vous n'enregistrez rien d'autre.`)) return;
+    state.data = { axes: [], meta: state.data.meta || {} };
+    save(); render();
   });
   wrap.querySelector('#objectifs-import-file').addEventListener('change', e => {
     const file = e.target.files?.[0];
@@ -181,13 +332,21 @@ function renderIntro() {
 function renderPyramid() {
   const wrap = document.createElement('div');
   wrap.className = 'objectifs-tree';
-  for (const axe of state.data.axes) {
-    wrap.appendChild(renderAxe(axe));
+  const axes = state.data.axes || [];
+  if (axes.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'panel-empty';
+    empty.textContent = 'La pyramide est vide. Cliquez sur « Ajouter un axe » dans la barre d\'outils pour commencer.';
+    wrap.appendChild(empty);
+    return wrap;
   }
+  axes.forEach((axe, idx) => {
+    wrap.appendChild(renderAxe(axe, idx, axes.length));
+  });
   return wrap;
 }
 
-function renderAxe(axe) {
+function renderAxe(axe, idx, total) {
   const collapsed = state.collapsed.has(axe.id);
   const card = document.createElement('section');
   card.className = 'objectif-axe';
@@ -203,28 +362,56 @@ function renderAxe(axe) {
     if (collapsed) state.collapsed.delete(axe.id); else state.collapsed.add(axe.id);
     render();
   });
-  const title = document.createElement('h3');
-  title.className = 'objectif-axe__title';
-  title.innerHTML = `<span class="kind-badge kind-badge--axe" title="${escape(axe.id)}">Axe</span> ${escape(axe.name)}`;
-  head.append(toggle, title);
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'objectif-axe__title';
+  const badge = document.createElement('span');
+  badge.className = 'kind-badge kind-badge--axe';
+  badge.textContent = 'Axe';
+  badge.title = axe.id;
+  titleWrap.appendChild(badge);
+  titleWrap.appendChild(editableLabel({
+    value: axe.name,
+    placeholder: '(axe sans nom)',
+    ariaLabel: 'Nom de l\'axe',
+    onCommit: (v) => { axe.name = v || 'Axe sans nom'; save(); render(); },
+  }));
+
+  const tools = document.createElement('div');
+  tools.className = 'objectif-tools';
+  tools.appendChild(iconBtn('↑', 'Monter cet axe', () => move(state.data.axes, idx, -1), { disabled: idx === 0 }));
+  tools.appendChild(iconBtn('↓', 'Descendre cet axe', () => move(state.data.axes, idx, +1), { disabled: idx === total - 1 }));
+  tools.appendChild(iconBtn('×', 'Supprimer cet axe', () => removeAxe(axe.id)));
+
+  head.append(toggle, titleWrap, tools);
   card.appendChild(head);
 
-  if (axe.description) {
-    const p = document.createElement('p');
-    p.className = 'objectif-axe__desc';
-    p.textContent = axe.description;
-    card.appendChild(p);
-  }
+  // Description : éditable inline (textarea), placeholder cliquable si vide.
+  const desc = editableLabel({
+    value: axe.description || '',
+    placeholder: '+ Ajouter une description',
+    className: 'objectif-axe__desc',
+    textarea: true,
+    ariaLabel: 'Description de l\'axe',
+    onCommit: (v) => { axe.description = v; save(); render(); },
+  });
+  card.appendChild(desc);
 
   if (!collapsed) {
-    for (const obj of axe.objectives) {
-      card.appendChild(renderObjective(obj));
-    }
+    axe.objectives.forEach((obj, oIdx) => {
+      card.appendChild(renderObjective(obj, axe, oIdx, axe.objectives.length));
+    });
+    const addObj = document.createElement('button');
+    addObj.type = 'button';
+    addObj.className = 'objectif-add objectif-add--objective';
+    addObj.textContent = '+ Ajouter un objectif';
+    addObj.addEventListener('click', () => addObjective(axe));
+    card.appendChild(addObj);
   }
   return card;
 }
 
-function renderObjective(obj) {
+function renderObjective(obj, axe, idx, total) {
   const collapsed = state.collapsed.has(obj.id);
   const wrap = document.createElement('div');
   wrap.className = 'objectif-objective';
@@ -240,25 +427,50 @@ function renderObjective(obj) {
     if (collapsed) state.collapsed.delete(obj.id); else state.collapsed.add(obj.id);
     render();
   });
-  const title = document.createElement('h4');
-  title.className = 'objectif-objective__title';
-  title.innerHTML = `<span class="kind-badge kind-badge--objective" title="${escape(obj.id)}">Objectif</span> ${escape(obj.name)}`;
-  head.append(toggle, title);
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'objectif-objective__title';
+  const badge = document.createElement('span');
+  badge.className = 'kind-badge kind-badge--objective';
+  badge.textContent = 'Objectif';
+  badge.title = obj.id;
+  titleWrap.appendChild(badge);
+  titleWrap.appendChild(editableLabel({
+    value: obj.name,
+    placeholder: '(objectif sans nom)',
+    ariaLabel: 'Nom de l\'objectif',
+    onCommit: (v) => { obj.name = v || 'Objectif sans nom'; save(); render(); },
+  }));
+
+  const tools = document.createElement('div');
+  tools.className = 'objectif-tools';
+  tools.appendChild(iconBtn('↑', 'Monter cet objectif', () => move(axe.objectives, idx, -1), { disabled: idx === 0 }));
+  tools.appendChild(iconBtn('↓', 'Descendre cet objectif', () => move(axe.objectives, idx, +1), { disabled: idx === total - 1 }));
+  tools.appendChild(iconBtn('×', 'Supprimer cet objectif', () => removeObjective(axe, obj.id)));
+
+  head.append(toggle, titleWrap, tools);
   wrap.appendChild(head);
 
   if (!collapsed) {
     const list = document.createElement('div');
     list.className = 'objectif-means';
-    for (const mean of obj.means) {
-      if (!meanMatches(mean)) continue;
-      list.appendChild(renderMean(mean));
-    }
+    obj.means.forEach((mean, mIdx) => {
+      if (!meanMatches(mean)) return;
+      list.appendChild(renderMean(mean, obj, mIdx, obj.means.length));
+    });
     wrap.appendChild(list);
+
+    const addMeanBtn = document.createElement('button');
+    addMeanBtn.type = 'button';
+    addMeanBtn.className = 'objectif-add objectif-add--mean';
+    addMeanBtn.textContent = '+ Ajouter un moyen';
+    addMeanBtn.addEventListener('click', () => addMean(obj));
+    wrap.appendChild(addMeanBtn);
   }
   return wrap;
 }
 
-function renderMean(mean) {
+function renderMean(mean, objective, idx, total) {
   const row = document.createElement('article');
   row.className = 'objectif-mean';
 
@@ -268,10 +480,20 @@ function renderMean(mean) {
   kind.title = mean.id;
   row.appendChild(kind);
 
-  const text = document.createElement('span');
-  text.className = 'objectif-mean__text';
-  text.textContent = mean.text;
-  row.appendChild(text);
+  row.appendChild(editableLabel({
+    value: mean.text,
+    placeholder: '(moyen sans description)',
+    className: 'objectif-mean__text',
+    ariaLabel: 'Description du moyen',
+    onCommit: (v) => { mean.text = v || 'Moyen sans description'; save(); render(); },
+  }));
+
+  const tools = document.createElement('div');
+  tools.className = 'objectif-tools objectif-tools--mean';
+  tools.appendChild(iconBtn('↑', 'Monter ce moyen', () => move(objective.means, idx, -1), { disabled: idx === 0 }));
+  tools.appendChild(iconBtn('↓', 'Descendre ce moyen', () => move(objective.means, idx, +1), { disabled: idx === total - 1 }));
+  tools.appendChild(iconBtn('×', 'Supprimer ce moyen', () => removeMean(objective, mean.id)));
+  row.appendChild(tools);
 
   const nodes = document.createElement('div');
   nodes.className = 'objectif-mean__nodes';
