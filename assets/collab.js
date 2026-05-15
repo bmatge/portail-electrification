@@ -139,7 +139,8 @@ export const collab = new Collab();
 
 // ---- UI helpers ----
 
-const NAME_KEY = 'portail-electrification.lastname';
+const NAME_KEY = 'latelier.lastname';
+const NAME_KEY_LEGACY = 'portail-electrification.lastname';
 
 export function showIdentifyModal({ initialName = '', message = '' } = {}) {
   return new Promise((resolve) => {
@@ -161,7 +162,7 @@ export function showIdentifyModal({ initialName = '', message = '' } = {}) {
     `;
     document.body.appendChild(dialog);
     const input = dialog.querySelector('#identify-name');
-    input.value = initialName || localStorage.getItem(NAME_KEY) || '';
+    input.value = initialName || localStorage.getItem(NAME_KEY) || localStorage.getItem(NAME_KEY_LEGACY) || '';
     dialog.addEventListener('close', () => {
       const name = input.value.trim();
       dialog.remove();

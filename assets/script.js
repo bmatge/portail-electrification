@@ -2,7 +2,8 @@
 
 import { collab, ensureIdentified, escapeHtml, formatDate, renderDiff } from './collab.js';
 
-const COLLAPSED_KEY = 'portail-electrification.collapsed.v1';
+const COLLAPSED_KEY = 'latelier.collapsed.v1';
+const COLLAPSED_KEY_LEGACY = 'portail-electrification.collapsed.v1';
 
 const TYPES = {
   hub:         { label: 'Hub' },
@@ -114,7 +115,7 @@ async function flushSave() {
 
 function loadCollapsed() {
   try {
-    const raw = localStorage.getItem(COLLAPSED_KEY);
+    const raw = localStorage.getItem(COLLAPSED_KEY) ?? localStorage.getItem(COLLAPSED_KEY_LEGACY);
     return raw ? new Set(JSON.parse(raw)) : new Set();
   } catch { return new Set(); }
 }

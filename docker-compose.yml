@@ -1,8 +1,8 @@
 services:
   app:
     build: .
-    image: portail-electrification:latest
-    container_name: portail-electrification
+    image: latelier-cadrage-site:latest
+    container_name: latelier-cadrage-site
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -15,18 +15,36 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=ecosystem-network
-      # HTTPS router (TLS via certresolver Traefik)
-      - traefik.http.routers.portail-elec.rule=Host(`${DOMAIN:-portail-elec.matge.com}`)
-      - traefik.http.routers.portail-elec.entrypoints=${WEBSECURE_ENTRYPOINT:-websecure}
-      - traefik.http.routers.portail-elec.tls=true
-      - traefik.http.routers.portail-elec.tls.certresolver=${CERT_RESOLVER:-letsencrypt}
-      - traefik.http.services.portail-elec.loadbalancer.server.port=3000
-      # HTTP → HTTPS redirect
-      - traefik.http.routers.portail-elec-http.rule=Host(`${DOMAIN:-portail-elec.matge.com}`)
-      - traefik.http.routers.portail-elec-http.entrypoints=${WEB_ENTRYPOINT:-web}
-      - traefik.http.routers.portail-elec-http.middlewares=portail-elec-redirect
-      - traefik.http.middlewares.portail-elec-redirect.redirectscheme.scheme=https
-      - traefik.http.middlewares.portail-elec-redirect.redirectscheme.permanent=true
+
+      # --- App principale : ${DOMAIN:-latelier.bercy.matge.com} ---
+      - traefik.http.routers.latelier.rule=Host(`${DOMAIN:-latelier.bercy.matge.com}`)
+      - traefik.http.routers.latelier.entrypoints=${WEBSECURE_ENTRYPOINT:-websecure}
+      - traefik.http.routers.latelier.tls=true
+      - traefik.http.routers.latelier.tls.certresolver=${CERT_RESOLVER:-letsencrypt}
+      - traefik.http.services.latelier.loadbalancer.server.port=3000
+
+      # HTTP → HTTPS sur le domaine principal
+      - traefik.http.routers.latelier-http.rule=Host(`${DOMAIN:-latelier.bercy.matge.com}`)
+      - traefik.http.routers.latelier-http.entrypoints=${WEB_ENTRYPOINT:-web}
+      - traefik.http.routers.latelier-http.middlewares=latelier-https-redirect
+      - traefik.http.middlewares.latelier-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.latelier-https-redirect.redirectscheme.permanent=true
+
+      # --- Legacy : redirection 301 depuis ${LEGACY_DOMAIN:-portail-elec.matge.com} ---
+      - traefik.http.routers.latelier-legacy.rule=Host(`${LEGACY_DOMAIN:-portail-elec.matge.com}`)
+      - traefik.http.routers.latelier-legacy.entrypoints=${WEBSECURE_ENTRYPOINT:-websecure}
+      - traefik.http.routers.latelier-legacy.tls=true
+      - traefik.http.routers.latelier-legacy.tls.certresolver=${CERT_RESOLVER:-letsencrypt}
+      - traefik.http.routers.latelier-legacy.service=latelier
+      - traefik.http.routers.latelier-legacy.middlewares=latelier-legacy-redirect
+      - traefik.http.middlewares.latelier-legacy-redirect.redirectregex.regex=^https?://[^/]+/(.*)
+      - traefik.http.middlewares.latelier-legacy-redirect.redirectregex.replacement=https://${DOMAIN:-latelier.bercy.matge.com}/$${1}
+      - traefik.http.middlewares.latelier-legacy-redirect.redirectregex.permanent=true
+
+      # HTTP → HTTPS sur l'ancien domaine (puis le 301 prend le relais)
+      - traefik.http.routers.latelier-legacy-http.rule=Host(`${LEGACY_DOMAIN:-portail-elec.matge.com}`)
+      - traefik.http.routers.latelier-legacy-http.entrypoints=${WEB_ENTRYPOINT:-web}
+      - traefik.http.routers.latelier-legacy-http.middlewares=latelier-https-redirect
 
 networks:
   ecosystem-network:

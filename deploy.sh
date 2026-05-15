@@ -48,7 +48,7 @@ echo "[deploy] Statut :"
 docker compose ps
 
 echo
-echo "[deploy] OK. Le service est exposé via Traefik sur https://${DOMAIN:-portail-elec.matge.com}"
+echo "[deploy] OK. Le service est exposé via Traefik sur https://${DOMAIN:-latelier.bercy.matge.com}"
 
 if [ "$FOLLOW_LOGS" -eq 1 ]; then
   echo
