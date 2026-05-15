@@ -35,18 +35,19 @@ export const PARAGRAPH_LIB = {
 };
 
 // Taxonomies par défaut, sous forme de tableau (ordre stable pour l'UI).
+// Mirror du seed serveur (db.js) — modifier les deux ensemble.
 export const DEFAULT_TAXONOMIES = [
   {
     key: 'univers', label: 'Type éditorial', multi: false,
-    options: ['Actualité', 'Page rubrique', 'Fiche pratique', 'Fiche mesure', 'Simulateur et outils'],
+    options: ['Actualité', 'Page rubrique', 'Fiche pratique', 'Outil ou simulateur'],
   },
   {
     key: 'cibles', label: 'Public', multi: true,
-    options: ['Tous publics', 'Particuliers', 'Artisans', 'Industriels', 'Agriculteurs', 'Collectivités'],
+    options: ['Tous publics'],
   },
   {
-    key: 'mesures', label: 'Mesure', multi: true,
-    options: Array.from({ length: 22 }, (_, i) => `M${i + 1}`),
+    key: 'mesures', label: 'Politique publique', multi: true,
+    options: [],
   },
 ];
 

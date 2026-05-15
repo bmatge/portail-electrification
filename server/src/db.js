@@ -38,10 +38,14 @@ function readJsonOrNull(path) {
   try { return JSON.parse(readFileSync(path, 'utf-8')); } catch { return null; }
 }
 
-// Structure Drupal par défaut (vocabulaires DSFR standard).
-// Le schéma de chaque paragraphe reste hardcodé côté front (assets/maquette.js) ;
+// Modèle de données par défaut (cible Drupal/DSFR sous le capot).
+// Le schéma de chaque composant reste hardcodé côté front (assets/maquette.js) ;
 // ce seed n'expose que ce qui est éditable : la liste des codes activés,
 // leurs libellés et les taxonomies.
+//
+// Les taxonomies sont volontairement minimales : un nouveau projet part avec
+// un public générique et aucune politique pré-remplie. Le projet historique
+// `portail-electrification` conserve sa config (INSERT OR IGNORE ne réécrit pas).
 export const DEFAULT_DRUPAL_STRUCTURE = {
   content_types: ['Accueil', 'Rubrique', 'Article', 'Page neutre', 'Webform', 'Hors SFD'],
   paragraphs: [
@@ -53,15 +57,15 @@ export const DEFAULT_DRUPAL_STRUCTURE = {
   taxonomies: [
     {
       key: 'univers', label: 'Type éditorial', multi: false,
-      options: ['Actualité', 'Page rubrique', 'Fiche pratique', 'Fiche mesure', 'Simulateur et outils'],
+      options: ['Actualité', 'Page rubrique', 'Fiche pratique', 'Outil ou simulateur'],
     },
     {
       key: 'cibles', label: 'Public', multi: true,
-      options: ['Tous publics', 'Particuliers', 'Artisans', 'Industriels', 'Agriculteurs', 'Collectivités'],
+      options: ['Tous publics'],
     },
     {
-      key: 'mesures', label: 'Mesure', multi: true,
-      options: Array.from({ length: 22 }, (_, i) => `M${i + 1}`),
+      key: 'mesures', label: 'Politique publique', multi: true,
+      options: [],
     },
   ],
 };
