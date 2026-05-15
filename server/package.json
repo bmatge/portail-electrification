@@ -1,9 +1,9 @@
 {
-  "name": "portail-electrification-server",
+  "name": "latelier-cadrage-site-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Backend collaboratif pour le hub d'info plan d'électrification.",
+  "description": "Backend collaboratif de L'atelier — outil de cadrage de sites institutionnels.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

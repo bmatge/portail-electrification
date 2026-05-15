@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Outil de cadrage — Liste des projets</title>
-  <meta name="description" content="Outil de cadrage de sites institutionnels : choisissez un projet existant ou créez-en un nouveau.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
+  <title>L'atelier 🪢 — Liste des projets</title>
+  <meta name="description" content="L'atelier : outil de cadrage de sites institutionnels. Choisissez un projet existant ou créez-en un nouveau.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%F0%9F%AA%A2%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
   <link rel="stylesheet" href="/assets/style.css">
@@ -19,7 +19,7 @@
 
       <div class="fr-grid-row fr-mb-3w">
         <div class="fr-col-12">
-          <h1 class="fr-h3 fr-mb-1w">Vos projets de cadrage</h1>
+          <h1 class="fr-h3 fr-mb-1w">Vos projets</h1>
           <p class="fr-text--lg fr-mb-0">Sélectionnez un projet pour entrer dans son espace, ou créez-en un nouveau.</p>
         </div>
       </div>
@@ -56,6 +56,16 @@
               <div id="np-error" class="fr-error-text" hidden></div>
               <button type="submit" class="fr-btn fr-icon-add-line fr-btn--icon-left fr-mt-2w">Créer le projet</button>
             </form>
+
+            <hr class="fr-mt-3w fr-mb-2w">
+            <h3 class="fr-h6 fr-mb-1w">Importer un projet</h3>
+            <p class="fr-text--sm fr-mb-2w">Charger un projet exporté depuis cette application. Un nouveau projet sera créé ; en cas de conflit de slug, un suffixe est ajouté.</p>
+            <button type="button" id="import-project-btn"
+                    class="fr-btn fr-btn--secondary fr-icon-upload-line fr-btn--icon-left">
+              Sélectionner un fichier JSON…
+            </button>
+            <input type="file" id="import-project-input" accept="application/json,.json" hidden>
+            <div id="import-project-status" class="fr-mt-2w" aria-live="polite"></div>
           </div>
         </aside>
 

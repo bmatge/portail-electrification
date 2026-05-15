@@ -46,7 +46,7 @@ function renderHeader() {
             </div>
             <div class="fr-header__service">
               <a href="/" title="Accueil — Sélection de projet">
-                <p class="fr-header__service-title">Hub d'info — outil de cadrage</p>
+                <p class="fr-header__service-title">L'atelier 🪢</p>
               </a>
               <p class="fr-header__service-tagline" id="project-tagline">${slug ? '…' : 'Aucun projet sélectionné'}</p>
             </div>
@@ -57,7 +57,7 @@ function renderHeader() {
               <div id="identity-zone" class="identity-zone"></div>
               <ul class="fr-btns-group">
                 <li>
-                  <a class="fr-btn fr-icon-github-fill" href="https://github.com/bmatge/portail-electrification" target="_blank" rel="noopener">Code source</a>
+                  <a class="fr-btn fr-icon-github-fill" href="https://github.com/bmatge/latelier-cadrage-site" target="_blank" rel="noopener">Code source</a>
                 </li>
               </ul>
             </div>
@@ -89,7 +89,7 @@ function renderFooter() {
           <p class="fr-logo">République<br>Française</p>
         </div>
         <div class="fr-footer__content">
-          <p class="fr-footer__content-desc">Outil générique de cadrage d'un site institutionnel : arborescence, maquette, roadmap, ressources et politiques publiques par projet.</p>
+          <p class="fr-footer__content-desc">L'atelier — cadrage de sites institutionnels : arborescence, maquette, roadmap, ressources et politiques publiques, par projet.</p>
           <ul class="fr-footer__content-list">
             <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="/" target="_self">Liste des projets</a></li>
             <li class="fr-footer__content-item"><a class="fr-footer__content-link" href="https://www.systeme-de-design.gouv.fr" target="_blank" rel="noopener">Système de design</a></li>
@@ -98,8 +98,8 @@ function renderFooter() {
       </div>
       <div class="fr-footer__bottom">
         <ul class="fr-footer__bottom-list">
-          <li class="fr-footer__bottom-item"><a class="fr-footer__bottom-link" href="https://github.com/bmatge/portail-electrification" target="_blank" rel="noopener">Code source</a></li>
-          <li class="fr-footer__bottom-item"><a class="fr-footer__bottom-link" href="https://github.com/bmatge/portail-electrification/issues" target="_blank" rel="noopener">Signaler un problème</a></li>
+          <li class="fr-footer__bottom-item"><a class="fr-footer__bottom-link" href="https://github.com/bmatge/latelier-cadrage-site" target="_blank" rel="noopener">Code source</a></li>
+          <li class="fr-footer__bottom-item"><a class="fr-footer__bottom-link" href="https://github.com/bmatge/latelier-cadrage-site/issues" target="_blank" rel="noopener">Signaler un problème</a></li>
         </ul>
         <div class="fr-footer__bottom-copy">
           <p>Sauf mention contraire, code sous licence MIT. Données ouvertes — aucune donnée personnelle collectée.</p>

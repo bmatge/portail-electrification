@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr" data-fr-scheme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
+  <title>Structure Drupal — L'atelier 🪢</title>
+  <meta name="description" content="Vocabulaires Drupal du projet : types de contenu, paragraphes activés, taxonomies — éditables et propres à chaque projet.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='90'%3E%F0%9F%AA%A2%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/utility/icons/icons.min.css">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body data-page="structure-drupal">
+  <header role="banner" class="fr-header" data-app-header></header>
+
+  <main role="main" id="main">
+    <div class="fr-container fr-py-4w">
+
+      <div class="fr-grid-row fr-mb-2w">
+        <div class="fr-col-12">
+          <h1 class="fr-h3 fr-mb-1w">Structure Drupal</h1>
+          <p class="fr-text--lg fr-mb-0">Vocabulaires propres au projet : types de contenu, paragraphes activés et taxonomies. La page <a href="maquette">Maquette</a> les utilise pour les listes déroulantes et les chips.</p>
+        </div>
+      </div>
+
+      <div class="maquette-bar">
+        <span class="fr-text--xs" style="color: var(--text-mention-grey);">Le <strong>schéma</strong> de chaque paragraphe (forme des champs) reste hardcodé côté front — éditables ici : la liste des codes activés, leurs libellés et les taxonomies.</span>
+        <div class="maquette-bar__right">
+          <button type="button" id="structure-reset"
+                  class="fr-btn fr-btn--sm fr-btn--tertiary fr-icon-refresh-line fr-btn--icon-left">
+            Réinitialiser aux valeurs par défaut
+          </button>
+          <span class="maquette-status" id="structure-status" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <div id="structure-root"></div>
+
+    </div>
+  </main>
+
+  <footer class="fr-footer" role="contentinfo" data-app-footer></footer>
+
+  <script src="/assets/layout.js" type="module"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.module.min.js"></script>
+  <script nomodule defer src="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.0/dist/dsfr.nomodule.min.js"></script>
+  <script src="/assets/structure-drupal.js" type="module"></script>
+</body>
+</html>

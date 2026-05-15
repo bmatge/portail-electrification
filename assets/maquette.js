@@ -3,37 +3,19 @@
 // Drupal SFD (colonne latérale). Persiste dans le même JSON via collab.saveTree.
 
 import { collab, ensureIdentified, escapeHtml } from './collab.js';
+import { resolveVocab } from './drupal-vocab.js';
 
 // ---- Vocabulaires ----
+//
+// Les listes effectivement affichées (types de contenu, paragraphes activés,
+// taxonomies) viennent de la config `drupal_structure` du projet, résolue au
+// boot par `resolveVocab()`. Les variables `let` ci-dessous sont écrasées
+// avant le premier render — au pire (config absente) elles retombent sur les
+// valeurs par défaut de `drupal-vocab.js`.
 
-const DRUPAL_TYPES = [
-  'Accueil',
-  'Rubrique',
-  'Article',
-  'Page neutre',
-  'Webform',
-  'Hors SFD',
-];
-
-const PARAGRAPHS = {
-  accordion:        { label: 'Accordéon',                     hint: 'Q/R repliables (vrai/faux, FAQ)' },
-  tabs:             { label: 'Onglets',                        hint: 'Sections d\'une page (Objectif, Pour qui, Quand…)' },
-  'cards-row':      { label: 'Rangée de cartes',               hint: 'Orientation vers les pages enfants' },
-  'tiles-row':      { label: 'Rangée de tuiles',               hint: 'Navigation secondaire' },
-  'auto-list':      { label: 'Remontée auto',                  hint: 'Liste dynamique par taxonomie' },
-  summary:          { label: 'Sommaire',                       hint: 'Table des matières (pages longues)' },
-  button:           { label: 'Bouton(s)',                       hint: 'CTA / renvoi sortant' },
-  highlight:        { label: 'Mise en exergue',                 hint: 'Encadré informatif' },
-  callout:          { label: 'Bloc de mise en avant',           hint: 'Encadré coloré, accent fort' },
-  'image-text':     { label: 'Image et texte',                  hint: 'Visuel + texte côte à côte' },
-  quote:            { label: 'Citation',                        hint: 'Verbatim, témoignage' },
-  table:            { label: 'Tableau',                         hint: 'Données tabulaires' },
-  video:            { label: 'Vidéo',                           hint: 'YouTube, Vimeo, Dailymotion' },
-  'download-block': { label: 'Bloc de téléchargement',          hint: 'Fichier unique mis en avant' },
-  'download-links': { label: 'Liens de téléchargement',         hint: 'Liste de fichiers' },
-  'cards-download': { label: 'Cartes de téléchargement',        hint: 'Téléchargements en grille' },
-  code:             { label: 'Code (hors SFD)',                  hint: 'Iframe / carte interactive — dev complémentaire' },
-};
+let DRUPAL_TYPES = [];
+let PARAGRAPHS   = {};
+let TAXO         = {};
 
 // Stockage : on garde les clés `univers` et `cibles` pour ne rien casser ;
 // les libellés et options visibles ont été refondus.
@@ -195,23 +177,15 @@ function dataOrDefaults(p) {
   return hasData(p) ? p.data : defaultsFor(p.code);
 }
 
-const TAXO = {
-  univers: {
-    label: 'Type éditorial',
-    multi: false,
-    options: ['Actualité', 'Page rubrique', 'Fiche pratique', 'Fiche mesure', 'Simulateur et outils'],
-  },
-  cibles: {
-    label: 'Public',
-    multi: true,
-    options: ['Tous publics', 'Particuliers', 'Artisans', 'Industriels', 'Agriculteurs', 'Collectivités'],
-  },
-  mesures: {
-    label: 'Mesure',
-    multi: true,
-    options: Array.from({ length: 22 }, (_, i) => `M${i + 1}`),
-  },
-};
+function applyVocab(config) {
+  const v = resolveVocab(config);
+  DRUPAL_TYPES = v.drupalTypes;
+  PARAGRAPHS   = v.paragraphs;
+  TAXO         = v.taxo;
+}
+
+// Initialisation par défaut au cas où le boot échoue avant fetchData.
+applyVocab(null);
 
 const AUDIENCE_TO_PUBLIC = {
   particuliers:  'Particuliers',
@@ -1295,6 +1269,98 @@ function exportFullMaquette() {
   exportSubtreeMaquette(state.tree, `maquette-complete-${stamp}.json`);
 }
 
+// ---- Import ----
+
+// Aplatit récursivement un dump exporté (forme produite par subtreeMaquetteData)
+// en une map id → { drupal_type, paragraphs, taxonomy } prête à fusionner.
+function flattenMaquetteDump(dump, into = new Map()) {
+  if (!dump || typeof dump !== 'object' || !dump.id) return into;
+  into.set(dump.id, {
+    drupal_type: dump.drupal_type || '',
+    paragraphs: Array.isArray(dump.paragraphs) ? dump.paragraphs.map(p => ({
+      code: String(p.code || ''),
+      title: String(p.title || ''),
+      data: p.data === null ? undefined : p.data,
+    })).filter(p => p.code) : [],
+    taxonomy: {
+      univers: String(dump.type_editorial || ''),
+      cibles: Array.isArray(dump.public) ? [...dump.public] : [],
+      mesures: Array.isArray(dump.mesures) ? [...dump.mesures] : [],
+    },
+  });
+  for (const child of (dump.children || [])) flattenMaquetteDump(child, into);
+  return into;
+}
+
+// Applique le dump au tree courant : pour chaque id présent dans les DEUX,
+// remplace les champs `maquette.*`. Retourne stats.
+function applyMaquetteDump(dump) {
+  const incoming = flattenMaquetteDump(dump);
+  let updated = 0;
+  let unknown = 0;
+  const seenInTree = new Set();
+
+  function walk(node) {
+    if (incoming.has(node.id)) {
+      const m = incoming.get(node.id);
+      node.maquette = {
+        drupal_type: m.drupal_type || (node.maquette && node.maquette.drupal_type) || 'Article',
+        paragraphs: m.paragraphs,
+        taxonomy: m.taxonomy,
+        seeded: false,
+      };
+      updated += 1;
+      seenInTree.add(node.id);
+    }
+    for (const c of (node.children || [])) walk(c);
+  }
+  walk(state.tree);
+
+  for (const id of incoming.keys()) if (!seenInTree.has(id)) unknown += 1;
+  return { updated, unknown, totalInDump: incoming.size };
+}
+
+async function importMaquetteFromFile(file) {
+  if (!file) return;
+  let dump;
+  try {
+    const text = await file.text();
+    dump = JSON.parse(text);
+  } catch (e) {
+    setStatus('error', 'JSON invalide : ' + e.message);
+    return;
+  }
+  if (!dump || typeof dump !== 'object' || !dump.id) {
+    setStatus('error', 'Format inattendu : pas de propriété "id" racine.');
+    return;
+  }
+  const stats = applyMaquetteDump(dump);
+  if (stats.updated === 0) {
+    setStatus('error', `Aucun nœud applicable (sur ${stats.totalInDump} dans le fichier, ${stats.unknown} id inconnu(s)).`);
+    return;
+  }
+  const msg = `Import : ${stats.updated} nœud(s) mis à jour` +
+    (stats.unknown ? `, ${stats.unknown} ignoré(s) (id absent du tree).` : '.');
+  if (!confirm(`${stats.updated} nœud(s) seront mis à jour` +
+    (stats.unknown ? ` ; ${stats.unknown} entrée(s) du fichier ont un id absent du tree courant et seront ignorées.` : '.') +
+    `\n\nAppliquer ?`)) {
+    // Re-fetch propre du tree pour annuler les mutations en mémoire.
+    try {
+      const { tree } = await collab.fetchTree();
+      state.tree = tree;
+      ensureMaquette(tree);
+      syncFromHash();
+      setStatus('idle');
+    } catch (e) {
+      setStatus('error', e.message);
+    }
+    return;
+  }
+  scheduleSave(msg);
+  // Re-render après mutation.
+  syncFromHash();
+}
+
 // ---- Routing ----
 
 function navigateTo(id) {
@@ -1327,6 +1393,13 @@ window.addEventListener('hashchange', syncFromHash);
 
 (async function boot() {
   try {
+    // Charge la config Drupal du projet avant de toucher au tree, pour que le
+    // seed automatique des nœuds (univers/cibles/...) parte des bons vocabs.
+    try {
+      const { data } = await collab.fetchData('drupal_structure');
+      applyVocab(data);
+    } catch { /* non-fatal : on garde les défauts déjà chargés */ }
+
     const { tree } = await collab.fetchTree();
     state.tree = tree;
     ensureMaquette(tree);
@@ -1338,5 +1411,17 @@ window.addEventListener('hashchange', syncFromHash);
   setStatus('idle');
   const exportAllBtn = document.getElementById('maquette-export-all');
   if (exportAllBtn) exportAllBtn.addEventListener('click', exportFullMaquette);
+
+  const importBtn = document.getElementById('maquette-import');
+  const importInput = document.getElementById('maquette-import-input');
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', async () => {
+      const file = importInput.files && importInput.files[0];
+      importInput.value = ''; // reset pour ré-importer le même fichier
+      if (file) await importMaquetteFromFile(file);
+    });
+  }
+
   syncFromHash();
 })();

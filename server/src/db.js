@@ -38,6 +38,34 @@ function readJsonOrNull(path) {
   try { return JSON.parse(readFileSync(path, 'utf-8')); } catch { return null; }
 }
 
+// Structure Drupal par défaut (vocabulaires DSFR standard).
+// Le schéma de chaque paragraphe reste hardcodé côté front (assets/maquette.js) ;
+// ce seed n'expose que ce qui est éditable : la liste des codes activés,
+// leurs libellés et les taxonomies.
+export const DEFAULT_DRUPAL_STRUCTURE = {
+  content_types: ['Accueil', 'Rubrique', 'Article', 'Page neutre', 'Webform', 'Hors SFD'],
+  paragraphs: [
+    'accordion', 'tabs', 'cards-row', 'tiles-row', 'auto-list', 'summary',
+    'button', 'highlight', 'callout', 'image-text', 'quote', 'table',
+    'video', 'download-block', 'download-links', 'cards-download', 'code',
+  ],
+  paragraph_labels: {},
+  taxonomies: [
+    {
+      key: 'univers', label: 'Type éditorial', multi: false,
+      options: ['Actualité', 'Page rubrique', 'Fiche pratique', 'Fiche mesure', 'Simulateur et outils'],
+    },
+    {
+      key: 'cibles', label: 'Public', multi: true,
+      options: ['Tous publics', 'Particuliers', 'Artisans', 'Industriels', 'Agriculteurs', 'Collectivités'],
+    },
+    {
+      key: 'mesures', label: 'Mesure', multi: true,
+      options: Array.from({ length: 22 }, (_, i) => `M${i + 1}`),
+    },
+  ],
+};
+
 function getOrCreateSystemUser() {
   const row = db.prepare('SELECT id FROM users WHERE name = ?').get('Système');
   if (row) return row.id;
@@ -81,6 +109,8 @@ function seedDefaultProjectContent(projectId, sysUserId) {
     if (data == null) continue;
     insertData.run(projectId, key, JSON.stringify(data), sysUserId);
   }
+  // Structure Drupal par défaut (rétro-actif pour le projet historique)
+  insertData.run(projectId, 'drupal_structure', JSON.stringify(DEFAULT_DRUPAL_STRUCTURE), sysUserId);
 }
 
 const sysId = getOrCreateSystemUser();
@@ -123,12 +153,13 @@ export function createProject({ slug, name, description = '' }) {
     INSERT INTO roadmap_revisions (project_id, parent_id, data_json, author_id, message)
     VALUES (?, NULL, ?, ?, ?)
   `).run(projectId, JSON.stringify({ meta: {}, items: [] }), sysUserId, 'Création du projet');
-  // Catalogues vides
+  // Catalogues vides + Structure Drupal par défaut
   const insertData = db.prepare('INSERT OR IGNORE INTO project_data (project_id, key, json_value, updated_by) VALUES (?, ?, ?, ?)');
   for (const [key, value] of [
-    ['dispositifs', { dispositifs: [] }],
-    ['mesures',     { mesures: [] }],
-    ['objectifs',   { axes: [], objectifs: [], moyens: [] }],
+    ['dispositifs',      { dispositifs: [] }],
+    ['mesures',          { mesures: [] }],
+    ['objectifs',        { axes: [], objectifs: [], moyens: [] }],
+    ['drupal_structure', DEFAULT_DRUPAL_STRUCTURE],
   ]) {
     insertData.run(projectId, key, JSON.stringify(value), sysUserId);
   }
@@ -157,4 +188,128 @@ export function getRoadmapHeadRevision(projectId) {
     WHERE r.project_id = ?
     ORDER BY r.id DESC LIMIT 1
   `).get(projectId);
+}
+
+// ---- Suppression d'un projet -------------------------------------------
+
+// Supprime un projet et tout son contenu (révisions tree + roadmap,
+// commentaires, catalogues). Les tables historiques `revisions`,
+// `roadmap_revisions` et `comments` n'ont pas de FK ON DELETE CASCADE
+// (project_id ajouté par ALTER TABLE sans FK), donc on les vide à la main.
+// `defer_foreign_keys` reporte la validation des FK auto-référencées
+// (parent_id, reverts_id) à la fin de la transaction.
+export function deleteProject(projectId) {
+  const tx = db.transaction(() => {
+    db.pragma('defer_foreign_keys = ON');
+    db.prepare('DELETE FROM comments WHERE project_id = ?').run(projectId);
+    db.prepare('DELETE FROM revisions WHERE project_id = ?').run(projectId);
+    db.prepare('DELETE FROM roadmap_revisions WHERE project_id = ?').run(projectId);
+    // project_data : supprimé via ON DELETE CASCADE quand on supprime le projet.
+    const info = db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
+    return info.changes;
+  });
+  return tx();
+}
+
+// ---- Export / Import bundle ---------------------------------------------
+
+const EXPORT_KEYS = ['dispositifs', 'mesures', 'objectifs', 'drupal_structure'];
+
+// Construit un bundle JSON autosuffisant pour un projet : métadonnées + état
+// courant (tree head, roadmap head, project_data). N'inclut pas l'historique
+// des révisions ni les commentaires (volumineux, peu portables).
+export function exportProjectBundle(projectId) {
+  const project = getProjectById(projectId);
+  if (!project) return null;
+  const treeHead = getHeadRevision(projectId);
+  const roadmapHead = getRoadmapHeadRevision(projectId);
+  const dataRows = db.prepare(
+    'SELECT key, json_value FROM project_data WHERE project_id = ?'
+  ).all(projectId);
+  const data = {};
+  for (const r of dataRows) {
+    if (EXPORT_KEYS.includes(r.key)) data[r.key] = JSON.parse(r.json_value);
+  }
+  return {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    project: { slug: project.slug, name: project.name, description: project.description || '' },
+    tree: treeHead ? JSON.parse(treeHead.tree_json) : null,
+    roadmap: roadmapHead ? JSON.parse(roadmapHead.data_json) : { meta: {}, items: [] },
+    data,
+  };
+}
+
+// Trouve un slug libre à partir d'une base : "foo" → "foo", sinon "foo-2", "foo-3"…
+function findFreeSlug(base) {
+  if (!getProjectBySlug(base)) return base;
+  for (let i = 2; i < 1000; i++) {
+    const candidate = `${base}-${i}`.slice(0, 50);
+    if (!getProjectBySlug(candidate)) return candidate;
+  }
+  throw new Error('Impossible de générer un slug libre');
+}
+
+// Crée un nouveau projet à partir d'un bundle exporté. Toujours non-destructif :
+// si le slug est déjà pris, on lui ajoute un suffixe -2, -3...
+// Tout se passe dans une transaction : si l'insertion d'une partie échoue,
+// le projet n'est pas créé.
+export function importProjectFromBundle(bundle, sysUserId, { slugOverride } = {}) {
+  if (!bundle || typeof bundle !== 'object') throw new Error('bundle_invalid');
+  const meta = bundle.project || {};
+  const requestedSlug = String(slugOverride || meta.slug || '').trim().toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '').slice(0, 50);
+  if (!requestedSlug || !/^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(requestedSlug)) {
+    throw new Error('bundle_slug_invalid');
+  }
+  const name = String(meta.name || requestedSlug).trim().slice(0, 100);
+  const description = String(meta.description || '').trim().slice(0, 500);
+  const tree = (bundle.tree && typeof bundle.tree === 'object' && bundle.tree.id)
+    ? bundle.tree
+    : { id: 'root', label: name, type: 'hub', tldr: '', children: [] };
+  const roadmap = (bundle.roadmap && typeof bundle.roadmap === 'object' && Array.isArray(bundle.roadmap.items))
+    ? bundle.roadmap
+    : { meta: {}, items: [] };
+  const dataBundle = (bundle.data && typeof bundle.data === 'object') ? bundle.data : {};
+
+  const finalSlug = findFreeSlug(requestedSlug);
+  const slugWasRenamed = finalSlug !== requestedSlug;
+
+  const tx = db.transaction(() => {
+    const info = db.prepare(
+      'INSERT INTO projects (slug, name, description) VALUES (?, ?, ?)'
+    ).run(finalSlug, name, description);
+    const projectId = Number(info.lastInsertRowid);
+
+    db.prepare(`
+      INSERT INTO revisions (project_id, parent_id, tree_json, author_id, message)
+      VALUES (?, NULL, ?, ?, ?)
+    `).run(projectId, JSON.stringify(tree), sysUserId, 'Import du projet');
+
+    db.prepare(`
+      INSERT INTO roadmap_revisions (project_id, parent_id, data_json, author_id, message)
+      VALUES (?, NULL, ?, ?, ?)
+    `).run(projectId, JSON.stringify(roadmap), sysUserId, 'Import du projet');
+
+    const insertData = db.prepare(
+      'INSERT OR REPLACE INTO project_data (project_id, key, json_value, updated_by) VALUES (?, ?, ?, ?)'
+    );
+    // On insère les clés présentes dans le bundle, en complétant avec les
+    // défauts pour les clés manquantes (catalogues vides + drupal_structure).
+    const fallbacks = {
+      dispositifs:      { dispositifs: [] },
+      mesures:          { mesures: [] },
+      objectifs:        { axes: [], objectifs: [], moyens: [] },
+      drupal_structure: DEFAULT_DRUPAL_STRUCTURE,
+    };
+    for (const key of EXPORT_KEYS) {
+      const value = (key in dataBundle && dataBundle[key] !== null && typeof dataBundle[key] === 'object')
+        ? dataBundle[key] : fallbacks[key];
+      insertData.run(projectId, key, JSON.stringify(value), sysUserId);
+    }
+    return projectId;
+  });
+
+  const projectId = tx();
+  return { project: getProjectById(projectId), slugWasRenamed, finalSlug };
 }
