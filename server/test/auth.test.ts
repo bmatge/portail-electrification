@@ -4,14 +4,14 @@ import { makeFixture } from './setup.js';
 
 describe('auth routes', () => {
   it('GET /api/me sans cookie → 401 identification_required', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).get('/api/me');
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ error: 'identification_required' });
   });
 
   it('POST /api/identify crée la session et /api/me la retourne', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     const identify = await agent.post('/api/identify').send({ name: 'Alice' });
     expect(identify.status).toBe(200);
@@ -23,7 +23,7 @@ describe('auth routes', () => {
   });
 
   it('POST /api/identify rejette les noms vides ou trop longs', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const empty = await request(app).post('/api/identify').send({ name: '' });
     expect(empty.status).toBe(400);
 
@@ -34,7 +34,7 @@ describe('auth routes', () => {
   });
 
   it('POST /api/logout supprime la session', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Bob' });
     const logout = await agent.post('/api/logout');

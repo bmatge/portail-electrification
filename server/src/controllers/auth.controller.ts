@@ -1,13 +1,14 @@
-import type { RequestHandler } from 'express';
-import type { Db } from '../db/client.js';
+import type { Request, RequestHandler } from 'express';
+import type { Kdb } from '../db/client.js';
 import { UnauthorizedError } from '../domain/errors.js';
 import { identify, logout } from '../services/auth.service.js';
 import { SESSION_COOKIE_NAME } from '../middleware/attach-user.js';
+import { asyncH } from '../middleware/async-handler.js';
 import type { IdentifyBody } from '../schemas/auth.schemas.js';
 
 const COOKIE_MAX_AGE = 1000 * 60 * 60 * 24 * 365; // 1 an
 
-function cookieOpts(req: Parameters<RequestHandler>[0]): {
+function cookieOpts(req: Request): {
   httpOnly: true;
   sameSite: 'lax';
   path: '/';
@@ -24,23 +25,23 @@ function cookieOpts(req: Parameters<RequestHandler>[0]): {
   };
 }
 
-export function makeAuthController(db: Db): {
+export function makeAuthController(k: Kdb): {
   identifyHandler: RequestHandler;
   logoutHandler: RequestHandler;
   meHandler: RequestHandler;
 } {
   return {
-    identifyHandler(req, res) {
+    identifyHandler: asyncH(async (req, res) => {
       const body = req.body as IdentifyBody;
-      const result = identify(db, body.name);
+      const result = await identify(k, body.name);
       res.cookie(SESSION_COOKIE_NAME, result.token, cookieOpts(req));
       res.json({ user: result.user });
-    },
-    logoutHandler(req, res) {
-      logout(db, req.sessionToken);
+    }),
+    logoutHandler: asyncH(async (req, res) => {
+      await logout(k, req.sessionToken);
       res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
       res.status(204).end();
-    },
+    }),
     meHandler(req, res, next) {
       if (!req.user) {
         next(new UnauthorizedError());

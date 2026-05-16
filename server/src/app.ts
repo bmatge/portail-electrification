@@ -4,7 +4,7 @@
 
 import express, { type Express, Router } from 'express';
 import cookieParser from 'cookie-parser';
-import type { Db } from './db/client.js';
+import type { Kdb } from './db/client.js';
 import { makeAttachUser } from './middleware/attach-user.js';
 import { makeLoadProject } from './middleware/load-project.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -18,7 +18,7 @@ import { makeDataRouter } from './routes/data.routes.js';
 import { makeStaticRouter } from './static.js';
 
 export interface CreateAppOptions {
-  readonly db: Db;
+  readonly k: Kdb;
   readonly publicDir?: string;
   readonly serveStatic?: boolean;
 }
@@ -29,21 +29,21 @@ export function createApp(options: CreateAppOptions): Express {
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
-  app.use(makeAttachUser(options.db));
+  app.use(makeAttachUser(options.k));
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
   });
-  app.use('/api', makeAuthRouter(options.db));
-  app.use('/api', makeProjectsRouter(options.db));
+  app.use('/api', makeAuthRouter(options.k));
+  app.use('/api', makeProjectsRouter(options.k));
 
   const scoped = Router({ mergeParams: true });
-  scoped.use(makeLoadProject(options.db));
-  scoped.use(makeTreeRouter(options.db));
-  scoped.use(makeHistoryRouter(options.db));
-  scoped.use(makeRoadmapRouter(options.db));
-  scoped.use(makeCommentsRouter(options.db));
-  scoped.use(makeDataRouter(options.db));
+  scoped.use(makeLoadProject(options.k));
+  scoped.use(makeTreeRouter(options.k));
+  scoped.use(makeHistoryRouter(options.k));
+  scoped.use(makeRoadmapRouter(options.k));
+  scoped.use(makeCommentsRouter(options.k));
+  scoped.use(makeDataRouter(options.k));
   app.use('/api/projects/:slug', scoped);
 
   if (options.serveStatic !== false && options.publicDir) {

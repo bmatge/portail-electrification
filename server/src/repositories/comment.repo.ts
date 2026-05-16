@@ -1,32 +1,63 @@
-import type { Db } from '../db/client.js';
-import type { CommentRow, CommentMinimalRow, CommentCountRow } from '../db/types.js';
+import { sql } from 'kysely';
+import type { Kdb } from '../db/client.js';
 
-export function listCommentsForNode(
-  db: Db,
-  projectId: number,
-  nodeId: string,
-): readonly CommentRow[] {
-  return db
-    .prepare(
-      `SELECT c.id, c.node_id, c.body, c.created_at, c.revision_id,
-              u.id AS author_id, u.name AS author_name
-       FROM comments c
-       JOIN users u ON u.id = c.author_id
-       WHERE c.project_id = ? AND c.node_id = ? AND c.deleted_at IS NULL
-       ORDER BY c.created_at ASC`,
-    )
-    .all(projectId, nodeId) as readonly CommentRow[];
+export interface CommentWithAuthorRow {
+  readonly id: number;
+  readonly node_id: string;
+  readonly body: string;
+  readonly created_at: string;
+  readonly revision_id: number | null;
+  readonly author_id: number;
+  readonly author_name: string;
 }
 
-export function countCommentsByNode(db: Db, projectId: number): readonly CommentCountRow[] {
-  return db
-    .prepare(
-      `SELECT node_id, COUNT(*) AS n
-       FROM comments
-       WHERE project_id = ? AND deleted_at IS NULL
-       GROUP BY node_id`,
-    )
-    .all(projectId) as readonly CommentCountRow[];
+export interface CommentMinimal {
+  readonly id: number;
+  readonly project_id: number;
+  readonly author_id: number;
+}
+
+export interface CommentCount {
+  readonly node_id: string;
+  readonly n: number;
+}
+
+export async function listCommentsForNode(
+  k: Kdb,
+  projectId: number,
+  nodeId: string,
+): Promise<readonly CommentWithAuthorRow[]> {
+  return await k
+    .selectFrom('comments as c')
+    .innerJoin('users as u', 'u.id', 'c.author_id')
+    .select([
+      'c.id',
+      'c.node_id',
+      'c.body',
+      'c.created_at',
+      'c.revision_id',
+      'u.id as author_id',
+      'u.name as author_name',
+    ])
+    .where('c.project_id', '=', projectId)
+    .where('c.node_id', '=', nodeId)
+    .where('c.deleted_at', 'is', null)
+    .orderBy('c.created_at', 'asc')
+    .execute();
+}
+
+export async function countCommentsByNode(
+  k: Kdb,
+  projectId: number,
+): Promise<readonly CommentCount[]> {
+  const rows = await k
+    .selectFrom('comments')
+    .select((eb) => ['node_id', eb.fn.countAll<number>().as('n')])
+    .where('project_id', '=', projectId)
+    .where('deleted_at', 'is', null)
+    .groupBy('node_id')
+    .execute();
+  return rows.map((r) => ({ node_id: r.node_id, n: Number(r.n) }));
 }
 
 export interface InsertCommentInput {
@@ -45,28 +76,40 @@ export interface InsertedCommentRow {
   readonly revision_id: number | null;
 }
 
-export function insertComment(db: Db, input: InsertCommentInput): InsertedCommentRow {
-  return db
-    .prepare(
-      `INSERT INTO comments (project_id, node_id, author_id, body, revision_id)
-       VALUES (?, ?, ?, ?, ?)
-       RETURNING id, node_id, body, created_at, revision_id`,
-    )
-    .get(
-      input.projectId,
-      input.nodeId,
-      input.authorId,
-      input.body,
-      input.revisionId,
-    ) as InsertedCommentRow;
+export async function insertComment(
+  k: Kdb,
+  input: InsertCommentInput,
+): Promise<InsertedCommentRow> {
+  return await k
+    .insertInto('comments')
+    .values({
+      project_id: input.projectId,
+      node_id: input.nodeId,
+      author_id: input.authorId,
+      body: input.body,
+      revision_id: input.revisionId,
+    })
+    .returning(['id', 'node_id', 'body', 'created_at', 'revision_id'])
+    .executeTakeFirstOrThrow();
 }
 
-export function findCommentById(db: Db, commentId: number): CommentMinimalRow | undefined {
-  return db
-    .prepare('SELECT id, project_id, author_id FROM comments WHERE id = ? AND deleted_at IS NULL')
-    .get(commentId) as CommentMinimalRow | undefined;
+export async function findCommentById(
+  k: Kdb,
+  commentId: number,
+): Promise<CommentMinimal | undefined> {
+  const row = await k
+    .selectFrom('comments')
+    .select(['id', 'project_id', 'author_id'])
+    .where('id', '=', commentId)
+    .where('deleted_at', 'is', null)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
-export function softDeleteComment(db: Db, commentId: number): void {
-  db.prepare(`UPDATE comments SET deleted_at = datetime('now') WHERE id = ?`).run(commentId);
+export async function softDeleteComment(k: Kdb, commentId: number): Promise<void> {
+  await k
+    .updateTable('comments')
+    .set({ deleted_at: sql<string>`datetime('now')` })
+    .where('id', '=', commentId)
+    .execute();
 }

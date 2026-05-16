@@ -1,22 +1,27 @@
-import type { Db } from '../db/client.js';
+import { sql } from 'kysely';
+import type { Kdb } from '../db/client.js';
 import type { UserRow } from '../db/types.js';
 
-export function findUserByName(db: Db, name: string): UserRow | undefined {
-  return db.prepare('SELECT id, name FROM users WHERE name = ?').get(name) as UserRow | undefined;
+export async function findUserByName(k: Kdb, name: string): Promise<UserRow | undefined> {
+  const row = await k
+    .selectFrom('users')
+    .select(['id', 'name'])
+    .where('name', '=', name)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
-export function upsertUserByName(db: Db, name: string): UserRow {
-  return db
-    .prepare(
-      `INSERT INTO users (name) VALUES (?)
-       ON CONFLICT(name) DO UPDATE SET name = excluded.name
-       RETURNING id, name`,
-    )
-    .get(name) as UserRow;
+export async function upsertUserByName(k: Kdb, name: string): Promise<UserRow> {
+  return await k
+    .insertInto('users')
+    .values({ name })
+    .onConflict((oc) => oc.column('name').doUpdateSet({ name: sql`excluded.name` }))
+    .returning(['id', 'name'])
+    .executeTakeFirstOrThrow();
 }
 
-export function ensureSystemUser(db: Db): UserRow {
-  const existing = findUserByName(db, 'Système');
+export async function ensureSystemUser(k: Kdb): Promise<UserRow> {
+  const existing = await findUserByName(k, 'Système');
   if (existing) return existing;
-  return upsertUserByName(db, 'Système');
+  return upsertUserByName(k, 'Système');
 }

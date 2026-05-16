@@ -4,7 +4,7 @@ import { makeFixture } from './setup.js';
 
 describe('projects routes', () => {
   it('GET /api/projects retourne le projet historique (id=1, slug=portail-electrification)', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).get('/api/projects');
     expect(res.status).toBe(200);
     expect(res.body.projects).toHaveLength(1);
@@ -15,20 +15,20 @@ describe('projects routes', () => {
   });
 
   it('GET /api/projects/:slug retourne 404 si le projet n’existe pas', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).get('/api/projects/inconnu');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'project_not_found' });
   });
 
   it('POST /api/projects exige une identification', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).post('/api/projects').send({ slug: 'demo', name: 'Démo' });
     expect(res.status).toBe(401);
   });
 
   it('POST /api/projects crée un nouveau projet seedé', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
     const create = await agent
@@ -47,7 +47,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/projects rejette un slug invalide', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
     // Slug commençant par un tiret : trim+lowercase ne sauve pas, et SLUG_RE
@@ -58,7 +58,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/projects rejette un slug déjà pris (409 slug_taken)', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
     await agent.post('/api/projects').send({ slug: 'demo', name: 'Démo' });
@@ -68,7 +68,7 @@ describe('projects routes', () => {
   });
 
   it('GET /api/projects/:slug/export renvoie un bundle JSON téléchargeable', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).get('/api/projects/portail-electrification/export');
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('application/json');
@@ -82,7 +82,7 @@ describe('projects routes', () => {
   });
 
   it('POST /api/projects/import + DELETE /api/projects/:slug — round trip', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
 

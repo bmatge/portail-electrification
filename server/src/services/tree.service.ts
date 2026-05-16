@@ -1,17 +1,10 @@
-import type { Db } from '../db/client.js';
-import type { RevisionRow, RevisionSummary } from '../db/types.js';
+import type { Kdb } from '../db/client.js';
+import type { RevisionSummary, RevisionWithAuthor } from '../db/types.js';
 import { getHeadRevision, insertRevision } from '../repositories/revision.repo.js';
 import { ConflictError, NotFoundError } from '../domain/errors.js';
+import { logAudit } from './audit.service.js';
 
-export function serializeRevision(row: {
-  readonly id: number;
-  readonly parent_id: number | null;
-  readonly message: string;
-  readonly created_at: string;
-  readonly reverts_id: number | null;
-  readonly author_id: number;
-  readonly author_name: string;
-}): RevisionSummary {
+export function serializeRevision(row: RevisionWithAuthor): RevisionSummary {
   return {
     id: row.id,
     parent_id: row.parent_id,
@@ -27,8 +20,8 @@ export interface TreeHead {
   readonly tree: unknown;
 }
 
-export function getCurrentTree(db: Db, projectId: number): TreeHead {
-  const head = getHeadRevision(db, projectId);
+export async function getCurrentTree(k: Kdb, projectId: number): Promise<TreeHead> {
+  const head = await getHeadRevision(k, projectId);
   if (!head) throw new NotFoundError('no_revision');
   return { revision: serializeRevision(head), tree: JSON.parse(head.tree_json) };
 }
@@ -40,14 +33,16 @@ export interface SaveTreeInput {
   readonly authorId: number;
   readonly authorName: string;
   readonly expectedParent: string | undefined;
+  readonly ip?: string;
+  readonly userAgent?: string;
 }
 
 export interface SaveTreeResult {
   readonly revision: RevisionSummary;
 }
 
-export function saveTree(db: Db, input: SaveTreeInput): SaveTreeResult {
-  const head: RevisionRow | undefined = getHeadRevision(db, input.projectId);
+export async function saveTree(k: Kdb, input: SaveTreeInput): Promise<SaveTreeResult> {
+  const head = await getHeadRevision(k, input.projectId);
   if (
     input.expectedParent !== undefined &&
     input.expectedParent !== '' &&
@@ -56,15 +51,23 @@ export function saveTree(db: Db, input: SaveTreeInput): SaveTreeResult {
   ) {
     throw new ConflictError('conflict', 'tree head moved', serializeRevision(head));
   }
-
   const parentId = head ? head.id : null;
   const msg = input.message.slice(0, 200);
-  const inserted = insertRevision(db, {
+  const inserted = await insertRevision(k, {
     projectId: input.projectId,
     parentId,
     treeJson: JSON.stringify(input.tree),
     authorId: input.authorId,
     message: msg,
+  });
+  await logAudit(k, 'tree.write', {
+    actorId: input.authorId,
+    projectId: input.projectId,
+    resourceType: 'revision',
+    resourceId: inserted.id,
+    details: { parent_id: parentId, message: msg },
+    ip: input.ip ?? null,
+    userAgent: input.userAgent ?? null,
   });
   return {
     revision: {

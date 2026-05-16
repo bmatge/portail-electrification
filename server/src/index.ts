@@ -7,14 +7,14 @@ import { runMigrations } from './db/migrator.js';
 import { seedDefaultProject } from './services/seed.service.js';
 import { createApp } from './app.js';
 
-function main(): void {
+async function main(): Promise<void> {
   const config = loadConfig();
-  const db = createDatabase({ path: config.DB_PATH });
-  runMigrations(db);
-  seedDefaultProject(db);
+  const { raw, k } = createDatabase({ path: config.DB_PATH });
+  runMigrations(raw);
+  await seedDefaultProject(k);
 
   const app = createApp({
-    db,
+    k,
     publicDir: config.PUBLIC_DIR,
     serveStatic: true,
   });
@@ -23,4 +23,4 @@ function main(): void {
   });
 }
 
-main();
+void main();

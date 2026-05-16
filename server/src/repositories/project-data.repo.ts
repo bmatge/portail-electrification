@@ -1,65 +1,96 @@
-import type { Db } from '../db/client.js';
-import type { ProjectDataRow } from '../db/types.js';
+import { sql } from 'kysely';
+import type { Kdb } from '../db/client.js';
 
-export function getProjectData(db: Db, projectId: number, key: string): ProjectDataRow | undefined {
-  return db
-    .prepare('SELECT json_value, updated_at FROM project_data WHERE project_id = ? AND key = ?')
-    .get(projectId, key) as ProjectDataRow | undefined;
+export interface ProjectDataRead {
+  readonly json_value: string;
+  readonly updated_at: string;
 }
 
-export function listProjectDataRows(
-  db: Db,
+export async function getProjectData(
+  k: Kdb,
   projectId: number,
-): readonly { readonly key: string; readonly json_value: string }[] {
-  return db
-    .prepare('SELECT key, json_value FROM project_data WHERE project_id = ?')
-    .all(projectId) as readonly { key: string; json_value: string }[];
+  key: string,
+): Promise<ProjectDataRead | undefined> {
+  const row = await k
+    .selectFrom('project_data')
+    .select(['json_value', 'updated_at'])
+    .where('project_id', '=', projectId)
+    .where('key', '=', key)
+    .executeTakeFirst();
+  return row ?? undefined;
+}
+
+export async function listProjectDataRows(
+  k: Kdb,
+  projectId: number,
+): Promise<readonly { readonly key: string; readonly json_value: string }[]> {
+  return await k
+    .selectFrom('project_data')
+    .select(['key', 'json_value'])
+    .where('project_id', '=', projectId)
+    .execute();
 }
 
 // Upsert avec last-write-wins (utilisé par PUT /data/:key).
-export function upsertProjectData(
-  db: Db,
+export async function upsertProjectData(
+  k: Kdb,
   projectId: number,
   key: string,
   jsonValue: string,
   updatedBy: number,
-): void {
-  db.prepare(
-    `INSERT INTO project_data (project_id, key, json_value, updated_by, updated_at)
-     VALUES (?, ?, ?, ?, datetime('now'))
-     ON CONFLICT(project_id, key) DO UPDATE
-       SET json_value = excluded.json_value,
-           updated_by = excluded.updated_by,
-           updated_at = excluded.updated_at`,
-  ).run(projectId, key, jsonValue, updatedBy);
+): Promise<void> {
+  await k
+    .insertInto('project_data')
+    .values({
+      project_id: projectId,
+      key,
+      json_value: jsonValue,
+      updated_by: updatedBy,
+      updated_at: sql<string>`datetime('now')`,
+    })
+    .onConflict((oc) =>
+      oc.columns(['project_id', 'key']).doUpdateSet({
+        json_value: sql`excluded.json_value`,
+        updated_by: sql`excluded.updated_by`,
+        updated_at: sql`excluded.updated_at`,
+      }),
+    )
+    .execute();
 }
 
-// Idempotent : préserve la valeur existante (utilisé par le seed + l'import).
-export function insertProjectDataIfMissing(
-  db: Db,
+// Idempotent : préserve la valeur existante (utilisé par le seed).
+export async function insertProjectDataIfMissing(
+  k: Kdb,
   projectId: number,
   key: string,
   jsonValue: string,
   updatedBy: number,
-): void {
-  db.prepare(
-    `INSERT OR IGNORE INTO project_data (project_id, key, json_value, updated_by)
-     VALUES (?, ?, ?, ?)`,
-  ).run(projectId, key, jsonValue, updatedBy);
+): Promise<void> {
+  await k
+    .insertInto('project_data')
+    .values({ project_id: projectId, key, json_value: jsonValue, updated_by: updatedBy })
+    .onConflict((oc) => oc.columns(['project_id', 'key']).doNothing())
+    .execute();
 }
 
-// Force la valeur (utilisé par l'import avec REPLACE — l'import est non-destructif
-// au niveau du slug grâce à `findFreeSlug`, mais une fois le projet créé, les
-// clés écrites pendant la transaction sont autoritaires).
-export function replaceProjectData(
-  db: Db,
+// Force la valeur (utilisé par l'import + createProject : sait qu'on est sur
+// un projet fraîchement créé donc remplace sans risque de perdre du contenu
+// utilisateur).
+export async function replaceProjectData(
+  k: Kdb,
   projectId: number,
   key: string,
   jsonValue: string,
   updatedBy: number,
-): void {
-  db.prepare(
-    `INSERT OR REPLACE INTO project_data (project_id, key, json_value, updated_by)
-     VALUES (?, ?, ?, ?)`,
-  ).run(projectId, key, jsonValue, updatedBy);
+): Promise<void> {
+  await k
+    .insertInto('project_data')
+    .values({ project_id: projectId, key, json_value: jsonValue, updated_by: updatedBy })
+    .onConflict((oc) =>
+      oc.columns(['project_id', 'key']).doUpdateSet({
+        json_value: sql`excluded.json_value`,
+        updated_by: sql`excluded.updated_by`,
+      }),
+    )
+    .execute();
 }

@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Db } from '../db/client.js';
+import type { Kdb } from '../db/client.js';
 import { ensureSystemUser } from '../repositories/user.repo.js';
 import { getHeadRevision, insertRevision } from '../repositories/revision.repo.js';
 import {
@@ -18,8 +18,8 @@ const ASSETS_DATA = resolve(here, '../../../assets/data');
 
 // LEGACY_VOCAB = ce qui était hardcodé dans le code historique (plan
 // d'électrification : 9 publics, 4 échéances 2026-2027, 10 types de nœud).
-// Sert à initialiser **rétroactivement** le projet 1 et tout projet existant
-// qui n'aurait pas encore de clé vocab — pour ne casser aucune référence.
+// Sert à initialiser rétroactivement le projet 1 et tout projet existant qui
+// n'aurait pas encore de clé vocab — pour ne casser aucune référence.
 export const LEGACY_VOCAB = {
   audiences: [
     { key: 'particuliers', label: 'Particuliers' },
@@ -52,10 +52,6 @@ export const LEGACY_VOCAB = {
   ],
 } as const;
 
-// Seed minimal neutre pour un nouveau projet : un public générique, 3 horizons
-// temporels génériques, 3 types qui matchent l'heuristique seedMaquette
-// (hub/editorial/service). L'utilisateur enrichit depuis la page « Modèle de
-// données ».
 export const DEFAULT_VOCAB = {
   audiences: [{ key: 'tous-publics', label: 'Tous publics' }],
   deadlines: [
@@ -70,11 +66,6 @@ export const DEFAULT_VOCAB = {
   ],
 } as const;
 
-// Modèle de données par défaut (cible Drupal/DSFR sous le capot). Les
-// taxonomies sont volontairement minimales : un nouveau projet part avec un
-// public générique et aucune politique pré-remplie. Le projet historique
-// `portail-electrification` conserve sa config (INSERT OR IGNORE ne réécrit
-// pas).
 export const DEFAULT_DRUPAL_STRUCTURE = {
   content_types: ['Accueil', 'Rubrique', 'Article', 'Page neutre', 'Webform', 'Hors SFD'],
   paragraphs: [
@@ -127,15 +118,11 @@ function readJsonOrNull<T>(path: string): T | null {
   }
 }
 
-// Initialise le projet 1 (portail-electrification) s'il n'a pas encore de
-// révision tree / roadmap / catalogues — utilisé au boot pour conserver les
-// données seedées historiquement. La création du projet 1 lui-même est faite
-// par la migration `003_projects.sql` (INSERT WHERE NOT EXISTS).
-export function seedDefaultProject(db: Db): void {
-  const sysUser = ensureSystemUser(db);
+export async function seedDefaultProject(k: Kdb): Promise<void> {
+  const sysUser = await ensureSystemUser(k);
   const projectId = 1;
 
-  if (!getHeadRevision(db, projectId)) {
+  if (!(await getHeadRevision(k, projectId))) {
     const seed = readJsonOrNull<{
       readonly id: string;
       readonly label: string;
@@ -149,7 +136,7 @@ export function seedDefaultProject(db: Db): void {
       tldr: '',
       children: [],
     };
-    insertRevision(db, {
+    await insertRevision(k, {
       projectId,
       parentId: null,
       treeJson: JSON.stringify(seed),
@@ -158,11 +145,11 @@ export function seedDefaultProject(db: Db): void {
     });
   }
 
-  if (!getHeadRoadmapRevision(db, projectId)) {
+  if (!(await getHeadRoadmapRevision(k, projectId))) {
     const seed = readJsonOrNull<{ meta: unknown; items: readonly unknown[] }>(
       resolve(ASSETS_DATA, 'roadmap.json'),
     ) ?? { meta: {}, items: [] };
-    insertRoadmapRevision(db, {
+    await insertRoadmapRevision(k, {
       projectId,
       parentId: null,
       dataJson: JSON.stringify(seed),
@@ -179,14 +166,14 @@ export function seedDefaultProject(db: Db): void {
   for (const [key, path] of catalogSeeds) {
     const data = readJsonOrNull<unknown>(path);
     if (data == null) continue;
-    insertProjectDataIfMissing(db, projectId, key, JSON.stringify(data), sysUser.id);
+    await insertProjectDataIfMissing(k, projectId, key, JSON.stringify(data), sysUser.id);
   }
-  insertProjectDataIfMissing(
-    db,
+  await insertProjectDataIfMissing(
+    k,
     projectId,
     'drupal_structure',
     JSON.stringify(DEFAULT_DRUPAL_STRUCTURE),
     sysUser.id,
   );
-  insertProjectDataIfMissing(db, projectId, 'vocab', JSON.stringify(LEGACY_VOCAB), sysUser.id);
+  await insertProjectDataIfMissing(k, projectId, 'vocab', JSON.stringify(LEGACY_VOCAB), sysUser.id);
 }

@@ -1,4 +1,5 @@
-import type { Db } from '../db/client.js';
+import { sql } from 'kysely';
+import type { Kdb } from '../db/client.js';
 import type { Project, ProjectListItem } from '../db/types.js';
 import {
   deleteCommentsForProject,
@@ -19,26 +20,30 @@ import {
 import { ensureSystemUser } from '../repositories/user.repo.js';
 import { DEFAULT_DRUPAL_STRUCTURE, DEFAULT_VOCAB } from './seed.service.js';
 import { AppError, NotFoundError, ValidationError } from '../domain/errors.js';
+import { logAudit } from './audit.service.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/;
 const EXPORT_KEYS = ['dispositifs', 'mesures', 'objectifs', 'drupal_structure', 'vocab'] as const;
 
-export function listProjects(db: Db): readonly ProjectListItem[] {
-  return repoListProjects(db);
+export function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> {
+  return repoListProjects(k);
 }
 
-export function findProjectBySlug(db: Db, slug: string): Project | undefined {
-  return getProjectBySlug(db, slug);
+export function findProjectBySlug(k: Kdb, slug: string): Promise<Project | undefined> {
+  return getProjectBySlug(k, slug);
 }
 
 export interface CreateProjectInput {
   readonly slug: string;
   readonly name: string;
   readonly description?: string;
+  readonly actorId: number;
+  readonly ip?: string;
+  readonly userAgent?: string;
 }
 
-export function createProject(db: Db, input: CreateProjectInput): Project {
-  const sysUser = ensureSystemUser(db);
+export async function createProject(k: Kdb, input: CreateProjectInput): Promise<Project> {
+  const sysUser = await ensureSystemUser(k);
   const slug = input.slug.trim().toLowerCase();
   const name = input.name.trim();
   const description = (input.description ?? '').trim().slice(0, 500);
@@ -50,20 +55,20 @@ export function createProject(db: Db, input: CreateProjectInput): Project {
       '2-50 chars : a-z, 0-9, tirets ; commence et finit par alphanum.',
     );
   }
-  if (getProjectBySlug(db, slug)) {
+  if (await getProjectBySlug(k, slug)) {
     throw new AppError(409, 'slug_taken');
   }
 
-  const tx = db.transaction((): number => {
-    const projectId = insertProject(db, { slug, name, description });
-    insertRevision(db, {
+  const id = await k.transaction().execute(async (trx) => {
+    const projectId = await insertProject(trx, { slug, name, description });
+    await insertRevision(trx, {
       projectId,
       parentId: null,
       treeJson: JSON.stringify({ id: 'root', label: name, type: 'hub', tldr: '', children: [] }),
       authorId: sysUser.id,
       message: 'Création du projet',
     });
-    insertRoadmapRevision(db, {
+    await insertRoadmapRevision(trx, {
       projectId,
       parentId: null,
       dataJson: JSON.stringify({ meta: {}, items: [] }),
@@ -78,27 +83,53 @@ export function createProject(db: Db, input: CreateProjectInput): Project {
       ['vocab', DEFAULT_VOCAB],
     ];
     for (const [key, value] of seeds) {
-      replaceProjectData(db, projectId, key, JSON.stringify(value), sysUser.id);
+      await replaceProjectData(trx, projectId, key, JSON.stringify(value), sysUser.id);
     }
     return projectId;
   });
 
-  const id = tx();
-  const project = getProjectById(db, id);
+  const project = await getProjectById(k, id);
   if (!project) throw new AppError(500, 'create_failed');
+  await logAudit(k, 'project.create', {
+    actorId: input.actorId,
+    projectId: project.id,
+    resourceType: 'project',
+    resourceId: project.id,
+    details: { slug: project.slug, name: project.name },
+    ip: input.ip ?? null,
+    userAgent: input.userAgent ?? null,
+  });
   return project;
 }
 
-export function deleteProject(db: Db, projectId: number): number {
-  const tx = db.transaction((): number => {
-    db.pragma('defer_foreign_keys = ON');
-    deleteCommentsForProject(db, projectId);
-    deleteRevisionsForProject(db, projectId);
-    deleteRoadmapRevisionsForProject(db, projectId);
-    // project_data : supprimé via ON DELETE CASCADE quand on supprime le projet.
-    return deleteProjectRow(db, projectId);
+export interface DeleteProjectInput {
+  readonly projectId: number;
+  readonly actorId: number;
+  readonly ip?: string;
+  readonly userAgent?: string;
+}
+
+export async function deleteProject(k: Kdb, input: DeleteProjectInput): Promise<number> {
+  const project = await getProjectById(k, input.projectId);
+  const changes = await k.transaction().execute(async (trx) => {
+    await sql`PRAGMA defer_foreign_keys = ON`.execute(trx);
+    await deleteCommentsForProject(trx, input.projectId);
+    await deleteRevisionsForProject(trx, input.projectId);
+    await deleteRoadmapRevisionsForProject(trx, input.projectId);
+    return await deleteProjectRow(trx, input.projectId);
   });
-  return tx();
+  if (changes > 0 && project) {
+    await logAudit(k, 'project.delete', {
+      actorId: input.actorId,
+      projectId: null,
+      resourceType: 'project',
+      resourceId: project.id,
+      details: { slug: project.slug, name: project.name },
+      ip: input.ip ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+  }
+  return changes;
 }
 
 export interface ProjectBundle {
@@ -114,13 +145,17 @@ export interface ProjectBundle {
   readonly data: Readonly<Record<string, unknown>>;
 }
 
-export function exportProjectBundle(db: Db, projectId: number): ProjectBundle | null {
-  const project = getProjectById(db, projectId);
+export async function exportProjectBundle(
+  k: Kdb,
+  projectId: number,
+): Promise<ProjectBundle | null> {
+  const project = await getProjectById(k, projectId);
   if (!project) return null;
-  const head = getHeadRevision(db, projectId);
-  const roadmapHead = getHeadRoadmapRevision(db, projectId);
+  const head = await getHeadRevision(k, projectId);
+  const roadmapHead = await getHeadRoadmapRevision(k, projectId);
+  const dataRows = await listProjectDataRows(k, projectId);
   const data: Record<string, unknown> = {};
-  for (const row of listProjectDataRows(db, projectId)) {
+  for (const row of dataRows) {
     if ((EXPORT_KEYS as readonly string[]).includes(row.key)) {
       data[row.key] = JSON.parse(row.json_value);
     }
@@ -142,7 +177,10 @@ export function exportProjectBundle(db: Db, projectId: number): ProjectBundle | 
 export interface ImportBundleInput {
   readonly bundle: unknown;
   readonly sysUserId: number;
+  readonly actorId: number;
   readonly slugOverride?: string;
+  readonly ip?: string;
+  readonly userAgent?: string;
 }
 
 export interface ImportResult {
@@ -166,19 +204,20 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function findFreeSlug(db: Db, base: string): string {
-  if (!getProjectBySlug(db, base)) return base;
+async function findFreeSlug(k: Kdb, base: string): Promise<string> {
+  if (!(await getProjectBySlug(k, base))) return base;
   for (let i = 2; i < 1000; i++) {
     const candidate = `${base}-${i}`.slice(0, 50);
-    if (!getProjectBySlug(db, candidate)) return candidate;
+    if (!(await getProjectBySlug(k, candidate))) return candidate;
   }
   throw new AppError(500, 'create_failed', 'Impossible de générer un slug libre');
 }
 
-export function importProjectFromBundle(db: Db, input: ImportBundleInput): ImportResult {
-  if (!isPlainObject(input.bundle)) {
-    throw new AppError(400, 'bundle_invalid');
-  }
+export async function importProjectFromBundle(
+  k: Kdb,
+  input: ImportBundleInput,
+): Promise<ImportResult> {
+  if (!isPlainObject(input.bundle)) throw new AppError(400, 'bundle_invalid');
   const bundle = input.bundle as BundleLike;
   const meta = isPlainObject(bundle.project) ? bundle.project : {};
 
@@ -210,20 +249,20 @@ export function importProjectFromBundle(db: Db, input: ImportBundleInput): Impor
 
   const dataBundle = isPlainObject(bundle.data) ? bundle.data : {};
 
-  const finalSlug = findFreeSlug(db, rawSlug);
+  const finalSlug = await findFreeSlug(k, rawSlug);
   const slugWasRenamed = finalSlug !== rawSlug;
 
-  const tx = db.transaction((): number => {
-    const projectId = insertProject(db, { slug: finalSlug, name, description });
-    insertRevision(db, {
-      projectId,
+  const projectId = await k.transaction().execute(async (trx) => {
+    const id = await insertProject(trx, { slug: finalSlug, name, description });
+    await insertRevision(trx, {
+      projectId: id,
       parentId: null,
       treeJson: JSON.stringify(tree),
       authorId: input.sysUserId,
       message: 'Import du projet',
     });
-    insertRoadmapRevision(db, {
-      projectId,
+    await insertRoadmapRevision(trx, {
+      projectId: id,
       parentId: null,
       dataJson: JSON.stringify(roadmap),
       authorId: input.sysUserId,
@@ -240,13 +279,21 @@ export function importProjectFromBundle(db: Db, input: ImportBundleInput): Impor
     for (const key of EXPORT_KEYS) {
       const provided = dataBundle[key];
       const value = isPlainObject(provided) ? provided : fallbacks[key];
-      replaceProjectData(db, projectId, key, JSON.stringify(value), input.sysUserId);
+      await replaceProjectData(trx, id, key, JSON.stringify(value), input.sysUserId);
     }
-    return projectId;
+    return id;
   });
 
-  const projectId = tx();
-  const project = getProjectById(db, projectId);
+  const project = await getProjectById(k, projectId);
   if (!project) throw new NotFoundError('project_not_found');
+  await logAudit(k, 'project.import', {
+    actorId: input.actorId,
+    projectId: project.id,
+    resourceType: 'project',
+    resourceId: project.id,
+    details: { slug: project.slug, name: project.name, slugWasRenamed },
+    ip: input.ip ?? null,
+    userAgent: input.userAgent ?? null,
+  });
   return { project, slugWasRenamed, finalSlug };
 }

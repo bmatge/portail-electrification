@@ -4,7 +4,7 @@ import { makeFixture } from './setup.js';
 
 describe('tree routes (+ optimistic locking)', () => {
   it('GET /tree retourne la révision tête + l’arbre seedé', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).get('/api/projects/portail-electrification/tree');
     expect(res.status).toBe(200);
     expect(res.body.revision.id).toBeGreaterThanOrEqual(1);
@@ -12,7 +12,7 @@ describe('tree routes (+ optimistic locking)', () => {
   });
 
   it('PUT /tree exige une identification', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app)
       .put('/api/projects/portail-electrification/tree')
       .send({ tree: { id: 'root', children: [] } });
@@ -20,7 +20,7 @@ describe('tree routes (+ optimistic locking)', () => {
   });
 
   it('PUT /tree crée une nouvelle révision, GET /history la retrouve', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
 
@@ -40,7 +40,7 @@ describe('tree routes (+ optimistic locking)', () => {
   });
 
   it('PUT /tree avec If-Match désynchronisé → 409 conflict + head', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
 
@@ -54,7 +54,7 @@ describe('tree routes (+ optimistic locking)', () => {
   });
 
   it('POST /revisions/:id/revert remet la révision source en tête', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
     const initial = await agent.get('/api/projects/portail-electrification/tree');
@@ -80,14 +80,14 @@ describe('tree routes (+ optimistic locking)', () => {
 
 describe('roadmap routes', () => {
   it('GET /roadmap retourne la révision tête + roadmap seed', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app).get('/api/projects/portail-electrification/roadmap');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.roadmap.items)).toBe(true);
   });
 
   it('PUT /roadmap exige une identification', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const res = await request(app)
       .put('/api/projects/portail-electrification/roadmap')
       .send({ roadmap: { meta: {}, items: [] } });
@@ -95,7 +95,7 @@ describe('roadmap routes', () => {
   });
 
   it('PUT /roadmap valide, GET /roadmap/history la trouve, GET /roadmap/revisions/:id la rejoue', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
 
@@ -118,7 +118,7 @@ describe('roadmap routes', () => {
   });
 
   it('PUT /roadmap avec If-Match désynchronisé → 409', async () => {
-    const { app } = makeFixture();
+    const { app } = await makeFixture();
     const agent = request.agent(app);
     await agent.post('/api/identify').send({ name: 'Alice' });
     const res = await agent

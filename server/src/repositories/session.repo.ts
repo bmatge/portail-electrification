@@ -1,4 +1,5 @@
-import type { Db } from '../db/client.js';
+import { sql } from 'kysely';
+import type { Kdb } from '../db/client.js';
 
 export interface SessionRow {
   readonly token: string;
@@ -6,25 +7,28 @@ export interface SessionRow {
   readonly user_name: string;
 }
 
-export function findSessionByToken(db: Db, token: string): SessionRow | undefined {
-  return db
-    .prepare(
-      `SELECT s.token, s.user_id, u.name AS user_name
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token = ?`,
-    )
-    .get(token) as SessionRow | undefined;
+export async function findSessionByToken(k: Kdb, token: string): Promise<SessionRow | undefined> {
+  const row = await k
+    .selectFrom('sessions as s')
+    .innerJoin('users as u', 'u.id', 's.user_id')
+    .select(['s.token', 's.user_id', 'u.name as user_name'])
+    .where('s.token', '=', token)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
-export function touchSession(db: Db, token: string): void {
-  db.prepare(`UPDATE sessions SET last_seen_at = datetime('now') WHERE token = ?`).run(token);
+export async function touchSession(k: Kdb, token: string): Promise<void> {
+  await k
+    .updateTable('sessions')
+    .set({ last_seen_at: sql`datetime('now')` })
+    .where('token', '=', token)
+    .execute();
 }
 
-export function createSession(db: Db, token: string, userId: number): void {
-  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, userId);
+export async function createSession(k: Kdb, token: string, userId: number): Promise<void> {
+  await k.insertInto('sessions').values({ token, user_id: userId }).execute();
 }
 
-export function deleteSession(db: Db, token: string): void {
-  db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+export async function deleteSession(k: Kdb, token: string): Promise<void> {
+  await k.deleteFrom('sessions').where('token', '=', token).execute();
 }

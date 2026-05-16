@@ -3,7 +3,7 @@
 // repart d'un état vierge → pas de pollution croisée.
 
 import type { Express } from 'express';
-import type { Db } from '../src/db/client.js';
+import type { Kdb } from '../src/db/client.js';
 import { createDatabase } from '../src/db/client.js';
 import { runMigrations } from '../src/db/migrator.js';
 import { seedDefaultProject } from '../src/services/seed.service.js';
@@ -11,13 +11,13 @@ import { createApp } from '../src/app.js';
 
 export interface TestFixture {
   readonly app: Express;
-  readonly db: Db;
+  readonly k: Kdb;
 }
 
-export function makeFixture(): TestFixture {
-  const db = createDatabase({ path: ':memory:' });
-  runMigrations(db);
-  seedDefaultProject(db);
-  const app = createApp({ db, serveStatic: false });
-  return { app, db };
+export async function makeFixture(): Promise<TestFixture> {
+  const { raw, k } = createDatabase({ path: ':memory:' });
+  runMigrations(raw);
+  await seedDefaultProject(k);
+  const app = createApp({ k, serveStatic: false });
+  return { app, k };
 }

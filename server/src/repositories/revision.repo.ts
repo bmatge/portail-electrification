@@ -1,51 +1,75 @@
-import type { Db } from '../db/client.js';
-import type { RevisionRow, RevisionMetaRow } from '../db/types.js';
+import type { Kdb } from '../db/client.js';
+import type { RevisionWithAuthor, RevisionWithTree } from '../db/types.js';
 
-export function getHeadRevision(db: Db, projectId: number): RevisionRow | undefined {
-  return db
-    .prepare(
-      `SELECT r.id, r.parent_id, r.tree_json, r.message, r.created_at, r.reverts_id,
-              u.name AS author_name, u.id AS author_id
-       FROM revisions r
-       JOIN users u ON u.id = r.author_id
-       WHERE r.project_id = ?
-       ORDER BY r.id DESC LIMIT 1`,
-    )
-    .get(projectId) as RevisionRow | undefined;
+export async function getHeadRevision(
+  k: Kdb,
+  projectId: number,
+): Promise<RevisionWithTree | undefined> {
+  const row = await k
+    .selectFrom('revisions as r')
+    .innerJoin('users as u', 'u.id', 'r.author_id')
+    .select([
+      'r.id',
+      'r.parent_id',
+      'r.tree_json',
+      'r.message',
+      'r.created_at',
+      'r.reverts_id',
+      'u.name as author_name',
+      'u.id as author_id',
+    ])
+    .where('r.project_id', '=', projectId)
+    .orderBy('r.id', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
-export function listRevisions(
-  db: Db,
+export async function listRevisions(
+  k: Kdb,
   projectId: number,
   limit: number,
-): readonly RevisionMetaRow[] {
-  return db
-    .prepare(
-      `SELECT r.id, r.parent_id, r.message, r.created_at, r.reverts_id,
-              u.id AS author_id, u.name AS author_name
-       FROM revisions r
-       JOIN users u ON u.id = r.author_id
-       WHERE r.project_id = ?
-       ORDER BY r.id DESC
-       LIMIT ?`,
-    )
-    .all(projectId, limit) as readonly RevisionMetaRow[];
+): Promise<readonly RevisionWithAuthor[]> {
+  return await k
+    .selectFrom('revisions as r')
+    .innerJoin('users as u', 'u.id', 'r.author_id')
+    .select([
+      'r.id',
+      'r.parent_id',
+      'r.message',
+      'r.created_at',
+      'r.reverts_id',
+      'u.id as author_id',
+      'u.name as author_name',
+    ])
+    .where('r.project_id', '=', projectId)
+    .orderBy('r.id', 'desc')
+    .limit(limit)
+    .execute();
 }
 
-export function getRevisionById(
-  db: Db,
+export async function getRevisionById(
+  k: Kdb,
   projectId: number,
   revisionId: number,
-): RevisionRow | undefined {
-  return db
-    .prepare(
-      `SELECT r.id, r.parent_id, r.tree_json, r.message, r.created_at, r.reverts_id,
-              u.id AS author_id, u.name AS author_name
-       FROM revisions r
-       JOIN users u ON u.id = r.author_id
-       WHERE r.project_id = ? AND r.id = ?`,
-    )
-    .get(projectId, revisionId) as RevisionRow | undefined;
+): Promise<RevisionWithTree | undefined> {
+  const row = await k
+    .selectFrom('revisions as r')
+    .innerJoin('users as u', 'u.id', 'r.author_id')
+    .select([
+      'r.id',
+      'r.parent_id',
+      'r.tree_json',
+      'r.message',
+      'r.created_at',
+      'r.reverts_id',
+      'u.id as author_id',
+      'u.name as author_name',
+    ])
+    .where('r.project_id', '=', projectId)
+    .where('r.id', '=', revisionId)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
 export interface InsertRevisionInput {
@@ -57,20 +81,26 @@ export interface InsertRevisionInput {
   readonly revertsId?: number | null;
 }
 
-export function insertRevision(db: Db, input: InsertRevisionInput): RevisionMetaRow {
-  return db
-    .prepare(
-      `INSERT INTO revisions (project_id, parent_id, tree_json, author_id, message, reverts_id)
-       VALUES (?, ?, ?, ?, ?, ?)
-       RETURNING id, parent_id, message, created_at, reverts_id, author_id,
-                 (SELECT name FROM users WHERE id = author_id) AS author_name`,
-    )
-    .get(
-      input.projectId,
-      input.parentId,
-      input.treeJson,
-      input.authorId,
-      input.message,
-      input.revertsId ?? null,
-    ) as RevisionMetaRow;
+export async function insertRevision(
+  k: Kdb,
+  input: InsertRevisionInput,
+): Promise<RevisionWithAuthor> {
+  const inserted = await k
+    .insertInto('revisions')
+    .values({
+      project_id: input.projectId,
+      parent_id: input.parentId,
+      tree_json: input.treeJson,
+      author_id: input.authorId,
+      message: input.message,
+      reverts_id: input.revertsId ?? null,
+    })
+    .returning(['id', 'parent_id', 'message', 'created_at', 'reverts_id', 'author_id'])
+    .executeTakeFirstOrThrow();
+  const author = await k
+    .selectFrom('users')
+    .select('name')
+    .where('id', '=', inserted.author_id)
+    .executeTakeFirstOrThrow();
+  return { ...inserted, author_name: author.name };
 }

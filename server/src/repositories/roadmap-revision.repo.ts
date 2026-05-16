@@ -1,51 +1,75 @@
-import type { Db } from '../db/client.js';
-import type { RoadmapRevisionRow, RevisionMetaRow } from '../db/types.js';
+import type { Kdb } from '../db/client.js';
+import type { RevisionWithAuthor, RevisionWithRoadmap } from '../db/types.js';
 
-export function getHeadRoadmapRevision(db: Db, projectId: number): RoadmapRevisionRow | undefined {
-  return db
-    .prepare(
-      `SELECT r.id, r.parent_id, r.data_json, r.message, r.created_at, r.reverts_id,
-              u.name AS author_name, u.id AS author_id
-       FROM roadmap_revisions r
-       JOIN users u ON u.id = r.author_id
-       WHERE r.project_id = ?
-       ORDER BY r.id DESC LIMIT 1`,
-    )
-    .get(projectId) as RoadmapRevisionRow | undefined;
+export async function getHeadRoadmapRevision(
+  k: Kdb,
+  projectId: number,
+): Promise<RevisionWithRoadmap | undefined> {
+  const row = await k
+    .selectFrom('roadmap_revisions as r')
+    .innerJoin('users as u', 'u.id', 'r.author_id')
+    .select([
+      'r.id',
+      'r.parent_id',
+      'r.data_json',
+      'r.message',
+      'r.created_at',
+      'r.reverts_id',
+      'u.name as author_name',
+      'u.id as author_id',
+    ])
+    .where('r.project_id', '=', projectId)
+    .orderBy('r.id', 'desc')
+    .limit(1)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
-export function listRoadmapRevisions(
-  db: Db,
+export async function listRoadmapRevisions(
+  k: Kdb,
   projectId: number,
   limit: number,
-): readonly RevisionMetaRow[] {
-  return db
-    .prepare(
-      `SELECT r.id, r.parent_id, r.message, r.created_at, r.reverts_id,
-              u.id AS author_id, u.name AS author_name
-       FROM roadmap_revisions r
-       JOIN users u ON u.id = r.author_id
-       WHERE r.project_id = ?
-       ORDER BY r.id DESC
-       LIMIT ?`,
-    )
-    .all(projectId, limit) as readonly RevisionMetaRow[];
+): Promise<readonly RevisionWithAuthor[]> {
+  return await k
+    .selectFrom('roadmap_revisions as r')
+    .innerJoin('users as u', 'u.id', 'r.author_id')
+    .select([
+      'r.id',
+      'r.parent_id',
+      'r.message',
+      'r.created_at',
+      'r.reverts_id',
+      'u.id as author_id',
+      'u.name as author_name',
+    ])
+    .where('r.project_id', '=', projectId)
+    .orderBy('r.id', 'desc')
+    .limit(limit)
+    .execute();
 }
 
-export function getRoadmapRevisionById(
-  db: Db,
+export async function getRoadmapRevisionById(
+  k: Kdb,
   projectId: number,
   revisionId: number,
-): RoadmapRevisionRow | undefined {
-  return db
-    .prepare(
-      `SELECT r.id, r.parent_id, r.data_json, r.message, r.created_at, r.reverts_id,
-              u.id AS author_id, u.name AS author_name
-       FROM roadmap_revisions r
-       JOIN users u ON u.id = r.author_id
-       WHERE r.project_id = ? AND r.id = ?`,
-    )
-    .get(projectId, revisionId) as RoadmapRevisionRow | undefined;
+): Promise<RevisionWithRoadmap | undefined> {
+  const row = await k
+    .selectFrom('roadmap_revisions as r')
+    .innerJoin('users as u', 'u.id', 'r.author_id')
+    .select([
+      'r.id',
+      'r.parent_id',
+      'r.data_json',
+      'r.message',
+      'r.created_at',
+      'r.reverts_id',
+      'u.id as author_id',
+      'u.name as author_name',
+    ])
+    .where('r.project_id', '=', projectId)
+    .where('r.id', '=', revisionId)
+    .executeTakeFirst();
+  return row ?? undefined;
 }
 
 export interface InsertRoadmapRevisionInput {
@@ -56,19 +80,25 @@ export interface InsertRoadmapRevisionInput {
   readonly message: string;
 }
 
-export function insertRoadmapRevision(db: Db, input: InsertRoadmapRevisionInput): RevisionMetaRow {
-  return db
-    .prepare(
-      `INSERT INTO roadmap_revisions (project_id, parent_id, data_json, author_id, message)
-       VALUES (?, ?, ?, ?, ?)
-       RETURNING id, parent_id, message, created_at, reverts_id, author_id,
-                 (SELECT name FROM users WHERE id = author_id) AS author_name`,
-    )
-    .get(
-      input.projectId,
-      input.parentId,
-      input.dataJson,
-      input.authorId,
-      input.message,
-    ) as RevisionMetaRow;
+export async function insertRoadmapRevision(
+  k: Kdb,
+  input: InsertRoadmapRevisionInput,
+): Promise<RevisionWithAuthor> {
+  const inserted = await k
+    .insertInto('roadmap_revisions')
+    .values({
+      project_id: input.projectId,
+      parent_id: input.parentId,
+      data_json: input.dataJson,
+      author_id: input.authorId,
+      message: input.message,
+    })
+    .returning(['id', 'parent_id', 'message', 'created_at', 'reverts_id', 'author_id'])
+    .executeTakeFirstOrThrow();
+  const author = await k
+    .selectFrom('users')
+    .select('name')
+    .where('id', '=', inserted.author_id)
+    .executeTakeFirstOrThrow();
+  return { ...inserted, author_name: author.name };
 }

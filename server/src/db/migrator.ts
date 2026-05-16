@@ -92,6 +92,9 @@ function applyBaselineIfNeeded(db: Db): void {
     if (has('projects') && has('project_data')) {
       insert.run('003_projects.sql');
     }
+    if (has('audit_log')) {
+      insert.run('0004_audit_log.sql');
+    }
   });
   baseline();
 }
@@ -99,7 +102,7 @@ function applyBaselineIfNeeded(db: Db): void {
 // Ajoute la colonne `project_id` aux tables historiques quand elle manque.
 // Idempotent : `PRAGMA table_info` détecte la présence de la colonne avant
 // l'ALTER. Sera remplacé par une migration formelle quand on ajoutera les
-// FK explicites (cf. plan v2, phase ultérieure).
+// FK explicites (cf. plan v2, Phase 3+).
 function ensureLegacyColumns(db: Db): void {
   const tables = ['revisions', 'roadmap_revisions', 'comments'] as const;
   for (const table of tables) {

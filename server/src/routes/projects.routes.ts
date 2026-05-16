@@ -1,17 +1,16 @@
 import { Router } from 'express';
-import type { Db } from '../db/client.js';
+import type { Kdb } from '../db/client.js';
 import { makeProjectsController } from '../controllers/projects.controller.js';
 import { requireUser } from '../middleware/require-user.js';
 import { validateBody } from '../middleware/validate.js';
 import { CreateProjectBodySchema, ImportProjectBodySchema } from '../schemas/project.schemas.js';
 
-export function makeProjectsRouter(db: Db): Router {
+export function makeProjectsRouter(k: Kdb): Router {
   const router = Router();
-  const ctrl = makeProjectsController(db);
+  const ctrl = makeProjectsController(k);
 
   router.get('/projects', ctrl.list);
-  // /!\ doit être déclaré AVANT la route `/projects/:slug` pour éviter que
-  // "import" soit interprété comme un slug.
+  // /!\ déclaré AVANT /projects/:slug pour éviter "import" interprété comme slug.
   router.post(
     '/projects/import',
     requireUser,
@@ -22,6 +21,5 @@ export function makeProjectsRouter(db: Db): Router {
   router.delete('/projects/:slug', requireUser, ctrl.remove);
   router.get('/projects/:slug/export', ctrl.exportBundle);
   router.post('/projects', requireUser, validateBody(CreateProjectBodySchema), ctrl.create);
-
   return router;
 }

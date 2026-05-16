@@ -1,5 +1,5 @@
-import type { RequestHandler } from 'express';
-import type { Db } from '../db/client.js';
+import type { Request, RequestHandler } from 'express';
+import type { Kdb } from '../db/client.js';
 import { UnauthorizedError } from '../domain/errors.js';
 import {
   createComment,
@@ -7,50 +7,58 @@ import {
   getCountsForProject,
   listForNode,
 } from '../services/comment.service.js';
+import { asyncH } from '../middleware/async-handler.js';
 import type { CreateCommentBody } from '../schemas/comment.schemas.js';
 
-export function makeCommentsController(db: Db): {
+function clientIp(req: Request): string {
+  return req.ip ?? '';
+}
+function clientUA(req: Request): string {
+  return req.get('user-agent') ?? '';
+}
+
+export function makeCommentsController(k: Kdb): {
   listOrCount: RequestHandler;
   create: RequestHandler;
   remove: RequestHandler;
 } {
   return {
-    listOrCount(req, res, next) {
-      if (!req.project) return next(new Error('project missing'));
+    listOrCount: asyncH(async (req, res) => {
+      if (!req.project) throw new Error('project missing');
       const nodeId = String(req.query['node_id'] ?? '');
       if (!nodeId) {
-        res.json({ counts: getCountsForProject(db, req.project.id) });
+        res.json({ counts: await getCountsForProject(k, req.project.id) });
         return;
       }
-      res.json({ comments: listForNode(db, req.project.id, nodeId) });
-    },
-    create(req, res, next) {
-      if (!req.user) return next(new UnauthorizedError());
-      if (!req.project) return next(new Error('project missing'));
+      res.json({ comments: await listForNode(k, req.project.id, nodeId) });
+    }),
+    create: asyncH(async (req, res) => {
+      if (!req.user) throw new UnauthorizedError();
+      if (!req.project) throw new Error('project missing');
       const body = req.body as CreateCommentBody;
-      try {
-        res.status(201).json({
-          comment: createComment(db, {
-            projectId: req.project.id,
-            nodeId: body.node_id,
-            body: body.body,
-            authorId: req.user.id,
-            authorName: req.user.name,
-          }),
-        });
-      } catch (e) {
-        next(e);
-      }
-    },
-    remove(req, res, next) {
-      if (!req.user) return next(new UnauthorizedError());
-      if (!req.project) return next(new Error('project missing'));
-      try {
-        deleteComment(db, req.project.id, Number(req.params['id']), req.user.id);
-        res.status(204).end();
-      } catch (e) {
-        next(e);
-      }
-    },
+      res.status(201).json({
+        comment: await createComment(k, {
+          projectId: req.project.id,
+          nodeId: body.node_id,
+          body: body.body,
+          authorId: req.user.id,
+          authorName: req.user.name,
+          ip: clientIp(req),
+          userAgent: clientUA(req),
+        }),
+      });
+    }),
+    remove: asyncH(async (req, res) => {
+      if (!req.user) throw new UnauthorizedError();
+      if (!req.project) throw new Error('project missing');
+      await deleteComment(k, {
+        projectId: req.project.id,
+        commentId: Number(req.params['id']),
+        actorId: req.user.id,
+        ip: clientIp(req),
+        userAgent: clientUA(req),
+      });
+      res.status(204).end();
+    }),
   };
 }

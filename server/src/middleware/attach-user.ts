@@ -1,21 +1,26 @@
 import type { RequestHandler } from 'express';
-import type { Db } from '../db/client.js';
+import type { Kdb } from '../db/client.js';
 import { findSessionByToken, touchSession } from '../repositories/session.repo.js';
 
 const COOKIE = 'pe_session';
 
-export function makeAttachUser(db: Db): RequestHandler {
+export function makeAttachUser(k: Kdb): RequestHandler {
   return (req, _res, next) => {
     const token: string | undefined = req.cookies?.[COOKIE];
-    if (token) {
-      const sess = findSessionByToken(db, token);
-      if (sess) {
-        touchSession(db, token);
-        req.user = { id: sess.user_id, name: sess.user_name };
-        req.sessionToken = token;
-      }
+    if (!token) {
+      next();
+      return;
     }
-    next();
+    findSessionByToken(k, token)
+      .then(async (sess) => {
+        if (sess) {
+          await touchSession(k, token);
+          req.user = { id: sess.user_id, name: sess.user_name };
+          req.sessionToken = token;
+        }
+        next();
+      })
+      .catch(next);
   };
 }
 
