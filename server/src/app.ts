@@ -4,11 +4,15 @@
 
 import express, { type Express, Router } from 'express';
 import cookieParser from 'cookie-parser';
+import { randomUUID } from 'node:crypto';
+import { pinoHttp } from 'pino-http';
 import type { Kdb } from './db/client.js';
 import type { Mailer } from './services/mailer.service.js';
+import { logger } from './logger.js';
 import { makeAttachUser } from './middleware/attach-user.js';
 import { makeLoadProject } from './middleware/load-project.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { makeHelmet, makeRateLimits, makeRateLimitDispatcher } from './middleware/security.js';
 import { makeAdminRouter } from './routes/admin.routes.js';
 import { makeAuthRouter } from './routes/auth.routes.js';
 import { makeProjectsRouter } from './routes/projects.routes.js';
@@ -24,14 +28,39 @@ export interface CreateAppOptions {
   readonly mailer: Mailer;
   readonly publicDir?: string;
   readonly serveStatic?: boolean;
+  /** Active helmet + rate-limit + pino-http. Désactivé par défaut pour
+   *  garder la suite de tests rapide et déterministe ; activé via
+   *  NODE_ENV=production au boot. */
+  readonly hardenForProd?: boolean;
 }
 
 export function createApp(options: CreateAppOptions): Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
+
+  if (options.hardenForProd) {
+    app.use(makeHelmet());
+    app.use(
+      pinoHttp({
+        logger,
+        genReqId: (req, res) => {
+          const incoming = (req.headers['x-request-id'] as string | undefined) ?? randomUUID();
+          res.setHeader('X-Request-Id', incoming);
+          return incoming;
+        },
+      }),
+    );
+  }
+
   app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
+
+  if (options.hardenForProd) {
+    const buckets = makeRateLimits();
+    app.use('/api', makeRateLimitDispatcher(buckets));
+  }
+
   app.use(makeAttachUser(options.k));
 
   app.get('/api/health', (_req, res) => {

@@ -7,9 +7,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DB_PATH=/app/data/app.db
+      - DB_PATH=/data/app.db
+      - LOG_LEVEL=info
     volumes:
-      - ./data:/app/data
+      - app-data:/data
     networks:
       - ecosystem-network
     labels:
@@ -45,6 +46,32 @@ services:
       - traefik.http.routers.latelier-legacy-http.rule=Host(`${LEGACY_DOMAIN:-portail-elec.matge.com}`)
       - traefik.http.routers.latelier-legacy-http.entrypoints=${WEB_ENTRYPOINT:-web}
       - traefik.http.routers.latelier-legacy-http.middlewares=latelier-https-redirect
+
+  # Sidecar backup : `sqlite3 .backup` quotidien à 03:00, rétention
+  # configurable via BACKUP_RETENTION_DAYS (défaut 30). Lit la DB en
+  # read-only, écrit dans le volume backup-data — pas de risque pour le
+  # WAL de l'app. Cf. docs/ops/sqlite.md.
+  backup:
+    image: alpine:3.20
+    container_name: latelier-cadrage-site-backup
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - app-data:/data:ro
+      - backup-data:/backups
+      - ./ops/backup.sh:/usr/local/bin/backup.sh:ro
+    command: >
+      sh -c "apk add --no-cache sqlite tini && /sbin/tini -- /bin/sh -c '
+        echo \"0 3 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1\" > /etc/crontabs/root &&
+        crond -f -L /var/log/backup.log
+      '"
+
+volumes:
+  app-data:
+  backup-data:
 
 networks:
   ecosystem-network:
