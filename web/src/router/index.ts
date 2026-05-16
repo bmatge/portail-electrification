@@ -12,13 +12,14 @@ import ProjectMaquettePage from '../pages/ProjectMaquettePage.vue';
 import { useAuthStore } from '../stores/auth.js';
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'home', component: HomePage, meta: { requiresAuth: true } },
+  // Home et pages projet : pas de requiresAuth — un anonyme peut consulter
+  // les projets publics. L'édition reste gardée côté serveur (RBAC).
+  { path: '/', name: 'home', component: HomePage },
   { path: '/login', name: 'login', component: LoginPage },
   { path: '/auth/callback', name: 'callback', component: CallbackPage },
   {
     path: '/p/:slug',
     component: ProjectLayout,
-    meta: { requiresAuth: true },
     redirect: (to) => ({ name: 'project-tree', params: { slug: to.params['slug'] as string } }),
     children: [
       { path: 'arborescence', name: 'project-tree', component: ProjectTreePage },

@@ -4,3 +4,4 @@
 export const SHARED_VERSION = '0.0.0' as const;
 
 export * from './permissions.js';
+export * from './vocab.js';

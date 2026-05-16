@@ -2,10 +2,16 @@
 import { onMounted } from 'vue';
 import { RouterLink, RouterView } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
+import { useSandboxStore } from './stores/sandbox.js';
+import SandboxModal from './components/sandbox/SandboxModal.vue';
+import SandboxBanner from './components/sandbox/SandboxBanner.vue';
 
 const auth = useAuthStore();
+const sandbox = useSandboxStore();
+
 onMounted(() => {
   void auth.fetchMe();
+  void sandbox.hydrate();
 });
 
 async function handleLogout(): Promise<void> {
@@ -32,8 +38,10 @@ async function handleLogout(): Promise<void> {
       </div>
       <RouterLink v-else class="btn" to="/login">Se connecter</RouterLink>
     </header>
+    <SandboxBanner />
     <main class="l-container">
       <RouterView />
     </main>
+    <SandboxModal />
   </div>
 </template>

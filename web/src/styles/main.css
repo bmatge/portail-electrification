@@ -82,3 +82,187 @@ input[type='text'] {
   background: #f8d7da;
   border-color: #f5c6cb;
 }
+
+.alert-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #553f00;
+}
+
+/* Mode bac à sable : bandeau persistant orange sur fond clair */
+.sandbox-banner {
+  background: #ffe9c2;
+  border-top: 1px solid #d49b22;
+  border-bottom: 1px solid #d49b22;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.sandbox-banner strong {
+  color: #553f00;
+}
+
+.sandbox-banner .spacer {
+  flex: 1;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem 1.75rem;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal h2 {
+  margin-top: 0;
+}
+
+.modal .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.modal .actions .btn,
+.modal .actions .btn-outline {
+  text-align: left;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 1rem;
+}
+
+.tabs a {
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px 6px 0 0;
+  text-decoration: none;
+  color: #444;
+}
+
+.tabs a.router-link-active {
+  background: white;
+  border: 1px solid #ddd;
+  border-bottom: 1px solid white;
+  margin-bottom: -1px;
+  color: #000091;
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: #eee;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: #555;
+}
+
+.badge-public {
+  background: #cfe2c1;
+  color: #1c4a0e;
+}
+
+.badge-private {
+  background: #f1d9d9;
+  color: #6e0c0c;
+}
+
+details.panel {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+details.panel > summary {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+details.panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.panel > summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 0.5rem;
+  font-size: 0.7em;
+  transition: transform 0.15s;
+}
+
+details.panel[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+details.panel > .panel-body {
+  padding: 0 1rem 1rem 1rem;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.input,
+input[type='number'] {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #888;
+  border-radius: 4px;
+  font: inherit;
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+label.field > span {
+  color: #555;
+}
+
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  border: 1px solid #888;
+  border-radius: 4px;
+  width: 100%;
+}
