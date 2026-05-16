@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/auth.js';
 import { useSandboxStore } from './stores/sandbox.js';
 import SandboxModal from './components/sandbox/SandboxModal.vue';
 import SandboxBanner from './components/sandbox/SandboxBanner.vue';
+import UserMenu from './components/UserMenu.vue';
 
 const auth = useAuthStore();
 const sandbox = useSandboxStore();
@@ -13,10 +14,6 @@ onMounted(() => {
   void auth.fetchMe();
   void sandbox.hydrate();
 });
-
-async function handleLogout(): Promise<void> {
-  await auth.logout();
-}
 </script>
 
 <template>
@@ -28,15 +25,7 @@ async function handleLogout(): Promise<void> {
           <RouterLink to="/">Projets</RouterLink>
           <RouterLink v-if="auth.isAdmin" to="/admin">Admin</RouterLink>
         </nav>
-        <div v-if="auth.user" style="display: flex; align-items: center; gap: 0.75rem">
-          <span style="font-size: 0.9rem">
-            <strong>{{ auth.user.display_name }}</strong>
-            <span v-if="auth.user.email" style="color: #666"> · {{ auth.user.email }}</span>
-          </span>
-          <button class="fr-btn fr-btn--secondary fr-btn--sm" @click="handleLogout">
-            Déconnexion
-          </button>
-        </div>
+        <UserMenu v-if="auth.user" />
         <RouterLink v-else class="fr-btn fr-btn--sm" to="/login">Se connecter</RouterLink>
       </div>
     </header>
