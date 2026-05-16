@@ -5,7 +5,7 @@ import { loadConfig } from './config/env.js';
 import { createDatabase } from './db/client.js';
 import { runMigrations } from './db/migrator.js';
 import { seedDefaultProject } from './services/seed.service.js';
-import { createConsoleMailer } from './services/mailer.service.js';
+import { createMailerFromEnv } from './services/mailer.service.js';
 import { createApp } from './app.js';
 import { logger } from './logger.js';
 
@@ -16,7 +16,7 @@ async function main(): Promise<void> {
   if (applied.length > 0) logger.info({ applied }, 'migrations appliquées');
   await seedDefaultProject(k);
 
-  const mailer = createConsoleMailer();
+  const mailer = await createMailerFromEnv();
   const app = createApp({
     k,
     mailer,

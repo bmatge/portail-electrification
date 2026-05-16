@@ -1,0 +1,41 @@
+# Overlay docker-compose pour le développement local.
+#
+# Lance Mailpit en sidecar pour intercepter les magic links pendant le dev
+# sans avoir à câbler un vrai SMTP. UI web disponible sur :8025, SMTP sur :1025.
+#
+# Usage :
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Côté server, configurer :
+#   MAILER_DRIVER=smtp
+#   SMTP_HOST=mailpit
+#   SMTP_PORT=1025
+#   SMTP_SECURE=false
+#   SMTP_FROM=noreply@latelier.local
+
+services:
+  app:
+    environment:
+      - NODE_ENV=development
+      - MAILER_DRIVER=smtp
+      - SMTP_HOST=mailpit
+      - SMTP_PORT=1025
+      - SMTP_SECURE=false
+      - SMTP_FROM=noreply@latelier.local
+      - SMTP_FROM_NAME=L'atelier (dev)
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: latelier-mailpit
+    restart: unless-stopped
+    ports:
+      - '8025:8025'
+      - '1025:1025'
+    networks:
+      - ecosystem-network
+
+networks:
+  ecosystem-network:
+    external: true
