@@ -25,16 +25,18 @@ export async function fetchMe(): Promise<MeUser | null> {
     const res = await api.get('/me');
     return (res.data as { user: MeUser }).user;
   } catch (err) {
-    if (axiosIs401(err)) return null;
-    throw err;
+    // Tout statut autre que 200 ⇒ pas de user. On loggue les 5xx pour
+    // qu'ils restent visibles en console, mais on ne bloque pas le boot
+    // de la SPA (sinon le router guard plante et l'utilisateur ne voit
+    // même pas le bouton "Se connecter").
+    const e = err as { response?: { status?: number; data?: unknown } };
+    if (e.response?.status && e.response.status >= 500) {
+      console.error('[auth.fetchMe] server error', e.response.status, e.response.data);
+    }
+    return null;
   }
 }
 
 export async function logout(): Promise<void> {
   await api.post('/auth/logout');
-}
-
-function axiosIs401(err: unknown): boolean {
-  const e = err as { isAxiosError?: boolean; response?: { status?: number } };
-  return Boolean(e.isAxiosError) && e.response?.status === 401;
 }
