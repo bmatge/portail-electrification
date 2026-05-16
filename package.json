@@ -13,13 +13,13 @@
     "web"
   ],
   "scripts": {
-    "build": "npm run -ws --if-present build",
-    "typecheck": "npm run -ws --if-present typecheck",
+    "build": "npm run build -w @latelier/shared && npm run -ws --if-present build",
+    "typecheck": "npm run build -w @latelier/shared && npm run -ws --if-present typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run --passWithNoTests",
+    "test": "npm run build -w @latelier/shared && vitest run --passWithNoTests",
     "test:watch": "vitest",
     "prepare": "husky"
   },

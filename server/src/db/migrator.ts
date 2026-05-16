@@ -46,9 +46,15 @@ export function runMigrations(db: Db, options: MigratorOptions = {}): readonly s
 
   applyBaselineIfNeeded(db);
 
+  // Trie numériquement par préfixe (sort ASCII placerait "0004_..." avant
+  // "001_..." parce que "0" < "1" — on veut "001" < "002" < "003" < "0004").
   const files = readdirSync(dir)
     .filter((f) => f.endsWith('.sql'))
-    .sort();
+    .sort((a, b) => {
+      const numA = parseInt(a.split('_')[0] ?? '0', 10);
+      const numB = parseInt(b.split('_')[0] ?? '0', 10);
+      return numA - numB;
+    });
   const applied = new Set(
     (db.prepare('SELECT name FROM schema_migrations').all() as readonly MigrationRow[]).map(
       (r) => r.name,

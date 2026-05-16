@@ -1,36 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import request from 'supertest';
-import { makeFixture } from './setup.js';
+import { loginAs, makeFixture } from './setup.js';
+
+const EDITOR = { extraRoles: [{ role: 'editor' as const, projectId: null }] };
 
 describe('comments routes', () => {
-  it('GET /comments?node_id=root liste vide au démarrage', async () => {
-    const { app } = await makeFixture();
-    const res = await request(app).get(
-      '/api/projects/portail-electrification/comments?node_id=root',
-    );
+  it('GET /comments?node_id=root liste vide au démarrage (viewer ok)', async () => {
+    const fx = await makeFixture();
+    const agent = await loginAs(fx, 'viewer@test.fr');
+    const res = await agent.get('/api/projects/portail-electrification/comments?node_id=root');
     expect(res.status).toBe(200);
     expect(res.body.comments).toEqual([]);
   });
 
-  it('GET /comments sans node_id retourne les counts par node', async () => {
-    const { app } = await makeFixture();
-    const agent = request.agent(app);
-    await agent.post('/api/identify').send({ name: 'Alice' });
-    await agent
+  it('GET /comments sans node_id retourne les counts par node (viewer ok)', async () => {
+    const fx = await makeFixture();
+    const alice = await loginAs(fx, 'alice@test.fr');
+    await alice
       .post('/api/projects/portail-electrification/comments')
       .send({ node_id: 'n1', body: 'hello' });
-    await agent
+    await alice
       .post('/api/projects/portail-electrification/comments')
       .send({ node_id: 'n1', body: 'world' });
 
-    const counts = await agent.get('/api/projects/portail-electrification/comments');
+    const viewer = await loginAs(fx, 'viewer@test.fr');
+    const counts = await viewer.get('/api/projects/portail-electrification/comments');
     expect(counts.body.counts).toEqual({ n1: 2 });
   });
 
   it('POST /comments exige body non vide < 4000 chars', async () => {
-    const { app } = await makeFixture();
-    const agent = request.agent(app);
-    await agent.post('/api/identify').send({ name: 'Alice' });
+    const fx = await makeFixture();
+    const agent = await loginAs(fx, 'alice@test.fr');
 
     const empty = await agent
       .post('/api/projects/portail-electrification/comments')
@@ -44,16 +43,14 @@ describe('comments routes', () => {
   });
 
   it('DELETE /comments/:id — auteur seul autorisé (sinon 403)', async () => {
-    const { app } = await makeFixture();
-    const alice = request.agent(app);
-    await alice.post('/api/identify').send({ name: 'Alice' });
+    const fx = await makeFixture();
+    const alice = await loginAs(fx, 'alice@test.fr');
     const created = await alice
       .post('/api/projects/portail-electrification/comments')
       .send({ node_id: 'n1', body: 'mine' });
     const commentId = created.body.comment.id;
 
-    const bob = request.agent(app);
-    await bob.post('/api/identify').send({ name: 'Bob' });
+    const bob = await loginAs(fx, 'bob@test.fr');
     const bobDelete = await bob.delete(
       `/api/projects/portail-electrification/comments/${commentId}`,
     );
@@ -67,25 +64,30 @@ describe('comments routes', () => {
 });
 
 describe('data routes', () => {
-  it('GET /data/:key retourne la valeur seedée pour vocab', async () => {
-    const { app } = await makeFixture();
-    const res = await request(app).get('/api/projects/portail-electrification/data/vocab');
+  it('GET /data/:key retourne la valeur seedée pour vocab (viewer ok)', async () => {
+    const fx = await makeFixture();
+    const agent = await loginAs(fx, 'viewer@test.fr');
+    const res = await agent.get('/api/projects/portail-electrification/data/vocab');
     expect(res.status).toBe(200);
     expect(res.body.data.audiences[0]).toMatchObject({ key: 'particuliers' });
   });
 
   it('GET /data/unknown → 400 invalid_key', async () => {
-    const { app } = await makeFixture();
-    const res = await request(app).get('/api/projects/portail-electrification/data/unknown');
+    const fx = await makeFixture();
+    const agent = await loginAs(fx, 'viewer@test.fr');
+    const res = await agent.get('/api/projects/portail-electrification/data/unknown');
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: 'invalid_key' });
   });
 
-  it('PUT /data/:key persiste la nouvelle valeur', async () => {
-    const { app } = await makeFixture();
-    const agent = request.agent(app);
-    await agent.post('/api/identify').send({ name: 'Alice' });
-    const newVocab = { audiences: [{ key: 'tous', label: 'Tous' }], deadlines: [], page_types: [] };
+  it('PUT /data/:key persiste la nouvelle valeur (editor)', async () => {
+    const fx = await makeFixture();
+    const agent = await loginAs(fx, 'alice@test.fr', EDITOR);
+    const newVocab = {
+      audiences: [{ key: 'tous', label: 'Tous' }],
+      deadlines: [],
+      page_types: [],
+    };
     const put = await agent
       .put('/api/projects/portail-electrification/data/vocab')
       .send({ data: newVocab });
@@ -94,11 +96,12 @@ describe('data routes', () => {
     expect(read.body.data).toEqual(newVocab);
   });
 
-  it('PUT /data/:key exige une identification', async () => {
-    const { app } = await makeFixture();
-    const res = await request(app)
+  it('PUT /data/:key viewer → 403', async () => {
+    const fx = await makeFixture();
+    const viewer = await loginAs(fx, 'viewer@test.fr');
+    const res = await viewer
       .put('/api/projects/portail-electrification/data/vocab')
       .send({ data: {} });
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(403);
   });
 });

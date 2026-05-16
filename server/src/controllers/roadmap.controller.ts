@@ -43,7 +43,7 @@ export function makeRoadmapController(k: Kdb): {
           roadmap: body.roadmap as { items: readonly unknown[] } & Record<string, unknown>,
           message: body.message,
           authorId: req.user.id,
-          authorName: req.user.name,
+          authorName: req.user.display_name,
           expectedParent,
           ip: clientIp(req),
           userAgent: clientUA(req),

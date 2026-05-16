@@ -5,6 +5,7 @@
 import express, { type Express, Router } from 'express';
 import cookieParser from 'cookie-parser';
 import type { Kdb } from './db/client.js';
+import type { Mailer } from './services/mailer.service.js';
 import { makeAttachUser } from './middleware/attach-user.js';
 import { makeLoadProject } from './middleware/load-project.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -19,6 +20,7 @@ import { makeStaticRouter } from './static.js';
 
 export interface CreateAppOptions {
   readonly k: Kdb;
+  readonly mailer: Mailer;
   readonly publicDir?: string;
   readonly serveStatic?: boolean;
 }
@@ -34,7 +36,7 @@ export function createApp(options: CreateAppOptions): Express {
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
   });
-  app.use('/api', makeAuthRouter(options.k));
+  app.use('/api', makeAuthRouter(options.k, options.mailer));
   app.use('/api', makeProjectsRouter(options.k));
 
   const scoped = Router({ mergeParams: true });

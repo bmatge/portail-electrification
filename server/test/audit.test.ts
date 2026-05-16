@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { makeFixture } from './setup.js';
+import { loginAs, makeFixture } from './setup.js';
 
 interface AuditRow {
   readonly action: string;
@@ -18,10 +18,11 @@ async function listAudit(k: import('../src/db/client.js').Kdb): Promise<readonly
 }
 
 describe('audit log', () => {
-  it('enregistre les mutations critiques (project.create, tree.write, comment.create, data.write, project.delete)', async () => {
-    const { app, k } = await makeFixture();
-    const agent = request.agent(app);
-    await agent.post('/api/identify').send({ name: 'Alice' });
+  it('enregistre les mutations critiques (auth, project, tree, comment, data)', async () => {
+    const fx = await makeFixture();
+    const agent = await loginAs(fx, 'alice@test.fr', {
+      extraRoles: [{ role: 'editor', projectId: null }],
+    });
 
     await agent.post('/api/projects').send({ slug: 'audit-demo', name: 'Démo' }).expect(201);
 
@@ -44,8 +45,9 @@ describe('audit log', () => {
 
     await agent.delete('/api/projects/audit-demo').expect(200);
 
-    const entries = await listAudit(k);
+    const entries = await listAudit(fx.k);
     const actions = entries.map((e) => e.action);
+    expect(actions).toContain('auth.identify');
     expect(actions).toContain('project.create');
     expect(actions).toContain('tree.write');
     expect(actions).toContain('comment.create');
@@ -53,11 +55,15 @@ describe('audit log', () => {
     expect(actions).toContain('project.delete');
   });
 
-  it('n’enregistre rien pour les routes en lecture pure', async () => {
-    const { app, k } = await makeFixture();
-    await request(app).get('/api/projects').expect(200);
-    await request(app).get('/api/projects/portail-electrification/tree').expect(200);
-    const entries = await listAudit(k);
-    expect(entries).toHaveLength(0);
+  it('n’enregistre rien (côté mutations) pour les routes en lecture pure', async () => {
+    const fx = await makeFixture();
+    const viewer = await loginAs(fx, 'viewer@test.fr');
+    await viewer.get('/api/projects').expect(200);
+    await viewer.get('/api/projects/portail-electrification/tree').expect(200);
+    const entries = await listAudit(fx.k);
+    // Seul auth.identify (signup viewer) doit apparaître ; aucune mutation.
+    expect(entries.map((e) => e.action)).toEqual(['auth.identify']);
+    // Silence sur GET (preuve qu'il n'y a pas de log silencieux pour les lectures)
+    void request;
   });
 });

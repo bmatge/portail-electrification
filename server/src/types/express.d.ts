@@ -11,6 +11,7 @@ declare global {
     interface Request {
       user?: AuthenticatedUser;
       sessionToken?: string;
+      sessionId?: number;
       project?: Project;
     }
   }

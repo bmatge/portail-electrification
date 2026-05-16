@@ -67,6 +67,7 @@ export function makeProjectsController(k: Kdb): {
       const changes = await deleteProject(k, {
         projectId: project.id,
         actorId: req.user.id,
+        actorGrants: req.user.roles,
         ip: clientIp(req),
         userAgent: clientUA(req),
       });

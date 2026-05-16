@@ -41,7 +41,7 @@ export function makeHistoryController(k: Kdb): {
           revisionId: Number(req.params['id']),
           message: body.message ?? '',
           authorId: req.user.id,
-          authorName: req.user.name,
+          authorName: req.user.display_name,
           ip: clientIp(req),
           userAgent: clientUA(req),
         }),

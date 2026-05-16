@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import type { Kdb } from '../db/client.js';
+import type { Mailer } from '../services/mailer.service.js';
 import { makeAuthController } from '../controllers/auth.controller.js';
-import { validateBody } from '../middleware/validate.js';
-import { IdentifyBodySchema } from '../schemas/auth.schemas.js';
 
-export function makeAuthRouter(k: Kdb): Router {
+export function makeAuthRouter(k: Kdb, mailer: Mailer): Router {
   const router = Router();
-  const ctrl = makeAuthController(k);
-  router.post('/identify', validateBody(IdentifyBodySchema), ctrl.identifyHandler);
-  router.post('/logout', ctrl.logoutHandler);
-  router.get('/me', ctrl.meHandler);
+  const ctrl = makeAuthController({ k, mailer });
+  router.post('/auth/magic-link', ctrl.requestMagicLink);
+  router.get('/auth/callback', ctrl.callback);
+  router.post('/auth/logout', ctrl.logout);
+  router.post('/auth/logout-all', ctrl.logoutAll);
+  router.get('/me', ctrl.me);
   return router;
 }

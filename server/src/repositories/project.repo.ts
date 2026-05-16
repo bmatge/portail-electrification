@@ -5,7 +5,7 @@ import type { Project, ProjectListItem } from '../db/types.js';
 export async function getProjectBySlug(k: Kdb, slug: string): Promise<Project | undefined> {
   const row = await k
     .selectFrom('projects')
-    .select(['id', 'slug', 'name', 'description', 'created_at'])
+    .select(['id', 'slug', 'name', 'description', 'created_at', 'created_by'])
     .where(sql<boolean>`slug COLLATE NOCASE = ${slug}`)
     .executeTakeFirst();
   return row ?? undefined;
@@ -14,7 +14,7 @@ export async function getProjectBySlug(k: Kdb, slug: string): Promise<Project | 
 export async function getProjectById(k: Kdb, id: number): Promise<Project | undefined> {
   const row = await k
     .selectFrom('projects')
-    .select(['id', 'slug', 'name', 'description', 'created_at'])
+    .select(['id', 'slug', 'name', 'description', 'created_at', 'created_by'])
     .where('id', '=', id)
     .executeTakeFirst();
   return row ?? undefined;
@@ -29,6 +29,7 @@ export async function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> 
       'p.name',
       'p.description',
       'p.created_at',
+      'p.created_by',
       eb
         .selectFrom('revisions')
         .select((eb2) => eb2.fn.countAll<number>().as('n'))
@@ -43,6 +44,7 @@ export async function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> 
     name: r.name,
     description: r.description,
     created_at: r.created_at,
+    created_by: r.created_by,
     revision_count: Number(r.revision_count ?? 0),
   }));
 }
@@ -51,12 +53,18 @@ export interface InsertProjectInput {
   readonly slug: string;
   readonly name: string;
   readonly description: string;
+  readonly createdBy?: number | null;
 }
 
 export async function insertProject(k: Kdb, input: InsertProjectInput): Promise<number> {
   const inserted = await k
     .insertInto('projects')
-    .values({ slug: input.slug, name: input.name, description: input.description })
+    .values({
+      slug: input.slug,
+      name: input.name,
+      description: input.description,
+      created_by: input.createdBy ?? null,
+    })
     .returning('id')
     .executeTakeFirstOrThrow();
   return inserted.id;

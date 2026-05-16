@@ -37,7 +37,7 @@ export async function listCommentsForNode(
       'c.created_at',
       'c.revision_id',
       'u.id as author_id',
-      'u.name as author_name',
+      'u.display_name as author_name',
     ])
     .where('c.project_id', '=', projectId)
     .where('c.node_id', '=', nodeId)

@@ -15,7 +15,7 @@ export async function getHeadRoadmapRevision(
       'r.message',
       'r.created_at',
       'r.reverts_id',
-      'u.name as author_name',
+      'u.display_name as author_name',
       'u.id as author_id',
     ])
     .where('r.project_id', '=', projectId)
@@ -40,7 +40,7 @@ export async function listRoadmapRevisions(
       'r.created_at',
       'r.reverts_id',
       'u.id as author_id',
-      'u.name as author_name',
+      'u.display_name as author_name',
     ])
     .where('r.project_id', '=', projectId)
     .orderBy('r.id', 'desc')
@@ -64,7 +64,7 @@ export async function getRoadmapRevisionById(
       'r.created_at',
       'r.reverts_id',
       'u.id as author_id',
-      'u.name as author_name',
+      'u.display_name as author_name',
     ])
     .where('r.project_id', '=', projectId)
     .where('r.id', '=', revisionId)
@@ -97,8 +97,8 @@ export async function insertRoadmapRevision(
     .executeTakeFirstOrThrow();
   const author = await k
     .selectFrom('users')
-    .select('name')
+    .select('display_name')
     .where('id', '=', inserted.author_id)
     .executeTakeFirstOrThrow();
-  return { ...inserted, author_name: author.name };
+  return { ...inserted, author_name: author.display_name };
 }

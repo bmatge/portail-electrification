@@ -42,7 +42,7 @@ export function makeCommentsController(k: Kdb): {
           nodeId: body.node_id,
           body: body.body,
           authorId: req.user.id,
-          authorName: req.user.name,
+          authorName: req.user.display_name,
           ip: clientIp(req),
           userAgent: clientUA(req),
         }),
@@ -55,6 +55,7 @@ export function makeCommentsController(k: Kdb): {
         projectId: req.project.id,
         commentId: Number(req.params['id']),
         actorId: req.user.id,
+        actorGrants: req.user.roles,
         ip: clientIp(req),
         userAgent: clientUA(req),
       });

@@ -1,4 +1,5 @@
 import type { Kdb } from '../db/client.js';
+import type { RoleGrant } from '@latelier/shared';
 import { ForbiddenError, NotFoundError, ValidationError } from '../domain/errors.js';
 import {
   countCommentsByNode,
@@ -8,6 +9,7 @@ import {
   softDeleteComment,
 } from '../repositories/comment.repo.js';
 import { getHeadRevision } from '../repositories/revision.repo.js';
+import { hasPermission } from './rbac.service.js';
 import { logAudit } from './audit.service.js';
 
 export interface CommentDto {
@@ -93,6 +95,7 @@ export interface DeleteCommentInput {
   readonly projectId: number;
   readonly commentId: number;
   readonly actorId: number;
+  readonly actorGrants: readonly RoleGrant[];
   readonly ip?: string;
   readonly userAgent?: string;
 }
@@ -101,7 +104,9 @@ export async function deleteComment(k: Kdb, input: DeleteCommentInput): Promise<
   if (!Number.isInteger(input.commentId)) throw new ValidationError('invalid_id');
   const c = await findCommentById(k, input.commentId);
   if (!c || c.project_id !== input.projectId) throw new NotFoundError('not_found');
-  if (c.author_id !== input.actorId) throw new ForbiddenError();
+  const isOwner = c.author_id === input.actorId;
+  const canAny = hasPermission(input.actorGrants, 'comments:delete:any', input.projectId);
+  if (!isOwner && !canAny) throw new ForbiddenError();
   await softDeleteComment(k, input.commentId);
   await logAudit(k, 'comment.delete', {
     actorId: input.actorId,

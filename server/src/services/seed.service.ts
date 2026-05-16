@@ -122,6 +122,16 @@ export async function seedDefaultProject(k: Kdb): Promise<void> {
   const sysUser = await ensureSystemUser(k);
   const projectId = 1;
 
+  // Backfill ownership : tous les projets sans created_by appartiennent au
+  // système (cas d'un upgrade depuis v1 où la colonne n'existait pas). Voir
+  // migration 0006 qui ne fait volontairement pas ce UPDATE pour éviter une
+  // FK violation à la migration (users(1) pas encore créé à ce moment).
+  await k
+    .updateTable('projects')
+    .set({ created_by: sysUser.id })
+    .where('created_by', 'is', null)
+    .execute();
+
   if (!(await getHeadRevision(k, projectId))) {
     const seed = readJsonOrNull<{
       readonly id: string;

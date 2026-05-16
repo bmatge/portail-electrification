@@ -9,15 +9,57 @@ import type { Generated } from 'kysely';
 
 export interface UsersTable {
   id: Generated<number>;
-  name: string;
+  display_name: string;
+  email: string | null;
+  status: Generated<'active' | 'disabled' | 'pending'>;
+  locale: Generated<string>;
+  last_login_at: string | null;
   created_at: Generated<string>;
+  updated_at: Generated<string>;
 }
 
 export interface SessionsTable {
-  token: string;
+  id: Generated<number>;
+  token_hash: string;
   user_id: number;
+  ip: string | null;
+  user_agent: string | null;
+  previous_id: number | null;
+  expires_at: string;
+  revoked_at: string | null;
   created_at: Generated<string>;
   last_seen_at: Generated<string>;
+}
+
+export interface AuthIdentitiesTable {
+  user_id: number;
+  provider: 'local' | 'proconnect';
+  provider_subject: string;
+  provider_data: string | null;
+  email_verified: Generated<number>;
+  created_at: Generated<string>;
+  last_used_at: string | null;
+}
+
+export interface MagicLinkTokensTable {
+  token_hash: string;
+  email: string;
+  user_id: number | null;
+  requested_ip: string | null;
+  user_agent: string | null;
+  expires_at: string;
+  used_at: string | null;
+  consumed_by_session_id: number | null;
+  created_at: Generated<string>;
+}
+
+export interface UserRolesTable {
+  id: Generated<number>;
+  user_id: number;
+  project_id: number | null;
+  role: 'admin' | 'editor' | 'viewer';
+  granted_by: number | null;
+  granted_at: Generated<string>;
 }
 
 export interface ProjectsTable {
@@ -26,6 +68,7 @@ export interface ProjectsTable {
   name: string;
   description: Generated<string>;
   created_at: Generated<string>;
+  created_by: number | null;
 }
 
 export interface ProjectDataTable {
@@ -90,6 +133,9 @@ export interface AuditLogTable {
 export interface Database {
   users: UsersTable;
   sessions: SessionsTable;
+  auth_identities: AuthIdentitiesTable;
+  magic_link_tokens: MagicLinkTokensTable;
+  user_roles: UserRolesTable;
   projects: ProjectsTable;
   project_data: ProjectDataTable;
   revisions: RevisionsTable;

@@ -19,8 +19,10 @@ import {
 } from '../repositories/roadmap-revision.repo.js';
 import { ensureSystemUser } from '../repositories/user.repo.js';
 import { DEFAULT_DRUPAL_STRUCTURE, DEFAULT_VOCAB } from './seed.service.js';
-import { AppError, NotFoundError, ValidationError } from '../domain/errors.js';
+import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../domain/errors.js';
 import { logAudit } from './audit.service.js';
+import { hasPermission } from './rbac.service.js';
+import type { RoleGrant } from '@latelier/shared';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/;
 const EXPORT_KEYS = ['dispositifs', 'mesures', 'objectifs', 'drupal_structure', 'vocab'] as const;
@@ -60,7 +62,12 @@ export async function createProject(k: Kdb, input: CreateProjectInput): Promise<
   }
 
   const id = await k.transaction().execute(async (trx) => {
-    const projectId = await insertProject(trx, { slug, name, description });
+    const projectId = await insertProject(trx, {
+      slug,
+      name,
+      description,
+      createdBy: input.actorId,
+    });
     await insertRevision(trx, {
       projectId,
       parentId: null,
@@ -105,12 +112,17 @@ export async function createProject(k: Kdb, input: CreateProjectInput): Promise<
 export interface DeleteProjectInput {
   readonly projectId: number;
   readonly actorId: number;
+  readonly actorGrants: readonly RoleGrant[];
   readonly ip?: string;
   readonly userAgent?: string;
 }
 
 export async function deleteProject(k: Kdb, input: DeleteProjectInput): Promise<number> {
   const project = await getProjectById(k, input.projectId);
+  if (!project) return 0;
+  const isOwner = project.created_by === input.actorId;
+  const canAny = hasPermission(input.actorGrants, 'project:delete:any', input.projectId);
+  if (!isOwner && !canAny) throw new ForbiddenError();
   const changes = await k.transaction().execute(async (trx) => {
     await sql`PRAGMA defer_foreign_keys = ON`.execute(trx);
     await deleteCommentsForProject(trx, input.projectId);
@@ -253,7 +265,12 @@ export async function importProjectFromBundle(
   const slugWasRenamed = finalSlug !== rawSlug;
 
   const projectId = await k.transaction().execute(async (trx) => {
-    const id = await insertProject(trx, { slug: finalSlug, name, description });
+    const id = await insertProject(trx, {
+      slug: finalSlug,
+      name,
+      description,
+      createdBy: input.actorId,
+    });
     await insertRevision(trx, {
       projectId: id,
       parentId: null,
