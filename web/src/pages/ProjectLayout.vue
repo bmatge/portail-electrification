@@ -21,6 +21,7 @@ const tabs = [
   { name: 'project-tree', label: 'Arborescence' },
   { name: 'project-roadmap', label: 'Roadmap' },
   { name: 'project-data', label: 'Modèle de données' },
+  { name: 'project-objectifs', label: 'Objectifs' },
   { name: 'project-maquette', label: 'Maquette' },
 ] as const;
 

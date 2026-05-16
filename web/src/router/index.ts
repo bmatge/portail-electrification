@@ -8,6 +8,7 @@ import ProjectLayout from '../pages/ProjectLayout.vue';
 import ProjectTreePage from '../pages/ProjectTreePage.vue';
 import ProjectRoadmapPage from '../pages/ProjectRoadmapPage.vue';
 import ProjectDataPage from '../pages/ProjectDataPage.vue';
+import ProjectObjectifsPage from '../pages/ProjectObjectifsPage.vue';
 import ProjectMaquettePage from '../pages/ProjectMaquettePage.vue';
 import { useAuthStore } from '../stores/auth.js';
 
@@ -25,6 +26,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'arborescence', name: 'project-tree', component: ProjectTreePage },
       { path: 'roadmap', name: 'project-roadmap', component: ProjectRoadmapPage },
       { path: 'modele', name: 'project-data', component: ProjectDataPage },
+      { path: 'objectifs', name: 'project-objectifs', component: ProjectObjectifsPage },
       { path: 'maquette', name: 'project-maquette', component: ProjectMaquettePage },
     ],
   },
