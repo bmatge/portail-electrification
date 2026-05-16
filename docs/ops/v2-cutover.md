@@ -11,6 +11,24 @@ v1 en prod. Comm équipe 48h avant.
   ci-dessous a tourné une fois sans erreur sur ce dump.
 - `seed-invites.ts` préparé avec la liste des ~10 users actifs et leurs
   emails (cf. annexe ci-dessous). À écrire en parallèle si pas encore fait.
+- **Mailserver g3 opérationnel** sur le même VPS (cf. `~/Developer/GitHub/g3`) :
+  - Container `ecosystem-mailserver` `running` et attaché au réseau
+    `ecosystem-network` :
+    ```sh
+    docker ps --filter name=ecosystem-mailserver --format '{{.Status}}'
+    docker network inspect ecosystem-network | grep ecosystem-mailserver
+    ```
+  - DNS reverse du VPS pointe vers `mail.ecosysteme.matge.com` (sans ça,
+    Gmail/Outlook flaggent en spam même avec DKIM valide).
+  - SPF + DKIM (`mail._domainkey.ecosysteme.matge.com`) + DMARC publiés
+    pour `ecosysteme.matge.com`. Vérification rapide :
+    ```sh
+    dig +short TXT ecosysteme.matge.com   # SPF
+    dig +short TXT mail._domainkey.ecosysteme.matge.com   # DKIM
+    dig +short TXT _dmarc.ecosysteme.matge.com            # DMARC
+    ```
+  - Test bout-en-bout pré-bascule conseillé : envoyer un magic link vers
+    `<ton-adresse>@mail-tester.com` et viser un score ≥ 9/10.
 
 ## Séquencement (≈ 10 min de downtime)
 
@@ -44,8 +62,8 @@ v1 en prod. Comm équipe 48h avant.
 5. **Onboarder les users legacy** (envoi des magic links) :
 
    ```sh
-   # Driver SMTP réel impératif ici (pas console !)
-   docker compose exec -e MAILER_DRIVER=smtp app \
+   # Le compose force déjà MAILER_DRIVER=smtp en prod, pas besoin de l'override.
+   docker compose exec app \
      node --experimental-strip-types /app/ops/seed-invites.ts \
      --base-url=https://latelier.bercy.matge.com \
      --file=/data/invites.txt
@@ -64,10 +82,31 @@ v1 en prod. Comm équipe 48h avant.
    editor/admin sont à attribuer ensuite via `POST /api/admin/users/:id/roles`
    ou la page Admin de la SPA.
 
-   **Variables SMTP requises côté docker-compose.yml** : `SMTP_HOST`,
-   `SMTP_PORT`, `SMTP_USER`/`SMTP_PASS` (si auth), `SMTP_FROM`. En dev,
-   utiliser `docker-compose.dev.yml` qui ajoute le sidecar Mailpit
-   (UI http://localhost:8025).
+   **Config SMTP prod (relais via mailserver g3)** : valeurs par défaut
+   embarquées dans `docker-compose.yml` (cf. service `app`) :
+
+   | Variable         | Valeur prod                              | À mettre en `.env` ?                     |
+   | ---------------- | ---------------------------------------- | ---------------------------------------- |
+   | `MAILER_DRIVER`  | `smtp` (hardcodé)                        | non                                      |
+   | `SMTP_HOST`      | `ecosystem-mailserver` (container g3)    | non                                      |
+   | `SMTP_PORT`      | `25`                                     | non                                      |
+   | `SMTP_SECURE`    | `false` (réseau Docker interne, pas TLS) | non                                      |
+   | `SMTP_FROM`      | `latelier-noreply@ecosysteme.matge.com`  | non                                      |
+   | `SMTP_FROM_NAME` | `L'atelier 🪢`                           | non                                      |
+   | `SMTP_REPLY_TO`  | _(vide)_                                 | **oui si souhaité**                      |
+   | `SMTP_USER`      | _(non utilisé — pas d'auth interne)_     | uniquement si bascule sur relais externe |
+   | `SMTP_PASS`      | _(non utilisé)_                          | idem (`.env`, secret)                    |
+
+   Pas de credentials nécessaires : le mailserver g3 a `PERMIT_DOCKER:
+network`, donc tout container du réseau `ecosystem-network` envoie
+   sans auth. Le `From:` est aligné DKIM/SPF/DMARC sur `ecosysteme.matge.com`
+   pour éviter le spam folder (cf. ADR du choix de domaine). Si tu veux
+   qu'une réponse à un magic link arrive sur une vraie boîte, mets
+   `SMTP_REPLY_TO=bertrand@matge.com` (ou équivalent) dans le `.env` du VPS.
+
+   En dev, le compose `docker-compose.dev.yml` ajoute Mailpit
+   (UI http://localhost:8025) — driver `smtp` pointe alors vers
+   `mailpit:1025` sans creds.
 
 6. **Smoke test** :
    ```sh
@@ -127,7 +166,9 @@ Cf. `docs/ops/restore.md` pour le détail de la restauration.
 ## Livré côté cutover
 
 - ✅ Mailer SMTP réel (driver `smtp` via nodemailer, configurable via
-  env `SMTP_*`).
+  env `SMTP_*` + `SMTP_REPLY_TO` optionnel).
+- ✅ Relais via mailserver g3 (`ecosystem-mailserver`) câblé en dur dans
+  `docker-compose.yml`, sans creds, From aligné DKIM `ecosysteme.matge.com`.
 - ✅ `ops/seed-invites.ts` — script CLI prêt à utiliser.
 - ✅ DSFR bundlé local (CSP `script-src 'self'` peut rester stricte).
 - ✅ Playwright e2e (scaffold 3 specs : magic-link, sandbox, conflict).

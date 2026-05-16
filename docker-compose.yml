@@ -13,6 +13,22 @@ services:
       # boot (idempotent). Indispensable pour la première instance —
       # sinon /admin est inaccessible (self-signup donne `viewer`).
       - BOOTSTRAP_ADMIN_EMAILS=${BOOTSTRAP_ADMIN_EMAILS:-}
+      # Mail : on relaie via le mailserver de l'écosystème g3 (container
+      # `ecosystem-mailserver` sur le réseau partagé `ecosystem-network`).
+      # `PERMIT_DOCKER: network` côté g3 autorise l'envoi sans creds depuis
+      # le réseau interne. DKIM/SPF/DMARC sont alignés sur
+      # `ecosysteme.matge.com`, donc on envoie depuis cette zone même si
+      # l'app vit sur latelier.bercy.matge.com.
+      - MAILER_DRIVER=smtp
+      - SMTP_HOST=${SMTP_HOST:-ecosystem-mailserver}
+      - SMTP_PORT=${SMTP_PORT:-25}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_FROM=${SMTP_FROM:-latelier-noreply@ecosysteme.matge.com}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-L'atelier 🪢}
+      # Reply-To optionnel : si défini, une réponse à un magic link arrive
+      # ici plutôt que sur la boîte technique latelier-noreply. À mettre
+      # dans `.env` du VPS (souvent personnel, ex. bertrand@matge.com).
+      - SMTP_REPLY_TO=${SMTP_REPLY_TO:-}
     volumes:
       - app-data:/data
     networks:

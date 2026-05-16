@@ -63,6 +63,7 @@ export interface SmtpConfig {
   readonly pass?: string;
   readonly fromAddress: string;
   readonly fromName: string;
+  readonly replyTo?: string;
 }
 
 export async function createSmtpMailer(config: SmtpConfig): Promise<Mailer> {
@@ -84,6 +85,7 @@ export async function createSmtpMailer(config: SmtpConfig): Promise<Mailer> {
         await transport.sendMail({
           from,
           to,
+          ...(config.replyTo ? { replyTo: config.replyTo } : {}),
           subject: "L'atelier 🪢 — votre lien de connexion",
           text:
             `Bonjour,\n\nVoici votre lien de connexion à L'atelier (valide ~15 minutes) :\n\n${callbackUrl}\n\n` +
@@ -133,6 +135,7 @@ export async function createMailerFromEnv(env: NodeJS.ProcessEnv = process.env):
     case 'smtp': {
       const user = env['SMTP_USER'];
       const pass = env['SMTP_PASS'];
+      const replyTo = env['SMTP_REPLY_TO'];
       return createSmtpMailer({
         host: env['SMTP_HOST'] ?? '127.0.0.1',
         port: Number(env['SMTP_PORT'] ?? 1025),
@@ -141,6 +144,7 @@ export async function createMailerFromEnv(env: NodeJS.ProcessEnv = process.env):
         fromName: env['SMTP_FROM_NAME'] ?? "L'atelier",
         ...(user ? { user } : {}),
         ...(pass ? { pass } : {}),
+        ...(replyTo ? { replyTo } : {}),
       });
     }
     default:
