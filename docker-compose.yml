@@ -9,6 +9,10 @@ services:
       - PORT=3000
       - DB_PATH=/data/app.db
       - LOG_LEVEL=info
+      # Bootstrap admin : ces emails reçoivent un grant `admin global` au
+      # boot (idempotent). Indispensable pour la première instance —
+      # sinon /admin est inaccessible (self-signup donne `viewer`).
+      - BOOTSTRAP_ADMIN_EMAILS=${BOOTSTRAP_ADMIN_EMAILS:-}
     volumes:
       - app-data:/data
     networks:

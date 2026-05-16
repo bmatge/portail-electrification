@@ -62,6 +62,20 @@ avec rôle `viewer` global. Bloquable via `AUTH_ALLOWED_EMAIL_DOMAINS` (vide
 par défaut). Cf. [shared/src/permissions.ts](shared/src/permissions.ts) pour
 les permissions par rôle.
 
+### Bootstrap admin (premier login)
+
+Aucun user n'a le rôle `admin` par défaut — la page `/admin` est donc
+inaccessible juste après une installation neuve. Deux mécanismes :
+
+- **Variable d'env** `BOOTSTRAP_ADMIN_EMAILS=email1,email2` au démarrage
+  du serveur : chaque email reçoit un grant `admin global` au boot
+  (idempotent, crée le user s'il n'existe pas encore).
+- **Script CLI** sans redémarrer :
+  ```sh
+  docker compose exec app node --experimental-strip-types \
+    /app/ops/grant-admin.ts bertrand@matge.com
+  ```
+
 ### Lecture publique conditionnelle + bac à sable anonyme
 
 Chaque projet porte un flag `is_public` (défaut `1`). Si `is_public = 1`,

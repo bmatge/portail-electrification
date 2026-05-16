@@ -20,11 +20,12 @@ git clone git@github.com:bmatge/latelier-cadrage-site.git ~/latelier-cadrage-sit
 cd ~/latelier-cadrage-site-beta
 git checkout v2
 
-# .env beta (à créer)
+# .env beta (à créer) — emails admin séparés par virgule
 cat > .env <<EOF
 DOMAIN=latelier-beta.bercy.matge.com
 NODE_ENV=production
 MAILER_DRIVER=console
+BOOTSTRAP_ADMIN_EMAILS=bertrand@matge.com
 EOF
 
 # Build + up avec l'overlay beta
@@ -43,6 +44,38 @@ curl -I https://latelier-beta.bercy.matge.com
 curl -s https://latelier-beta.bercy.matge.com/api/health
 # → {"ok":true}
 ```
+
+## Bootstrap admin (premier login)
+
+La page `/admin` n'est visible qu'aux users avec rôle `admin` global.
+Or le self-signup donne `viewer`. Deux mécanismes pour obtenir l'admin :
+
+### Option 1 — Variable d'env au démarrage (recommandé)
+
+Mettre `BOOTSTRAP_ADMIN_EMAILS=bertrand@matge.com,autre@bercy.gouv.fr`
+dans le `.env`. Au boot du serveur, chaque email :
+
+- est créé si absent (status `active`, display_name = partie locale)
+- reçoit un grant `admin global` (idempotent — ne refait rien si
+  déjà admin).
+
+L'user n'a même pas besoin d'exister au préalable. Il peut ensuite
+demander un magic link sur la page Login et se logger avec son admin
+déjà préparé.
+
+### Option 2 — Script CLI sans redémarrage
+
+Si tu as oublié de set la variable au boot et que l'user existe déjà
+(via self-signup) en `viewer` :
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.beta.yml exec app \
+  node --experimental-strip-types /app/ops/grant-admin.ts bertrand@matge.com
+```
+
+L'effet est immédiat — pas besoin de redémarrer. La prochaine requête
+de l'user (ou un rechargement de page) refait `/api/me` qui retourne
+le nouveau rôle.
 
 ## Données
 

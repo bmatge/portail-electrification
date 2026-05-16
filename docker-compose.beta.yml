@@ -32,6 +32,10 @@ services:
       # Driver console par défaut (pas de SMTP câblé en beta initial).
       # À changer en `smtp` quand on aura les credentials.
       - MAILER_DRIVER=${MAILER_DRIVER:-console}
+      # Bootstrap admin : ces emails reçoivent un grant `admin global` au
+      # boot (idempotent). Indispensable pour la première instance —
+      # sinon /admin est inaccessible (self-signup donne `viewer`).
+      - BOOTSTRAP_ADMIN_EMAILS=${BOOTSTRAP_ADMIN_EMAILS:-}
     volumes:
       - app-data-beta:/data
     labels:

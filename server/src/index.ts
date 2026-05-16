@@ -1,10 +1,11 @@
 // Bootstrap : charge la config, initialise la DB, applique les migrations,
 // seede le projet historique, instancie le mailer, puis démarre l'app.
 
-import { loadConfig } from './config/env.js';
+import { loadConfig, parseBootstrapAdminEmails } from './config/env.js';
 import { createDatabase } from './db/client.js';
 import { runMigrations } from './db/migrator.js';
 import { seedDefaultProject } from './services/seed.service.js';
+import { seedBootstrapAdmins } from './services/bootstrap-admin.service.js';
 import { createMailerFromEnv } from './services/mailer.service.js';
 import { createApp } from './app.js';
 import { logger } from './logger.js';
@@ -15,6 +16,16 @@ async function main(): Promise<void> {
   const applied = runMigrations(raw);
   if (applied.length > 0) logger.info({ applied }, 'migrations appliquées');
   await seedDefaultProject(k);
+
+  const bootstrapEmails = parseBootstrapAdminEmails(config.BOOTSTRAP_ADMIN_EMAILS);
+  if (bootstrapEmails.length > 0) {
+    const results = await seedBootstrapAdmins(k, bootstrapEmails);
+    const summary = results.reduce<Record<string, number>>((acc, r) => {
+      acc[r.action] = (acc[r.action] ?? 0) + 1;
+      return acc;
+    }, {});
+    logger.info({ summary, emails: bootstrapEmails }, 'bootstrap admin seeded');
+  }
 
   const mailer = await createMailerFromEnv();
   const app = createApp({

@@ -14,6 +14,11 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DB_PATH: z.string().min(1).default(DEFAULT_DB_PATH),
   PUBLIC_DIR: z.string().min(1).default(DEFAULT_PUBLIC_DIR),
+  /** Liste d'emails séparés par virgules à promouvoir en admin global
+   *  au boot du serveur. Idempotent : ne refait rien si l'admin existe
+   *  déjà. Utile pour le bootstrap initial (sinon il n'y a aucun admin
+   *  dans la DB et la page /admin est inaccessible). */
+  BOOTSTRAP_ADMIN_EMAILS: z.string().default(''),
 });
 
 export type Config = z.infer<typeof EnvSchema>;
@@ -36,4 +41,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 // Pour les tests : permet de reset le cache et d'injecter un env custom.
 export function resetConfigCache(): void {
   cached = null;
+}
+
+export function parseBootstrapAdminEmails(raw: string): readonly string[] {
+  return raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0 && e.includes('@'));
 }
