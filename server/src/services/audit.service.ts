@@ -10,6 +10,8 @@ export type AuditAction =
   | 'project.create'
   | 'project.delete'
   | 'project.import'
+  | 'project.publish'
+  | 'project.unpublish'
   | 'tree.write'
   | 'tree.revert'
   | 'roadmap.write'

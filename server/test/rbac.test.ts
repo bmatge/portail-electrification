@@ -77,11 +77,65 @@ describe('RBAC — viewer vs editor vs admin', () => {
     expect(aliceDelete.status).toBe(204);
   });
 
-  it('GET /api/projects requiert au minimum viewer', async () => {
+  it('GET /api/projects anonyme retourne uniquement les projets publics', async () => {
     const fx = await makeFixture();
     const anon = await request(fx.app).get('/api/projects');
-    expect(anon.status).toBe(401);
+    expect(anon.status).toBe(200);
+    // Le projet seed `portail-electrification` est public par défaut (is_public=1).
+    expect(anon.body.projects.map((p: { slug: string }) => p.slug)).toContain(
+      'portail-electrification',
+    );
     const viewer = await loginAs(fx, 'viewer@test.fr');
     expect((await viewer.get('/api/projects')).status).toBe(200);
+  });
+
+  it('GET /tree anonyme : 200 sur projet public, 401 si projet basculé en privé', async () => {
+    const fx = await makeFixture();
+    // Public par défaut
+    const anonPublic = await request(fx.app).get('/api/projects/portail-electrification/tree');
+    expect(anonPublic.status).toBe(200);
+    // Bascule en privé
+    const admin = await loginAs(fx, 'admin@test.fr', {
+      extraRoles: [{ role: 'admin', projectId: null }],
+    });
+    await admin
+      .patch('/api/projects/portail-electrification')
+      .send({ is_public: false })
+      .expect(200);
+    const anonPrivate = await request(fx.app).get('/api/projects/portail-electrification/tree');
+    expect(anonPrivate.status).toBe(401);
+  });
+
+  it('PUT /tree anonyme : toujours 401, même sur projet public', async () => {
+    const fx = await makeFixture();
+    const tree = await request(fx.app)
+      .get('/api/projects/portail-electrification/tree')
+      .expect(200);
+    const res = await request(fx.app)
+      .put('/api/projects/portail-electrification/tree')
+      .set('If-Match', String(tree.body.revision.id))
+      .send({ tree: { id: 'root', label: 'X', children: [] } });
+    expect(res.status).toBe(401);
+  });
+
+  it('PATCH /projects/:slug : un viewer ne peut pas changer is_public (403)', async () => {
+    const fx = await makeFixture();
+    const viewer = await loginAs(fx, 'viewer@test.fr');
+    const res = await viewer
+      .patch('/api/projects/portail-electrification')
+      .send({ is_public: false });
+    expect(res.status).toBe(403);
+  });
+
+  it('PATCH /projects/:slug : un editor peut basculer son projet en privé', async () => {
+    const fx = await makeFixture();
+    const editor = await loginAs(fx, 'editor@test.fr', {
+      extraRoles: [{ role: 'editor', projectId: null }],
+    });
+    const res = await editor
+      .patch('/api/projects/portail-electrification')
+      .send({ is_public: false });
+    expect(res.status).toBe(200);
+    expect(res.body.project.is_public).toBe(false);
   });
 });

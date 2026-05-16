@@ -14,3 +14,9 @@ export const ImportProjectBodySchema = z.object({
 });
 
 export type ImportProjectBody = z.infer<typeof ImportProjectBodySchema>;
+
+export const UpdateProjectBodySchema = z.object({
+  is_public: z.boolean(),
+});
+
+export type UpdateProjectBody = z.infer<typeof UpdateProjectBodySchema>;

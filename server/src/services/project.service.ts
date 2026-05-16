@@ -10,6 +10,7 @@ import {
   getProjectBySlug,
   insertProject,
   listProjects as repoListProjects,
+  updateProjectIsPublic,
 } from '../repositories/project.repo.js';
 import { listProjectDataRows, replaceProjectData } from '../repositories/project-data.repo.js';
 import { getHeadRevision, insertRevision } from '../repositories/revision.repo.js';
@@ -27,8 +28,55 @@ import type { RoleGrant } from '@latelier/shared';
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/;
 const EXPORT_KEYS = ['dispositifs', 'mesures', 'objectifs', 'drupal_structure', 'vocab'] as const;
 
-export function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> {
-  return repoListProjects(k);
+export async function listProjects(
+  k: Kdb,
+  viewer: { readonly userId: number | null; readonly grants: readonly RoleGrant[] } | null,
+): Promise<readonly ProjectListItem[]> {
+  const all = await repoListProjects(k);
+  if (!viewer) {
+    return all.filter((p) => p.is_public);
+  }
+  const grantedProjectIds = new Set<number>();
+  let globalGrant = false;
+  for (const grant of viewer.grants) {
+    if (grant.projectId === null) {
+      globalGrant = true;
+      break;
+    }
+    grantedProjectIds.add(grant.projectId);
+  }
+  if (globalGrant) return all;
+  return all.filter((p) => p.is_public || grantedProjectIds.has(p.id));
+}
+
+export interface UpdateVisibilityInput {
+  readonly projectId: number;
+  readonly isPublic: boolean;
+  readonly actorId: number;
+  readonly ip?: string;
+  readonly userAgent?: string;
+}
+
+export async function updateProjectVisibility(
+  k: Kdb,
+  input: UpdateVisibilityInput,
+): Promise<Project> {
+  const project = await getProjectById(k, input.projectId);
+  if (!project) throw new NotFoundError('project_not_found');
+  if (project.is_public === input.isPublic) return project;
+  await updateProjectIsPublic(k, input.projectId, input.isPublic);
+  await logAudit(k, input.isPublic ? 'project.publish' : 'project.unpublish', {
+    actorId: input.actorId,
+    projectId: input.projectId,
+    resourceType: 'project',
+    resourceId: input.projectId,
+    details: { slug: project.slug, is_public: input.isPublic },
+    ip: input.ip ?? null,
+    userAgent: input.userAgent ?? null,
+  });
+  const updated = await getProjectById(k, input.projectId);
+  if (!updated) throw new NotFoundError('project_not_found');
+  return updated;
 }
 
 export function findProjectBySlug(k: Kdb, slug: string): Promise<Project | undefined> {

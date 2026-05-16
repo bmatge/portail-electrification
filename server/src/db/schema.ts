@@ -69,6 +69,7 @@ export interface ProjectsTable {
   description: Generated<string>;
   created_at: Generated<string>;
   created_by: number | null;
+  is_public: Generated<number>;
 }
 
 export interface ProjectDataTable {

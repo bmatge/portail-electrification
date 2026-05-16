@@ -8,10 +8,15 @@ import {
   findProjectBySlug,
   importProjectFromBundle,
   listProjects,
+  updateProjectVisibility,
 } from '../services/project.service.js';
 import { NotFoundError, UnauthorizedError } from '../domain/errors.js';
 import { asyncH } from '../middleware/async-handler.js';
-import type { CreateProjectBody, ImportProjectBody } from '../schemas/project.schemas.js';
+import type {
+  CreateProjectBody,
+  ImportProjectBody,
+  UpdateProjectBody,
+} from '../schemas/project.schemas.js';
 
 function clientIp(req: Request): string {
   return req.ip ?? '';
@@ -28,10 +33,12 @@ export function makeProjectsController(k: Kdb): {
   remove: RequestHandler;
   exportBundle: RequestHandler;
   create: RequestHandler;
+  update: RequestHandler;
 } {
   return {
-    list: asyncH(async (_req, res) => {
-      res.json({ projects: await listProjects(k) });
+    list: asyncH(async (req, res) => {
+      const viewer = req.user ? { userId: req.user.id, grants: req.user.roles } : null;
+      res.json({ projects: await listProjects(k, viewer) });
     }),
     importBundle: asyncH(async (req, res) => {
       if (!req.user) throw new UnauthorizedError();
@@ -100,6 +107,19 @@ export function makeProjectsController(k: Kdb): {
         userAgent: clientUA(req),
       });
       res.status(201).json({ project });
+    }),
+    update: asyncH(async (req, res) => {
+      if (!req.user) throw new UnauthorizedError();
+      if (!req.project) throw new NotFoundError('project_not_found');
+      const body = req.body as UpdateProjectBody;
+      const project = await updateProjectVisibility(k, {
+        projectId: req.project.id,
+        isPublic: body.is_public,
+        actorId: req.user.id,
+        ip: clientIp(req),
+        userAgent: clientUA(req),
+      });
+      res.json({ project });
     }),
   };
 }

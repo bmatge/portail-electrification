@@ -10,6 +10,7 @@ export interface Project {
   readonly description: string;
   readonly created_at: string;
   readonly created_by: number | null;
+  readonly is_public: boolean;
 }
 
 export interface ProjectListItem extends Project {

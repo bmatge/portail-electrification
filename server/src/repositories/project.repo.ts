@@ -2,22 +2,44 @@ import { sql } from 'kysely';
 import type { Kdb } from '../db/client.js';
 import type { Project, ProjectListItem } from '../db/types.js';
 
+interface ProjectRow {
+  readonly id: number;
+  readonly slug: string;
+  readonly name: string;
+  readonly description: string;
+  readonly created_at: string;
+  readonly created_by: number | null;
+  readonly is_public: number;
+}
+
+function toProject(row: ProjectRow): Project {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    description: row.description,
+    created_at: row.created_at,
+    created_by: row.created_by,
+    is_public: row.is_public === 1,
+  };
+}
+
 export async function getProjectBySlug(k: Kdb, slug: string): Promise<Project | undefined> {
   const row = await k
     .selectFrom('projects')
-    .select(['id', 'slug', 'name', 'description', 'created_at', 'created_by'])
+    .select(['id', 'slug', 'name', 'description', 'created_at', 'created_by', 'is_public'])
     .where(sql<boolean>`slug COLLATE NOCASE = ${slug}`)
     .executeTakeFirst();
-  return row ?? undefined;
+  return row ? toProject(row) : undefined;
 }
 
 export async function getProjectById(k: Kdb, id: number): Promise<Project | undefined> {
   const row = await k
     .selectFrom('projects')
-    .select(['id', 'slug', 'name', 'description', 'created_at', 'created_by'])
+    .select(['id', 'slug', 'name', 'description', 'created_at', 'created_by', 'is_public'])
     .where('id', '=', id)
     .executeTakeFirst();
-  return row ?? undefined;
+  return row ? toProject(row) : undefined;
 }
 
 export async function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> {
@@ -30,6 +52,7 @@ export async function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> 
       'p.description',
       'p.created_at',
       'p.created_by',
+      'p.is_public',
       eb
         .selectFrom('revisions')
         .select((eb2) => eb2.fn.countAll<number>().as('n'))
@@ -39,12 +62,7 @@ export async function listProjects(k: Kdb): Promise<readonly ProjectListItem[]> 
     .orderBy('p.created_at', 'asc')
     .execute();
   return rows.map((r) => ({
-    id: r.id,
-    slug: r.slug,
-    name: r.name,
-    description: r.description,
-    created_at: r.created_at,
-    created_by: r.created_by,
+    ...toProject(r),
     revision_count: Number(r.revision_count ?? 0),
   }));
 }
@@ -54,6 +72,7 @@ export interface InsertProjectInput {
   readonly name: string;
   readonly description: string;
   readonly createdBy?: number | null;
+  readonly isPublic?: boolean;
 }
 
 export async function insertProject(k: Kdb, input: InsertProjectInput): Promise<number> {
@@ -64,10 +83,24 @@ export async function insertProject(k: Kdb, input: InsertProjectInput): Promise<
       name: input.name,
       description: input.description,
       created_by: input.createdBy ?? null,
+      ...(input.isPublic !== undefined ? { is_public: input.isPublic ? 1 : 0 } : {}),
     })
     .returning('id')
     .executeTakeFirstOrThrow();
   return inserted.id;
+}
+
+export async function updateProjectIsPublic(
+  k: Kdb,
+  projectId: number,
+  isPublic: boolean,
+): Promise<number> {
+  const result = await k
+    .updateTable('projects')
+    .set({ is_public: isPublic ? 1 : 0 })
+    .where('id', '=', projectId)
+    .executeTakeFirst();
+  return Number(result.numUpdatedRows ?? 0);
 }
 
 export async function deleteProjectRow(k: Kdb, projectId: number): Promise<number> {
