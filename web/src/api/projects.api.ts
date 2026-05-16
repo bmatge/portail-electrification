@@ -54,3 +54,17 @@ export async function exportProjectBundle(slug: string): Promise<unknown> {
   const res = await api.get(`/projects/${encodeURIComponent(slug)}/export`);
   return res.data;
 }
+
+export async function deleteProject(slug: string): Promise<void> {
+  await api.delete(`/projects/${encodeURIComponent(slug)}`);
+}
+
+export async function importProjectBundle(
+  bundle: unknown,
+  slug?: string,
+): Promise<ProjectListItem> {
+  const body: { bundle: unknown; slug?: string } = { bundle };
+  if (slug) body.slug = slug;
+  const res = await api.post('/projects/import', body);
+  return (res.data as { project: ProjectListItem }).project;
+}

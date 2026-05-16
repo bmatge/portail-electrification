@@ -11,6 +11,8 @@ import ProjectDataPage from '../pages/ProjectDataPage.vue';
 import ProjectObjectifsPage from '../pages/ProjectObjectifsPage.vue';
 import ProjectMaquettePage from '../pages/ProjectMaquettePage.vue';
 import ProjectHistoryPage from '../pages/ProjectHistoryPage.vue';
+import ProjectDispositifsPage from '../pages/ProjectDispositifsPage.vue';
+import ProjectMesuresPage from '../pages/ProjectMesuresPage.vue';
 import { useAuthStore } from '../stores/auth.js';
 
 const routes: RouteRecordRaw[] = [
@@ -30,6 +32,17 @@ const routes: RouteRecordRaw[] = [
       { path: 'objectifs', name: 'project-objectifs', component: ProjectObjectifsPage },
       { path: 'maquette', name: 'project-maquette', component: ProjectMaquettePage },
       { path: 'historique', name: 'project-history', component: ProjectHistoryPage },
+      { path: 'dispositifs', name: 'project-dispositifs', component: ProjectDispositifsPage },
+      {
+        path: 'politiques-publiques',
+        name: 'project-mesures',
+        component: ProjectMesuresPage,
+      },
+      // Redirection legacy : /structure-drupal → /modele (fusion).
+      {
+        path: 'structure-drupal',
+        redirect: (to) => ({ name: 'project-data', params: { slug: to.params['slug'] } }),
+      },
     ],
   },
   {

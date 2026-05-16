@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import { LEGACY_VOCAB, type VocabConfig } from '@latelier/shared';
 import { useTreeStore, type TreeNode } from '../stores/tree.js';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../stores/data.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
+import { useConfirm } from '../stores/confirm.js';
 import {
   find,
   audiencesFor,
@@ -25,6 +26,8 @@ import {
 } from '../composables/useTreeEditor.js';
 import TreeNodeRow from '../components/tree/TreeNodeRow.vue';
 import TreePanel from '../components/tree/TreePanel.vue';
+import PageHeader from '../components/ui/PageHeader.vue';
+import { exportProjectBundle, importProjectBundle } from '../api/projects.api.js';
 
 const route = useRoute();
 const treeStore = useTreeStore();
@@ -34,6 +37,7 @@ const mesuresStore = useMesuresStore();
 const objectifsStore = useObjectifsStore();
 const auth = useAuthStore();
 const sandbox = useSandboxStore();
+const confirmStore = useConfirm();
 
 const slug = computed(() => String(route.params['slug'] ?? ''));
 
@@ -148,38 +152,83 @@ const mesuresCatalog = computed<MesureLite[]>(() => {
 });
 
 interface MeanLink {
+  id: string;
   axeName: string;
   objectiveName: string;
   meanText: string;
 }
-const meansForSelectedNode = computed<MeanLink[]>(() => {
-  if (!selectedNode.value) return [];
-  const data = objectifsStore.data as {
-    axes?: Array<{
+interface ObjectifsRaw {
+  axes?: Array<{
+    id?: string;
+    name?: string;
+    objectives?: Array<{
+      id?: string;
       name?: string;
-      objectives?: Array<{
-        name?: string;
-        means?: Array<{ text?: string; nodes?: string[] }>;
-      }>;
+      means?: Array<{ id?: string; text?: string; nodes?: string[] }>;
     }>;
-  } | null;
+  }>;
+}
+
+const allMeans = computed<MeanLink[]>(() => {
+  const data = objectifsStore.data as ObjectifsRaw | null;
   if (!data || !Array.isArray(data.axes)) return [];
   const out: MeanLink[] = [];
   for (const axe of data.axes) {
     for (const obj of axe.objectives ?? []) {
       for (const mean of obj.means ?? []) {
-        if (Array.isArray(mean.nodes) && mean.nodes.includes(selectedNode.value.id)) {
-          out.push({
-            axeName: String(axe.name ?? ''),
-            objectiveName: String(obj.name ?? ''),
-            meanText: String(mean.text ?? ''),
-          });
+        if (!mean.id) continue;
+        out.push({
+          id: mean.id,
+          axeName: String(axe.name ?? ''),
+          objectiveName: String(obj.name ?? ''),
+          meanText: String(mean.text ?? ''),
+        });
+      }
+    }
+  }
+  return out;
+});
+
+const linkedMeanIds = computed<string[]>(() => {
+  if (!selectedNode.value) return [];
+  const data = objectifsStore.data as ObjectifsRaw | null;
+  if (!data || !Array.isArray(data.axes)) return [];
+  const nid = selectedNode.value.id;
+  const out: string[] = [];
+  for (const axe of data.axes) {
+    for (const obj of axe.objectives ?? []) {
+      for (const mean of obj.means ?? []) {
+        if (mean.id && Array.isArray(mean.nodes) && mean.nodes.includes(nid)) {
+          out.push(mean.id);
         }
       }
     }
   }
   return out;
 });
+
+async function setLinkedMeans(nextIds: string[]): Promise<void> {
+  if (!selectedNode.value) return;
+  const nid = selectedNode.value.id;
+  const nextSet = new Set(nextIds);
+  const data = objectifsStore.data as ObjectifsRaw | null;
+  if (!data || !Array.isArray(data.axes)) return;
+  // Clone profond + mute chaque mean.nodes selon l'appartenance à nextSet.
+  const cloned = JSON.parse(JSON.stringify(data)) as ObjectifsRaw;
+  for (const axe of cloned.axes ?? []) {
+    for (const obj of axe.objectives ?? []) {
+      for (const mean of obj.means ?? []) {
+        if (!mean.id) continue;
+        const nodes = new Set(mean.nodes ?? []);
+        if (nextSet.has(mean.id)) nodes.add(nid);
+        else nodes.delete(nid);
+        mean.nodes = Array.from(nodes);
+      }
+    }
+  }
+  objectifsStore.setData(cloned);
+  await objectifsStore.save();
+}
 
 // --- Actions tree ---------------------------------------------------------
 
@@ -194,9 +243,9 @@ function onToggleCollapse(id: string): void {
   collapsed.value = next;
 }
 
-function requireEditOrModal(action: () => void): void {
+function requireEditOrModal(action: () => void | Promise<void>): void {
   if (canEdit.value) {
-    action();
+    void action();
     return;
   }
   if (auth.user) {
@@ -257,10 +306,21 @@ function onAddChild(): void {
 }
 
 function onDeleteNode(): void {
-  requireEditOrModal(() => {
+  requireEditOrModal(async () => {
     if (!root.value || !selectedNode.value) return;
     if (selectedNode.value.id === root.value.id) return;
-    if (!confirm(`Supprimer « ${selectedNode.value.label} » et sa descendance ?`)) return;
+    const label = selectedNode.value.label;
+    const childCount = countNodes(selectedNode.value).total - 1;
+    const ok = await confirmStore.ask({
+      title: `Supprimer « ${label} » ?`,
+      message:
+        childCount > 0
+          ? `Ce nœud et ses ${childCount} sous-nœud(s) seront supprimés du site. Action irréversible.`
+          : 'Le nœud sera supprimé du site. Action irréversible.',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!ok) return;
     const next = deleteNode(root.value, selectedNode.value.id);
     if (next) {
       selectedId.value = 'root';
@@ -341,110 +401,205 @@ const saveStatus = computed(() => {
   if (treeStore.dirty) return 'dirty';
   return 'saved';
 });
+
+async function handleExportBundle(): Promise<void> {
+  try {
+    const bundle = await exportProjectBundle(slug.value);
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `bundle-${slug.value}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    alert(`Export impossible : ${(err as Error).message}`);
+  }
+}
+
+async function handleImportBundle(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  const ok = await confirmStore.ask({
+    title: `Importer le bundle « ${file.name} » ?`,
+    message:
+      "Un nouveau projet sera créé à partir de ce bundle. L'arbre actuel ne sera pas écrasé.",
+    confirmLabel: 'Importer',
+  });
+  if (!ok) {
+    input.value = '';
+    return;
+  }
+  try {
+    const text = await file.text();
+    const bundle = JSON.parse(text) as unknown;
+    const created = await importProjectBundle(bundle);
+    alert(`Projet importé : ${created.name} (slug : ${created.slug})`);
+    input.value = '';
+  } catch (err) {
+    const e = err as { response?: { data?: { error?: string; detail?: string } } };
+    const msg = e.response?.data?.detail || e.response?.data?.error || (err as Error).message;
+    alert(`Import impossible : ${msg}`);
+  }
+}
 </script>
 
 <template>
   <div v-if="treeStore.loading">Chargement de l'arborescence…</div>
   <div v-else-if="treeStore.error" class="alert alert-error">Erreur : {{ treeStore.error }}</div>
-  <div v-else-if="root" class="tree-layout">
-    <div class="tree-main">
-      <div class="toolbar">
+  <div v-else-if="root">
+    <PageHeader
+      title="Arborescence du hub"
+      subtitle="Structure de pages du site : chaque nœud = une page. Drag-and-drop pour réorganiser, clic pour sélectionner et éditer le détail dans le panneau de droite."
+    />
+
+    <div class="toolbar">
+      <button
+        class="fr-btn fr-btn--sm fr-icon-add-line fr-btn--icon-left"
+        :disabled="!selectedNode"
+        @click="onAddChild"
+      >
+        Nouvelle rubrique
+      </button>
+      <RouterLink
+        :to="{ name: 'project-history', params: { slug } }"
+        class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-history-line fr-btn--icon-left"
+      >
+        Historique
+      </RouterLink>
+      <button
+        class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-download-line fr-btn--icon-left"
+        @click="handleExportBundle"
+      >
+        Export
+      </button>
+      <label class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-upload-line fr-btn--icon-left">
+        Import
         <input
+          type="file"
+          accept="application/json"
+          style="display: none"
+          @change="handleImportBundle"
+        />
+      </label>
+      <span class="spacer"></span>
+      <span style="font-size: 0.85rem; color: #555">
+        {{ stats.total }} nœud{{ stats.total > 1 ? 's' : '' }} · profondeur {{ stats.maxDepth }}
+      </span>
+      <span class="save-status" :class="`save-status--${saveStatus}`">
+        {{
+          saveStatus === 'saving'
+            ? 'Sauvegarde…'
+            : saveStatus === 'dirty'
+              ? 'Modifications non sauvegardées'
+              : saveStatus === 'saved'
+                ? `Enregistré · révision #${treeStore.revision?.id ?? '—'}`
+                : ''
+        }}
+      </span>
+    </div>
+
+    <!-- Filtres globaux : recherche libre + filtre par échéance.
+         Layout 2 colonnes au-dessus du master-détail comme le legacy. -->
+    <div class="fr-grid-row fr-grid-row--gutters tree-filters">
+      <div class="fr-col-12 fr-col-md-7">
+        <label class="fr-label" for="tree-search">Rechercher un nœud par libellé ou TL;DR</label>
+        <input
+          id="tree-search"
           v-model="search"
           type="search"
-          placeholder="🔍 Rechercher dans l'arbre…"
+          placeholder="ex. leasing, carte, simulateur…"
           class="fr-input"
-          style="flex: 1; min-width: 220px"
         />
-        <select v-model="deadlineFilter" class="fr-select" style="min-width: 180px">
-          <option value="all">Toutes échéances</option>
+      </div>
+      <div class="fr-col-12 fr-col-md-5">
+        <label class="fr-label" for="tree-deadline">Filtrer par échéance</label>
+        <select id="tree-deadline" v-model="deadlineFilter" class="fr-select">
+          <option value="all">Toutes les échéances</option>
           <option v-for="d in vocab.deadlines" :key="d.key" :value="d.key">{{ d.label }}</option>
           <option value="none">Sans échéance</option>
         </select>
-        <button class="fr-btn fr-btn--sm" :disabled="!selectedNode" @click="onAddChild">
-          + Sous-rubrique
-        </button>
-        <span class="spacer"></span>
-        <span style="font-size: 0.85rem; color: #555">
-          {{ stats.total }} nœud{{ stats.total > 1 ? 's' : '' }} · profondeur {{ stats.maxDepth }}
-        </span>
-        <span class="save-status" :class="`save-status--${saveStatus}`">
-          {{
-            saveStatus === 'saving'
-              ? 'Sauvegarde…'
-              : saveStatus === 'dirty'
-                ? 'Modifications non sauvegardées'
-                : saveStatus === 'saved'
-                  ? 'Enregistré'
-                  : ''
-          }}
-        </span>
-      </div>
-
-      <!-- Légende des types -->
-      <div class="legend">
-        <span v-for="t in vocab.page_types" :key="t.key" class="type-pill" :class="`type-${t.key}`">
-          {{ t.label }}
-        </span>
-      </div>
-
-      <div v-if="conflictMessage" class="alert alert-warning">{{ conflictMessage }}</div>
-      <div
-        v-if="treeStore.persistTarget === 'local' && treeStore.localSavedAt"
-        class="alert alert-info"
-        style="font-size: 0.85rem"
-      >
-        Modifications locales sauvegardées (bac à sable).
-      </div>
-
-      <div class="tree-list" role="tree">
-        <TreeNodeRow
-          v-for="item in filtered"
-          :key="item.node.id"
-          :node="item.node"
-          :depth="item.depth"
-          :selected-id="selectedId"
-          :collapsed="collapsed"
-          :inherited-audiences="item.inherited"
-          :vocab="vocab"
-          :can-edit="canEdit"
-          :is-root="item.node.id === root.id"
-          :style="{ opacity: item.dim ? 0.4 : 1 }"
-          @select="onSelect"
-          @toggle-collapse="onToggleCollapse"
-          @drop-here="onDrop"
-        />
       </div>
     </div>
 
-    <div class="tree-side">
-      <TreePanel
-        :node="selectedNode"
-        :root="root"
-        :is-root="selectedNode?.id === root.id"
-        :vocab="vocab"
-        :can-edit="canEdit"
-        :slug="slug"
-        :dispositifs-catalog="dispositifsCatalog"
-        :mesures-catalog="mesuresCatalog"
-        :means-for-node="meansForSelectedNode"
-        @patch="onPatch"
-        @add-child="onAddChild"
-        @delete-node="onDeleteNode"
-        @move-sibling="onMoveSibling"
-        @promote="onPromote"
-        @demote="onDemote"
-        @edit-attempt="onEditAttempt"
-      />
+    <div class="tree-layout">
+      <div class="tree-main">
+        <!-- Légende des types -->
+        <div class="legend">
+          <span
+            v-for="t in vocab.page_types"
+            :key="t.key"
+            class="type-pill"
+            :class="`type-${t.key}`"
+          >
+            {{ t.label }}
+          </span>
+        </div>
+
+        <div v-if="conflictMessage" class="alert alert-warning">{{ conflictMessage }}</div>
+        <div
+          v-if="treeStore.persistTarget === 'local' && treeStore.localSavedAt"
+          class="alert alert-info"
+          style="font-size: 0.85rem"
+        >
+          Modifications locales sauvegardées (bac à sable).
+        </div>
+
+        <div class="tree-list" role="tree">
+          <TreeNodeRow
+            v-for="item in filtered"
+            :key="item.node.id"
+            :node="item.node"
+            :depth="item.depth"
+            :selected-id="selectedId"
+            :collapsed="collapsed"
+            :inherited-audiences="item.inherited"
+            :vocab="vocab"
+            :can-edit="canEdit"
+            :is-root="item.node.id === root.id"
+            :style="{ opacity: item.dim ? 0.4 : 1 }"
+            @select="onSelect"
+            @toggle-collapse="onToggleCollapse"
+            @drop-here="onDrop"
+          />
+        </div>
+      </div>
+
+      <div class="tree-side">
+        <TreePanel
+          :node="selectedNode"
+          :root="root"
+          :is-root="selectedNode?.id === root.id"
+          :vocab="vocab"
+          :can-edit="canEdit"
+          :slug="slug"
+          :dispositifs-catalog="dispositifsCatalog"
+          :mesures-catalog="mesuresCatalog"
+          :all-means="allMeans"
+          :linked-mean-ids="linkedMeanIds"
+          @set-linked-means="setLinkedMeans"
+          @patch="onPatch"
+          @add-child="onAddChild"
+          @delete-node="onDeleteNode"
+          @move-sibling="onMoveSibling"
+          @promote="onPromote"
+          @demote="onDemote"
+          @edit-attempt="onEditAttempt"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.tree-filters {
+  margin: 0.5rem 0 1rem;
+}
 .tree-layout {
   display: grid;
   grid-template-columns: 1fr 400px;
   gap: 1rem;
+  align-items: start;
 }
 @media (max-width: 1000px) {
   .tree-layout {

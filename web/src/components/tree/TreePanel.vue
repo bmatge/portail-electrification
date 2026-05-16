@@ -8,10 +8,14 @@
 // (state survit aux re-renders), boutons DSFR fr-btn + fr-icon-*.
 
 import { computed, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import type { TreeNode } from '../../stores/tree.js';
 import type { VocabConfig } from '@latelier/shared';
+import { audiencesFor } from '../../composables/useTreeEditor.js';
 import InlineEdit from '../ui/InlineEdit.vue';
+import MultiSelect from '../ui/MultiSelect.vue';
 import NodeComments from './NodeComments.vue';
+import NodeImprovements from './NodeImprovements.vue';
 
 const props = defineProps<{
   node: TreeNode | null;
@@ -25,8 +29,15 @@ const props = defineProps<{
   dispositifsCatalog: ReadonlyArray<{ id: string; name: string }>;
   /** Toutes les mesures (politiques publiques) disponibles. */
   mesuresCatalog: ReadonlyArray<{ id: string; label: string }>;
-  /** Liste flat des moyens dans la pyramide objectifs (pour afficher les liens). */
-  meansForNode: ReadonlyArray<{ axeName: string; objectiveName: string; meanText: string }>;
+  /** Tous les moyens disponibles dans la pyramide objectifs du projet. */
+  allMeans: ReadonlyArray<{
+    id: string;
+    axeName: string;
+    objectiveName: string;
+    meanText: string;
+  }>;
+  /** Ids des moyens actuellement reliés à ce nœud. */
+  linkedMeanIds: readonly string[];
 }>();
 
 const emit = defineEmits<{
@@ -37,6 +48,7 @@ const emit = defineEmits<{
   (e: 'promote'): void;
   (e: 'demote'): void;
   (e: 'edit-attempt'): void;
+  (e: 'set-linked-means', ids: string[]): void;
 }>();
 
 function patch(p: Partial<TreeNode>): void {
@@ -49,7 +61,9 @@ function patch(p: Partial<TreeNode>): void {
 }
 
 // --- Sections ouvertes (stateful) -----------------------------------------
-const openSections = ref<Set<string>>(new Set(['config']));
+// Par défaut : Configuration détaillée + Commentaires (les 2 plus
+// utilisées). L'utilisateur peut replier librement.
+const openSections = ref<Set<string>>(new Set(['config', 'comments']));
 function onToggle(id: string, e: Event): void {
   const next = new Set(openSections.value);
   if ((e.target as HTMLDetailsElement).open) next.add(id);
@@ -64,6 +78,22 @@ function isOpen(id: string): boolean {
 const nodeAudiences = computed(() => new Set(props.node?.audiences ?? []));
 const nodeTypes = computed(() => new Set(props.node?.types ?? []));
 
+// Publics hérités du parent : on retire le nœud courant du calcul puis on
+// regarde ce que ses ancêtres lui apportent. Si le nœud a ses propres
+// audiences, on les ignore aussi pour ne montrer QUE l'héritage.
+const inheritedAudiences = computed<readonly string[]>(() => {
+  if (!props.root || !props.node) return [];
+  // Le nœud doit être analysé comme s'il n'avait pas d'audiences propres
+  // pour récupérer l'apport des ancêtres seulement.
+  const cloneNode = { ...props.node, audiences: [] as string[] };
+  return Array.from(audiencesFor(props.root, cloneNode));
+});
+
+function inheritedLabels(): string {
+  const map = new Map(props.vocab.audiences.map((a) => [a.key, a.label]));
+  return inheritedAudiences.value.map((k) => map.get(k) ?? k).join(', ');
+}
+
 function toggleAudience(key: string, checked: boolean): void {
   const cur = new Set(props.node?.audiences ?? []);
   if (checked) cur.add(key);
@@ -76,108 +106,45 @@ function togglePageType(key: string, checked: boolean): void {
   else cur.delete(key);
   patch({ types: Array.from(cur) });
 }
-function toggleMesure(id: string, checked: boolean): void {
-  const cur = new Set(props.node?.mesures ?? []);
-  if (checked) cur.add(id);
-  else cur.delete(id);
-  patch({ mesures: Array.from(cur) });
+function setMesures(next: string[]): void {
+  patch({ mesures: next });
 }
-function toggleDispositif(id: string, checked: boolean): void {
-  const cur = new Set(props.node?.dispositifs ?? []);
-  if (checked) cur.add(id);
-  else cur.delete(id);
-  patch({ dispositifs: Array.from(cur) });
+function setDispositifs(next: string[]): void {
+  patch({ dispositifs: next });
 }
 
-// --- Blocks ---------------------------------------------------------------
-interface Block {
-  id: string;
-  title: string;
-  description: string;
-}
-const blocks = computed<Block[]>(() => {
-  const b = props.node?.blocks;
-  return Array.isArray(b) ? (b as Block[]) : [];
-});
-function newBlockId(): string {
-  return 'b' + Math.random().toString(36).slice(2, 8);
-}
-function addBlock(): void {
-  if (!props.node) return;
+// Options du multi-select pour Ressources liées (= catalogue dispositifs)
+const dispositifsOptions = computed(() =>
+  props.dispositifsCatalog.map((d) => ({ value: d.id, label: d.name })),
+);
+// Options du multi-select pour Politiques liées (= catalogue mesures)
+const mesuresOptions = computed(() =>
+  props.mesuresCatalog.map((m) => ({ value: m.id, label: m.label, meta: m.id })),
+);
+// Options du multi-select pour Objectifs liés (= moyens de la pyramide)
+const meansOptions = computed(() =>
+  props.allMeans.map((m) => ({
+    value: m.id,
+    label: `${m.axeName} · ${m.objectiveName} · ${m.meanText}`,
+  })),
+);
+
+function setLinkedMeans(next: string[]): void {
   if (!props.canEdit) {
     emit('edit-attempt');
     return;
   }
-  const next = [...blocks.value, { id: newBlockId(), title: '', description: '' }];
-  patch({ blocks: next });
-}
-function updateBlock(idx: number, field: 'title' | 'description', value: string): void {
-  const next = blocks.value.slice();
-  const b = next[idx];
-  if (!b) return;
-  next[idx] = { ...b, [field]: value };
-  patch({ blocks: next });
-}
-function removeBlock(idx: number): void {
-  if (!confirm('Supprimer ce bloc ?')) return;
-  const next = blocks.value.slice();
-  next.splice(idx, 1);
-  patch({ blocks: next });
-}
-function moveBlock(idx: number, dir: -1 | 1): void {
-  const next = blocks.value.slice();
-  const j = idx + dir;
-  if (j < 0 || j >= next.length) return;
-  const a = next[idx];
-  const b = next[j];
-  if (!a || !b) return;
-  next[idx] = b;
-  next[j] = a;
-  patch({ blocks: next });
+  emit('set-linked-means', next);
 }
 
-// --- Improvements (alimentent la roadmap) --------------------------------
-interface Improvement {
-  id: string;
-  title: string;
-  description: string;
-  deadline: string;
-}
-const improvements = computed<Improvement[]>(() => {
+// --- Compteurs (mutualisés depuis le node) -------------------------------
+// Les "improvements" sont gérées par le composant NodeImprovements ; on
+// garde juste le compteur pour le badge de la section. Les "blocks" du
+// legacy ne sont plus exposés (couverts par la Maquette).
+const improvementsCount = computed(() => {
   const v = props.node?.['improvements'];
-  return Array.isArray(v) ? (v as Improvement[]) : [];
+  return Array.isArray(v) ? v.length : 0;
 });
-function newImprovementId(): string {
-  return 'i' + Math.random().toString(36).slice(2, 8);
-}
-function addImprovement(): void {
-  if (!props.canEdit) {
-    emit('edit-attempt');
-    return;
-  }
-  const next = [
-    ...improvements.value,
-    { id: newImprovementId(), title: '', description: '', deadline: '' },
-  ];
-  patch({ improvements: next } as Partial<TreeNode>);
-}
-function updateImprovement(
-  idx: number,
-  field: 'title' | 'description' | 'deadline',
-  value: string,
-): void {
-  const next = improvements.value.slice();
-  const it = next[idx];
-  if (!it) return;
-  next[idx] = { ...it, [field]: value };
-  patch({ improvements: next } as Partial<TreeNode>);
-}
-function removeImprovement(idx: number): void {
-  if (!confirm('Supprimer cette amélioration ?')) return;
-  const next = improvements.value.slice();
-  next.splice(idx, 1);
-  patch({ improvements: next } as Partial<TreeNode>);
-}
 
 // --- Maquette aperçu ------------------------------------------------------
 const maquetteParagraphCount = computed(() => {
@@ -247,61 +214,65 @@ function onTimeEdito(e: Event): void {
     <details class="panel" :open="isOpen('config')" @toggle="(e) => onToggle('config', e)">
       <summary>Configuration détaillée</summary>
       <div class="panel-body">
-        <label class="field">
-          <span>Échéance</span>
-          <select
-            class="fr-select"
-            :value="node.deadline ?? ''"
-            @change="(e) => patch({ deadline: (e.target as HTMLSelectElement).value })"
-          >
-            <option value="">— Aucune —</option>
-            <option v-for="d in vocab.deadlines" :key="d.key" :value="d.key">{{ d.label }}</option>
-          </select>
-        </label>
+        <div class="fr-input-group">
+          <label class="fr-label">Échéance</label>
+          <div class="chip-row">
+            <button
+              v-for="d in vocab.deadlines"
+              :key="d.key"
+              type="button"
+              class="chip-toggle"
+              :class="`chip-toggle--deadline-${d.key}`"
+              :aria-pressed="node.deadline === d.key"
+              :disabled="!canEdit"
+              @click="patch({ deadline: node.deadline === d.key ? '' : d.key })"
+            >
+              {{ d.label }}
+            </button>
+          </div>
+        </div>
 
-        <fieldset class="fr-fieldset">
-          <legend class="fr-fieldset__legend">Publics cibles</legend>
-          <div
-            class="fr-fieldset__content"
-            style="display: flex; flex-wrap: wrap; gap: 0.5rem 1rem"
-          >
-            <label
+        <div class="fr-input-group">
+          <label class="fr-label">Publics cibles (hérités du parent si vide)</label>
+          <div class="chip-row">
+            <button
               v-for="a in vocab.audiences"
               :key="a.key"
-              class="fr-checkbox-group"
-              style="font-size: 0.85rem"
+              type="button"
+              class="chip-toggle"
+              :class="`chip-toggle--audience-${a.key}`"
+              :aria-pressed="nodeAudiences.has(a.key)"
+              :disabled="!canEdit"
+              @click="toggleAudience(a.key, !nodeAudiences.has(a.key))"
             >
-              <input
-                type="checkbox"
-                :checked="nodeAudiences.has(a.key)"
-                @change="(e) => toggleAudience(a.key, (e.target as HTMLInputElement).checked)"
-              />
-              <span style="margin-left: 0.4rem">{{ a.label }}</span>
-            </label>
+              {{ a.label }}
+            </button>
           </div>
-        </fieldset>
+          <p class="fr-text--xs chip-hint">
+            <template v-if="inheritedAudiences.length === 0">
+              Aucun public hérité du parent.
+            </template>
+            <template v-else> Hérités du parent : {{ inheritedLabels() }}. </template>
+          </p>
+        </div>
 
-        <fieldset class="fr-fieldset">
-          <legend class="fr-fieldset__legend">Types de page</legend>
-          <div
-            class="fr-fieldset__content"
-            style="display: flex; flex-wrap: wrap; gap: 0.5rem 1rem"
-          >
-            <label
+        <div class="fr-input-group">
+          <label class="fr-label">Types de page</label>
+          <div class="chip-row">
+            <button
               v-for="t in vocab.page_types"
               :key="t.key"
-              class="fr-checkbox-group"
-              style="font-size: 0.85rem"
+              type="button"
+              class="chip-toggle"
+              :class="`chip-toggle--type-${t.key}`"
+              :aria-pressed="nodeTypes.has(t.key)"
+              :disabled="!canEdit"
+              @click="togglePageType(t.key, !nodeTypes.has(t.key))"
             >
-              <input
-                type="checkbox"
-                :checked="nodeTypes.has(t.key)"
-                @change="(e) => togglePageType(t.key, (e.target as HTMLInputElement).checked)"
-              />
-              <span style="margin-left: 0.4rem">{{ t.label }}</span>
-            </label>
+              {{ t.label }}
+            </button>
           </div>
-        </fieldset>
+        </div>
 
         <div style="display: flex; gap: 0.5rem">
           <label class="field" style="flex: 1">
@@ -330,58 +301,32 @@ function onTimeEdito(e: Event): void {
       </div>
     </details>
 
-    <!-- Section 2 : Blocs de contenu -->
-    <details class="panel" :open="isOpen('blocks')" @toggle="(e) => onToggle('blocks', e)">
+    <!-- Section : Maquette (raccourci, édition complète dans l'onglet) -->
+    <details class="panel" :open="isOpen('maquette')" @toggle="(e) => onToggle('maquette', e)">
       <summary>
-        Blocs de contenu
-        <span class="panel-count count-badge" :class="{ 'count-badge--muted': !blocks.length }">{{
-          blocks.length
-        }}</span>
+        Maquette
+        <span
+          class="panel-count count-badge"
+          :class="{ 'count-badge--muted': !maquetteParagraphCount }"
+        >
+          {{ maquetteParagraphCount }}
+        </span>
       </summary>
       <div class="panel-body">
-        <div v-for="(b, i) in blocks" :key="b.id" class="sub-item">
-          <div class="sub-item-header">
-            <strong style="flex: 1">Bloc {{ i + 1 }}</strong>
-            <button class="fr-btn fr-btn--tertiary fr-btn--sm" @click="moveBlock(i, -1)">↑</button>
-            <button class="fr-btn fr-btn--tertiary fr-btn--sm" @click="moveBlock(i, 1)">↓</button>
-            <button
-              class="fr-btn fr-btn--tertiary fr-btn--sm"
-              style="color: #ce0500"
-              @click="removeBlock(i)"
-            >
-              ×
-            </button>
-          </div>
-          <label class="field">
-            <span>Titre</span>
-            <InlineEdit
-              :value="b.title"
-              :can-edit="canEdit"
-              placeholder="Titre du bloc…"
-              @update="(v) => updateBlock(i, 'title', v)"
-              @edit-attempt="emit('edit-attempt')"
-            />
-          </label>
-          <label class="field">
-            <span>Description</span>
-            <InlineEdit
-              :value="b.description"
-              textarea
-              :rows="2"
-              :can-edit="canEdit"
-              placeholder="Description du bloc…"
-              @update="(v) => updateBlock(i, 'description', v)"
-              @edit-attempt="emit('edit-attempt')"
-            />
-          </label>
-        </div>
-        <button class="fr-btn fr-btn--secondary fr-btn--sm" @click="addBlock">
-          + Ajouter un bloc
-        </button>
+        <p style="font-size: 0.9rem; color: #555; margin: 0 0 0.6rem">
+          <span v-if="!maquetteParagraphCount">Aucun composant configuré sur ce nœud.</span>
+          <span v-else>{{ maquetteParagraphCount }} composant(s) configuré(s).</span>
+        </p>
+        <RouterLink
+          :to="{ name: 'project-maquette', params: { slug }, query: { node: node.id } }"
+          class="fr-btn fr-btn--sm fr-btn--secondary fr-icon-arrow-right-line fr-btn--icon-right"
+        >
+          {{ maquetteParagraphCount ? 'Éditer la maquette' : 'Démarrer la maquette' }}
+        </RouterLink>
       </div>
     </details>
 
-    <!-- Section 3 : Améliorations (alimentent la roadmap) -->
+    <!-- Section : Améliorations (alimentent la roadmap) -->
     <details
       class="panel"
       :open="isOpen('improvements')"
@@ -391,106 +336,73 @@ function onTimeEdito(e: Event): void {
         Améliorations <small style="color: #888">(alimentent la roadmap)</small>
         <span
           class="panel-count count-badge"
-          :class="{ 'count-badge--muted': !improvements.length }"
-          >{{ improvements.length }}</span
+          :class="{ 'count-badge--muted': !improvementsCount }"
+          >{{ improvementsCount }}</span
         >
       </summary>
       <div class="panel-body">
-        <div v-for="(it, i) in improvements" :key="it.id" class="sub-item">
-          <div class="sub-item-header">
-            <strong style="flex: 1">Amélioration {{ i + 1 }}</strong>
-            <button
-              class="fr-btn fr-btn--tertiary fr-btn--sm"
-              style="color: #ce0500"
-              @click="removeImprovement(i)"
-            >
-              ×
-            </button>
-          </div>
-          <label class="field">
-            <span>Titre</span>
-            <InlineEdit
-              :value="it.title"
-              :can-edit="canEdit"
-              placeholder="Titre court…"
-              @update="(v) => updateImprovement(i, 'title', v)"
-              @edit-attempt="emit('edit-attempt')"
-            />
-          </label>
-          <label class="field">
-            <span>Description</span>
-            <InlineEdit
-              :value="it.description"
-              textarea
-              :rows="2"
-              :can-edit="canEdit"
-              placeholder="Description…"
-              @update="(v) => updateImprovement(i, 'description', v)"
-              @edit-attempt="emit('edit-attempt')"
-            />
-          </label>
-          <label class="field">
-            <span>Échéance</span>
-            <select
-              class="fr-select"
-              :value="it.deadline"
-              @change="
-                (e) => updateImprovement(i, 'deadline', (e.target as HTMLSelectElement).value)
-              "
-            >
-              <option value="">— Aucune —</option>
-              <option v-for="d in vocab.deadlines" :key="d.key" :value="d.key">
-                {{ d.label }}
-              </option>
-            </select>
-          </label>
-        </div>
-        <button class="fr-btn fr-btn--secondary fr-btn--sm" @click="addImprovement">
-          + Ajouter une amélioration
-        </button>
+        <NodeImprovements
+          :node="node"
+          :vocab="vocab"
+          :can-edit="canEdit"
+          @patch="(p) => patch(p)"
+          @edit-attempt="emit('edit-attempt')"
+        />
       </div>
     </details>
 
-    <!-- Section 4 : Mesures (politiques publiques) -->
-    <details class="panel" :open="isOpen('mesures')" @toggle="(e) => onToggle('mesures', e)">
+    <!-- Section : Objectifs liés — édition via MultiSelect, persistance
+         côté store objectifs gérée par le parent (ProjectTreePage). -->
+    <details class="panel" :open="isOpen('objectives')" @toggle="(e) => onToggle('objectives', e)">
       <summary>
-        Mesures rattachées
+        Objectifs liés
         <span
           class="panel-count count-badge"
-          :class="{ 'count-badge--muted': !(node.mesures ?? []).length }"
+          :class="{ 'count-badge--muted': !linkedMeanIds.length }"
         >
-          {{ (node.mesures ?? []).length }}
+          {{ linkedMeanIds.length }}
         </span>
       </summary>
       <div class="panel-body">
-        <p v-if="!mesuresCatalog.length" style="color: #888; font-size: 0.85rem">
-          Aucune mesure dans le catalogue de ce projet.
+        <p v-if="!allMeans.length" style="color: #888; font-size: 0.85rem; margin: 0">
+          Aucun moyen dans la pyramide stratégique. Ajoutez-en dans l'onglet
+          <RouterLink :to="{ name: 'project-objectifs', params: { slug } }">Objectifs</RouterLink>.
         </p>
-        <label
-          v-for="m in mesuresCatalog"
-          :key="m.id"
-          style="display: flex; gap: 0.5rem; padding: 0.2rem 0; font-size: 0.9rem"
-        >
-          <input
-            type="checkbox"
-            :checked="(node.mesures ?? []).includes(m.id)"
-            @change="(e) => toggleMesure(m.id, (e.target as HTMLInputElement).checked)"
+        <template v-else>
+          <MultiSelect
+            :options="meansOptions"
+            :selected="linkedMeanIds"
+            :disabled="!canEdit"
+            placeholder="Rattacher ce nœud à des objectifs…"
+            @update:selected="setLinkedMeans"
           />
-          <span
-            ><strong>{{ m.id }}</strong> · {{ m.label }}</span
+          <!-- Liste résumée des objectifs actuellement liés, pour lisibilité. -->
+          <ul
+            v-if="linkedMeanIds.length"
+            style="padding-left: 1rem; font-size: 0.85rem; margin: 0.6rem 0 0"
           >
-        </label>
+            <li
+              v-for="m in allMeans.filter((x) => linkedMeanIds.includes(x.id))"
+              :key="m.id"
+              style="margin-bottom: 0.3rem"
+            >
+              <strong>{{ m.axeName }}</strong> · {{ m.objectiveName }}
+              <br />
+              <small style="color: #666">{{ m.meanText }}</small>
+            </li>
+          </ul>
+        </template>
       </div>
     </details>
 
-    <!-- Section 5 : Dispositifs -->
+    <!-- Section : Ressources liées (= dispositifs) -->
     <details
       class="panel"
       :open="isOpen('dispositifs')"
       @toggle="(e) => onToggle('dispositifs', e)"
     >
       <summary>
-        Dispositifs liés
+        Ressources liées
         <span
           class="panel-count count-badge"
           :class="{ 'count-badge--muted': !(node.dispositifs ?? []).length }"
@@ -499,72 +411,47 @@ function onTimeEdito(e: Event): void {
         </span>
       </summary>
       <div class="panel-body">
-        <p v-if="!dispositifsCatalog.length" style="color: #888; font-size: 0.85rem">
-          Aucun dispositif dans le catalogue. Ajoutez-les dans la page Modèle de données.
+        <p v-if="!dispositifsCatalog.length" style="color: #888; font-size: 0.85rem; margin: 0">
+          Aucune ressource dans le catalogue. Ajoutez-en dans la page « Ressources & services ».
         </p>
-        <label
-          v-for="d in dispositifsCatalog"
-          :key="d.id"
-          style="display: flex; gap: 0.5rem; padding: 0.2rem 0; font-size: 0.9rem"
-        >
-          <input
-            type="checkbox"
-            :checked="(node.dispositifs ?? []).includes(d.id)"
-            @change="(e) => toggleDispositif(d.id, (e.target as HTMLInputElement).checked)"
-          />
-          <span>{{ d.name }}</span>
-        </label>
+        <MultiSelect
+          v-else
+          :options="dispositifsOptions"
+          :selected="node.dispositifs ?? []"
+          :disabled="!canEdit"
+          placeholder="Choisir des ressources…"
+          @update:selected="setDispositifs"
+        />
       </div>
     </details>
 
-    <!-- Section 6 : Objectifs liés (lecture seule, alimentée par la page Objectifs) -->
-    <details class="panel" :open="isOpen('objectives')" @toggle="(e) => onToggle('objectives', e)">
+    <!-- Section : Politiques liées (= mesures) -->
+    <details class="panel" :open="isOpen('mesures')" @toggle="(e) => onToggle('mesures', e)">
       <summary>
-        Objectifs couverts
+        Politiques liées
         <span
           class="panel-count count-badge"
-          :class="{ 'count-badge--muted': !meansForNode.length }"
+          :class="{ 'count-badge--muted': !(node.mesures ?? []).length }"
         >
-          {{ meansForNode.length }}
+          {{ (node.mesures ?? []).length }}
         </span>
       </summary>
       <div class="panel-body">
-        <p v-if="!meansForNode.length" style="color: #888; font-size: 0.85rem">
-          Aucun moyen de la pyramide stratégique ne cible ce nœud. Pour en ajouter, allez à l'onglet
-          « Objectifs ».
+        <p v-if="!mesuresCatalog.length" style="color: #888; font-size: 0.85rem; margin: 0">
+          Aucune politique dans le catalogue. Ajoutez-en dans la page « Politiques publiques ».
         </p>
-        <ul v-else style="padding-left: 1rem; font-size: 0.9rem">
-          <li v-for="(m, idx) in meansForNode" :key="idx" style="margin-bottom: 0.4rem">
-            <strong>{{ m.axeName }}</strong> · {{ m.objectiveName }}
-            <br />
-            <small style="color: #666">{{ m.meanText }}</small>
-          </li>
-        </ul>
+        <MultiSelect
+          v-else
+          :options="mesuresOptions"
+          :selected="node.mesures ?? []"
+          :disabled="!canEdit"
+          placeholder="Choisir des politiques…"
+          @update:selected="setMesures"
+        />
       </div>
     </details>
 
-    <!-- Section 7 : Maquette (raccourci) -->
-    <details class="panel" :open="isOpen('maquette')" @toggle="(e) => onToggle('maquette', e)">
-      <summary>
-        Maquette DSFR
-        <span
-          class="panel-count count-badge"
-          :class="{ 'count-badge--muted': !maquetteParagraphCount }"
-        >
-          {{ maquetteParagraphCount }}
-        </span>
-      </summary>
-      <div class="panel-body">
-        <p style="font-size: 0.9rem; color: #555">
-          <span v-if="!maquetteParagraphCount">Pas encore de paragraph configuré sur ce nœud.</span>
-          <span v-else>{{ maquetteParagraphCount }} paragraph(s) configuré(s).</span>
-          <br />
-          <small>Édition complète dans l'onglet « Maquette ».</small>
-        </p>
-      </div>
-    </details>
-
-    <!-- Section 8 : Commentaires -->
+    <!-- Section : Commentaires (ouverte par défaut) -->
     <details class="panel" :open="isOpen('comments')" @toggle="(e) => onToggle('comments', e)">
       <summary>Commentaires</summary>
       <div class="panel-body">
@@ -614,10 +501,14 @@ function onTimeEdito(e: Event): void {
 
 <style scoped>
 .tree-panel {
+  /* `align-self: start` côté grid + sticky permet au panel de rester
+   * collé en haut quand on scrolle la liste de l'arbre, sans introduire
+   * de scroll interne (qui posait problème quand un MultiSelect ouvert
+   * débordait → triple scroll). Si le panel dépasse la viewport, on
+   * scrolle la page entière. */
   position: sticky;
   top: 5rem;
-  max-height: calc(100vh - 7rem);
-  overflow-y: auto;
+  align-self: start;
 }
 .tree-panel__title :deep(.inline-edit__display) {
   font-size: 1.15rem;

@@ -86,7 +86,6 @@ function addItem(): void {
 
 function removeItem(index: number): void {
   if (!ensureEdit()) return;
-  if (!confirm('Supprimer cet élément ?')) return;
   const arr = asArray.value.slice();
   arr.splice(index, 1);
   emit('update', arr);

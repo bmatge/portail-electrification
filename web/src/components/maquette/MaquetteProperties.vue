@@ -1,29 +1,36 @@
 <script setup lang="ts">
-// Panneau "Propriétés Drupal" du nœud sélectionné en page Maquette.
-// Reproduit la sidebar v1 (legacy assets/maquette.js renderTaxonomy*) :
+// Panneau "Propriétés" du nœud sélectionné en page Maquette.
+// Expose dynamiquement la structure CMS du projet (Modèle de données →
+// onglet « Structure CMS ») : type de contenu + toutes les taxonomies
+// définies, plus les politiques publiques (catalogue Mesures).
 //
-//   - Type de contenu Drupal SFD (sélecteur)
-//   - Type éditorial (sélecteur)
-//   - Public (multi-select tags cliquables, depuis vocab.audiences)
-//   - Mesure (multi-select tags grid, depuis catalogue mesures)
-//
-// Toutes ces valeurs vivent dans `node.maquette.taxonomy.*` et sont
+// Toutes les valeurs vivent dans `node.maquette.taxonomy.*` et sont
 // persistées via le tree (updateNode → save).
 
 import { computed } from 'vue';
 import type { VocabConfig } from '@latelier/shared';
+import MultiSelect from '../ui/MultiSelect.vue';
+
+interface CmsTaxonomy {
+  key: string;
+  label: string;
+  multi?: boolean;
+  options: readonly string[];
+}
+interface CmsStructure {
+  content_types: readonly string[];
+  taxonomies: readonly CmsTaxonomy[];
+}
 
 const props = defineProps<{
   /** Données complètes de la maquette du nœud. */
   maquette: Record<string, unknown> | null;
-  /** Vocab du projet (audiences, deadlines, page_types). */
+  /** Vocab du projet (pour fallback de la taxonomy `cibles`). */
   vocab: VocabConfig;
-  /** Catalogue des mesures du projet (M1, M2…). */
+  /** Catalogue des mesures du projet (M1, M2…) — taxonomy `mesures`. */
   mesuresCatalog: ReadonlyArray<{ id: string; label: string }>;
-  /** Types de contenu Drupal (extraits de drupal_structure ou hardcodés). */
-  drupalTypes: ReadonlyArray<{ key: string; label: string }>;
-  /** Types éditoriaux disponibles. */
-  editorialTypes: ReadonlyArray<{ key: string; label: string }>;
+  /** Structure CMS du projet (types de contenu + taxonomies). */
+  cmsStructure: CmsStructure;
   canEdit: boolean;
 }>();
 
@@ -34,8 +41,7 @@ const emit = defineEmits<{
 
 const taxonomy = computed<Record<string, unknown>>(() => {
   const m = props.maquette ?? {};
-  const t = (m['taxonomy'] as Record<string, unknown> | undefined) ?? {};
-  return t;
+  return (m['taxonomy'] as Record<string, unknown> | undefined) ?? {};
 });
 
 function setTaxonomy(key: string, value: unknown): void {
@@ -46,162 +52,150 @@ function setTaxonomy(key: string, value: unknown): void {
   emit('update-taxonomy', { ...taxonomy.value, [key]: value });
 }
 
-function setDrupalType(e: Event): void {
-  setTaxonomy('drupal_type', (e.target as HTMLSelectElement).value);
-}
-
-function setEditorialType(e: Event): void {
-  setTaxonomy('editorial_type', (e.target as HTMLSelectElement).value);
-}
-
-const audienceSet = computed(() => {
-  const v = taxonomy.value['cibles'] ?? taxonomy.value['audiences'];
-  return new Set(Array.isArray(v) ? (v as string[]) : []);
+// Type de contenu (lit `content_type` puis `drupal_type` pour la rétrocompat).
+const contentTypeValue = computed<string>(() => {
+  const v = taxonomy.value['content_type'] ?? taxonomy.value['drupal_type'];
+  return typeof v === 'string' ? v : '';
 });
-
-function toggleAudience(key: string): void {
-  if (!props.canEdit) {
-    emit('edit-attempt');
-    return;
-  }
-  const next = new Set(audienceSet.value);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  setTaxonomy('cibles', Array.from(next));
+function setContentType(e: Event): void {
+  setTaxonomy('content_type', (e.target as HTMLSelectElement).value);
 }
 
-const mesureSet = computed(() => {
-  const v = taxonomy.value['mesures'];
-  return new Set(Array.isArray(v) ? (v as string[]) : []);
-});
-
-function toggleMesure(id: string): void {
-  if (!props.canEdit) {
-    emit('edit-attempt');
-    return;
+// Pour une taxonomy donnée, retourne les options à afficher.
+// - Si la taxo définit ses propres options dans la Structure CMS → on les utilise
+// - Sinon, cas spéciaux : `cibles` → vocab.audiences, `mesures` → mesuresCatalog
+function optionsFor(t: CmsTaxonomy): { value: string; label: string }[] {
+  if (t.options.length > 0) {
+    return t.options.map((o) => ({ value: o, label: o }));
   }
-  const next = new Set(mesureSet.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  setTaxonomy('mesures', Array.from(next));
+  if (t.key === 'cibles') {
+    return props.vocab.audiences.map((a) => ({ value: a.key, label: a.label }));
+  }
+  if (t.key === 'mesures') {
+    return props.mesuresCatalog.map((m) => ({ value: m.id, label: `${m.id} — ${m.label}` }));
+  }
+  return [];
+}
+
+function singleValue(t: CmsTaxonomy): string {
+  const v = taxonomy.value[t.key];
+  return typeof v === 'string' ? v : '';
+}
+function multiValue(t: CmsTaxonomy): string[] {
+  const v = taxonomy.value[t.key];
+  return Array.isArray(v) ? (v as string[]) : [];
+}
+
+function setSingle(t: CmsTaxonomy, e: Event): void {
+  setTaxonomy(t.key, (e.target as HTMLSelectElement).value);
+}
+function setMulti(t: CmsTaxonomy, next: string[]): void {
+  setTaxonomy(t.key, next);
 }
 </script>
 
 <template>
   <aside class="maquette-props l-card">
-    <h3 style="margin-top: 0; font-size: 1.1rem">Propriétés Drupal</h3>
+    <h3 class="maquette-props__title">Propriétés</h3>
 
-    <label class="field">
-      <span>Type de contenu Drupal SFD</span>
+    <div v-if="cmsStructure.content_types.length" class="field">
+      <label class="fr-label">Type de contenu</label>
       <select
-        class="fr-select"
-        :value="(taxonomy.drupal_type as string | undefined) ?? ''"
-        @change="setDrupalType"
+        class="fr-select fr-select--sm"
+        :value="contentTypeValue"
+        :disabled="!canEdit"
+        @change="setContentType"
       >
         <option value="">— aucun —</option>
-        <option v-for="t in drupalTypes" :key="t.key" :value="t.key">{{ t.label }}</option>
+        <option v-for="ct in cmsStructure.content_types" :key="ct" :value="ct">{{ ct }}</option>
       </select>
-    </label>
+    </div>
 
-    <label class="field">
-      <span>Type éditorial</span>
-      <select
-        class="fr-select"
-        :value="(taxonomy.editorial_type as string | undefined) ?? ''"
-        @change="setEditorialType"
+    <div v-for="t in cmsStructure.taxonomies" :key="t.key" class="field">
+      <label class="fr-label">
+        {{ t.label }}
+        <span v-if="t.multi" class="maquette-props__multi-badge">multi</span>
+      </label>
+      <p
+        v-if="optionsFor(t).length === 0"
+        class="fr-text--xs"
+        style="color: #888; margin: 0.2rem 0"
       >
-        <option value="">— aucun —</option>
-        <option v-for="t in editorialTypes" :key="t.key" :value="t.key">{{ t.label }}</option>
-      </select>
-    </label>
-
-    <div class="field">
-      <span>Public</span>
-      <div class="tag-cloud">
-        <button
-          v-for="a in vocab.audiences"
-          :key="a.key"
-          type="button"
-          class="tag-btn"
-          :class="{ 'tag-btn--active': audienceSet.has(a.key) }"
-          @click="toggleAudience(a.key)"
+        Aucune option définie. Ajoutez-en dans le
+        <RouterLink :to="{ name: 'project-data', query: { tab: 'cms' } }">
+          Modèle de données </RouterLink
+        >.
+      </p>
+      <template v-else>
+        <select
+          v-if="!t.multi"
+          class="fr-select fr-select--sm"
+          :value="singleValue(t)"
+          :disabled="!canEdit"
+          @change="(e) => setSingle(t, e)"
         >
-          {{ a.label }}
-        </button>
-      </div>
+          <option value="">— aucun —</option>
+          <option v-for="o in optionsFor(t)" :key="o.value" :value="o.value">
+            {{ o.label }}
+          </option>
+        </select>
+        <MultiSelect
+          v-else
+          :options="optionsFor(t)"
+          :selected="multiValue(t)"
+          :disabled="!canEdit"
+          :placeholder="`Choisir des ${t.label.toLowerCase()}…`"
+          @update:selected="(next) => setMulti(t, next)"
+        />
+      </template>
     </div>
 
-    <div v-if="mesuresCatalog.length > 0" class="field">
-      <span>Mesure ({{ mesureSet.size }} / {{ mesuresCatalog.length }})</span>
-      <div class="tag-cloud tag-cloud--compact">
-        <button
-          v-for="m in mesuresCatalog"
-          :key="m.id"
-          type="button"
-          class="tag-btn tag-btn--compact"
-          :class="{ 'tag-btn--active': mesureSet.has(m.id) }"
-          :title="m.label"
-          @click="toggleMesure(m.id)"
-        >
-          {{ m.id }}
-        </button>
-      </div>
-    </div>
+    <p
+      v-if="!cmsStructure.taxonomies.length && !cmsStructure.content_types.length"
+      style="color: #888; font-size: 0.85rem"
+    >
+      Aucune structure CMS configurée. Définissez les types de contenu et les taxonomies dans
+      <RouterLink :to="{ name: 'project-data', query: { tab: 'cms' } }"
+        >Modèle de données</RouterLink
+      >.
+    </p>
   </aside>
 </template>
 
 <style scoped>
 .maquette-props {
+  /* Sticky sans overflow interne : si le panneau dépasse la viewport
+   * (beaucoup de taxonomies + multi-select ouvert), on scrolle la page. */
   position: sticky;
   top: 5rem;
-  max-height: calc(100vh - 7rem);
-  overflow-y: auto;
+  align-self: start;
+}
+.maquette-props__title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-title-grey, #161616);
 }
 .field {
-  display: block;
   margin-bottom: 1rem;
 }
-.field > span {
-  display: block;
+.fr-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.85rem;
-  color: #555;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-default-grey, #161616);
   margin-bottom: 0.3rem;
 }
-.tag-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-.tag-cloud--compact {
-  gap: 0.2rem;
-}
-.tag-btn {
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 999px;
-  padding: 0.2rem 0.75rem;
-  font-size: 0.8rem;
-  cursor: pointer;
-  color: #555;
-  font: inherit;
-  font-size: 0.8rem;
-  transition: all 0.1s;
-}
-.tag-btn:hover {
-  border-color: #000091;
-  color: #000091;
-}
-.tag-btn--active {
-  background: #000091;
-  color: white;
-  border-color: #000091;
-}
-.tag-btn--compact {
-  padding: 0.15rem 0.5rem;
-  min-width: 2.5rem;
-  text-align: center;
-  font-family: ui-monospace, monospace;
-  font-size: 0.75rem;
+.maquette-props__multi-badge {
+  background: var(--background-alt-blue-france, #e3e3fd);
+  color: var(--text-action-high-blue-france, #00146b);
+  padding: 0 0.4rem;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
 }
 </style>

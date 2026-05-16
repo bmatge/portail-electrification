@@ -8,6 +8,9 @@
 
 import { computed, onMounted, ref } from 'vue';
 import { api } from '../api/client.js';
+import { useConfirm } from '../stores/confirm.js';
+
+const confirmStore = useConfirm();
 
 interface RoleGrant {
   readonly role: 'admin' | 'editor' | 'viewer';
@@ -121,12 +124,15 @@ async function applyGrant(): Promise<void> {
 }
 
 async function revoke(u: AdminUser, r: RoleGrant): Promise<void> {
-  if (
-    !confirm(
-      `Retirer le rôle ${r.role} (${r.projectId === null ? 'global' : (projectSlugById.value.get(r.projectId) ?? '#' + r.projectId)}) à ${u.email ?? u.display_name} ?`,
-    )
-  )
-    return;
+  const scope =
+    r.projectId === null ? 'global' : (projectSlugById.value.get(r.projectId) ?? '#' + r.projectId);
+  const ok = await confirmStore.ask({
+    title: `Retirer le rôle « ${r.role} » ?`,
+    message: `L'utilisateur ${u.email ?? u.display_name} perdra son rôle ${r.role} sur le scope ${scope}.`,
+    confirmLabel: 'Retirer le rôle',
+    danger: true,
+  });
+  if (!ok) return;
   const body: { role: string; project_id?: number | null } = { role: r.role };
   if (r.projectId !== null) body.project_id = r.projectId;
   await api.delete(`/admin/users/${u.id}/roles`, { data: body });

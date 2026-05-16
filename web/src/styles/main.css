@@ -33,47 +33,19 @@ a {
 }
 
 /* Container app */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 .l-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1.5rem;
+  flex: 1;
 }
 .l-container--narrow {
   max-width: 720px;
-}
-
-/* Header sticky */
-.app-header {
-  background: white;
-  border-bottom: 1px solid var(--border-default-grey, #ddd);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.app-header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0.75rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-.app-header-title {
-  font-weight: 700;
-  font-size: 1.2rem;
-  text-decoration: none;
-  color: var(--text-action-high-blue-france, #000091);
-}
-.app-header-nav a {
-  text-decoration: none;
-  margin-right: 1.5rem;
-  color: var(--text-default-grey, #161616);
-  font-weight: 500;
-}
-.app-header-nav a.router-link-active {
-  color: var(--text-action-high-blue-france, #000091);
-  border-bottom: 2px solid currentColor;
-  padding-bottom: 4px;
 }
 
 /* Sandbox banner — couleurs DSFR warning */
@@ -168,6 +140,47 @@ a {
   color: var(--text-default-error, #6e0c0c);
 }
 
+/* Panel-card — conteneur blanc avec bordure légère + ombre subtile.
+ * Pattern récurrent dans le legacy pour chaque "zone" (liste, détail,
+ * propriétés Drupal, etc.). */
+.panel-card {
+  background: white;
+  border: 1px solid var(--border-default-grey, #ddd);
+  border-radius: 4px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 1rem;
+}
+.panel-card__title {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-title-grey, #161616);
+}
+.panel-card__title--with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Master-détail 2 colonnes (arborescence, dispositifs) */
+.master-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.master-detail__sticky {
+  position: sticky;
+  top: 1rem;
+}
+@media (max-width: 900px) {
+  .master-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Panel (details/summary) */
 details.panel {
   background: white;
@@ -250,7 +263,290 @@ details.panel > summary > .panel-count {
   content: '●';
 }
 
-/* Type pills (DSFR-like) */
+/* Chip toggle button — pattern legacy `audience-chip` / `type-chip` :
+ * bouton pill avec deux états (non pressé = blanc + bordure colorée
+ * douce, pressé = fond léger coloré + bordure et texte plus saturés).
+ * Utilisé dans le panneau détail d'un nœud (TreePanel) et toute UI
+ * de multi-select catégorisé. */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.chip-hint {
+  margin: 0.4rem 0 0;
+  color: var(--text-mention-grey, #666);
+  font-style: italic;
+}
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 500;
+  background: white;
+  color: var(--text-mention-grey, #555);
+  border: 1px solid var(--border-default-grey, #ccc);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+  user-select: none;
+}
+.chip-toggle:hover {
+  background: #f6f6ff;
+  border-color: var(--border-action-high-blue-france, #6a6af4);
+  color: var(--text-action-high-blue-france, #000091);
+}
+.chip-toggle:focus-visible {
+  outline: 2px solid var(--text-action-high-blue-france, #000091);
+  outline-offset: 2px;
+}
+.chip-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+/* Fallback générique : tout chip pressé sans variant spécifique reçoit la
+ * couleur DSFR par défaut (bleu-france). Les variants ci-dessous (audience,
+ * type, deadline) override avec des couleurs sémantiques. */
+.chip-toggle[aria-pressed='true'] {
+  background: var(--background-alt-blue-france, #e3e3fd);
+  color: var(--text-action-high-blue-france, #00146b);
+  border-color: var(--text-action-high-blue-france, #000091);
+}
+
+/* Variants audiences */
+.chip-toggle--audience-particuliers[aria-pressed='true'] {
+  background: #e3e3fd;
+  color: #00146b;
+  border-color: #00146b;
+}
+.chip-toggle--audience-coproprietes[aria-pressed='true'] {
+  background: #e9d2f7;
+  color: #3d2475;
+  border-color: #3d2475;
+}
+.chip-toggle--audience-collectivites[aria-pressed='true'] {
+  background: #d4e9e8;
+  color: #00484c;
+  border-color: #00484c;
+}
+.chip-toggle--audience-pros[aria-pressed='true'] {
+  background: #cfe5fc;
+  color: #003a8c;
+  border-color: #003a8c;
+}
+.chip-toggle--audience-industriels[aria-pressed='true'] {
+  background: #fbe0c8;
+  color: #6e3618;
+  border-color: #6e3618;
+}
+.chip-toggle--audience-agriculteurs[aria-pressed='true'] {
+  background: #d3f0d4;
+  color: #1c4a0e;
+  border-color: #1c4a0e;
+}
+.chip-toggle--audience-partenaires[aria-pressed='true'] {
+  background: #f7d2dd;
+  color: #66093b;
+  border-color: #66093b;
+}
+.chip-toggle--audience-agents[aria-pressed='true'] {
+  background: #faedb6;
+  color: #5d4900;
+  border-color: #5d4900;
+}
+.chip-toggle--audience-outremer[aria-pressed='true'] {
+  background: #ffe7c2;
+  color: #553f00;
+  border-color: #553f00;
+}
+
+/* Variants types de page */
+.chip-toggle--type-hub[aria-pressed='true'] {
+  background: #fbe0c8;
+  color: #6e3618;
+  border-color: #6e3618;
+}
+.chip-toggle--type-editorial[aria-pressed='true'] {
+  background: #cfe5fc;
+  color: #003a8c;
+  border-color: #003a8c;
+}
+.chip-toggle--type-service[aria-pressed='true'] {
+  background: #d3f0d4;
+  color: #1c4a0e;
+  border-color: #1c4a0e;
+}
+.chip-toggle--type-simulator[aria-pressed='true'] {
+  background: #ffe7c2;
+  color: #553f00;
+  border-color: #553f00;
+}
+.chip-toggle--type-map[aria-pressed='true'] {
+  background: #d4e9e8;
+  color: #00484c;
+  border-color: #00484c;
+}
+.chip-toggle--type-external[aria-pressed='true'] {
+  background: #e9d2f7;
+  color: #3d2475;
+  border-color: #3d2475;
+}
+.chip-toggle--type-marketplace[aria-pressed='true'] {
+  background: #f7d2dd;
+  color: #66093b;
+  border-color: #66093b;
+}
+.chip-toggle--type-kit[aria-pressed='true'] {
+  background: #faedb6;
+  color: #5d4900;
+  border-color: #5d4900;
+}
+.chip-toggle--type-form[aria-pressed='true'] {
+  background: #e0e0e0;
+  color: #444;
+  border-color: #888;
+}
+.chip-toggle--type-private[aria-pressed='true'] {
+  background: #fcd4cd;
+  color: #65161a;
+  border-color: #65161a;
+}
+
+/* Variants échéances */
+.chip-toggle--deadline-juin[aria-pressed='true'] {
+  background: #fbe0c8;
+  color: #6e3618;
+  border-color: #6e3618;
+}
+.chip-toggle--deadline-septembre[aria-pressed='true'] {
+  background: #faedb6;
+  color: #5d4900;
+  border-color: #5d4900;
+}
+.chip-toggle--deadline-decembre[aria-pressed='true'] {
+  background: #cfe5fc;
+  color: #003a8c;
+  border-color: #003a8c;
+}
+.chip-toggle--deadline-y2027[aria-pressed='true'] {
+  background: #d3f0d4;
+  color: #1c4a0e;
+  border-color: #1c4a0e;
+}
+
+/* Variants couleur sur fr-tag (DSFR par défaut est gris pâle uniforme).
+ * Higher specificity que les styles DSFR génériques pour s'assurer
+ * d'override le background-color/color sur les fr-tag.
+ * Utilisé dans l'arborescence (TreeNodeRow) et la maquette. */
+.fr-tag.tag-type-hub {
+  background-color: #fbe0c8;
+  color: #6e3618;
+}
+.fr-tag.tag-type-editorial {
+  background-color: #cfe5fc;
+  color: #003a8c;
+}
+.fr-tag.tag-type-service {
+  background-color: #d3f0d4;
+  color: #1c4a0e;
+}
+.fr-tag.tag-type-simulator {
+  background-color: #ffe7c2;
+  color: #553f00;
+}
+.fr-tag.tag-type-map {
+  background-color: #d4e9e8;
+  color: #00484c;
+}
+.fr-tag.tag-type-external {
+  background-color: #e9d2f7;
+  color: #3d2475;
+}
+.fr-tag.tag-type-marketplace {
+  background-color: #f7d2dd;
+  color: #66093b;
+}
+.fr-tag.tag-type-kit {
+  background-color: #faedb6;
+  color: #5d4900;
+}
+.fr-tag.tag-type-form {
+  background-color: #e0e0e0;
+  color: #444;
+}
+.fr-tag.tag-type-private {
+  background-color: #fcd4cd;
+  color: #65161a;
+}
+
+.fr-tag.tag-deadline-juin {
+  background-color: #fbe0c8;
+  color: #6e3618;
+}
+.fr-tag.tag-deadline-septembre {
+  background-color: #faedb6;
+  color: #5d4900;
+}
+.fr-tag.tag-deadline-decembre {
+  background-color: #cfe5fc;
+  color: #003a8c;
+}
+.fr-tag.tag-deadline-y2027 {
+  background-color: #d3f0d4;
+  color: #1c4a0e;
+}
+
+/* Audiences : palette violet/bleu/vert pour distinguer rapidement
+ * 9 publics. Couleurs choisies pour rester DSFR-friendly. */
+.fr-tag.tag-audience-particuliers {
+  background-color: #e3e3fd;
+  color: #00146b;
+}
+.fr-tag.tag-audience-coproprietes {
+  background-color: #e9d2f7;
+  color: #3d2475;
+}
+.fr-tag.tag-audience-collectivites {
+  background-color: #d4e9e8;
+  color: #00484c;
+}
+.fr-tag.tag-audience-pros {
+  background-color: #cfe5fc;
+  color: #003a8c;
+}
+.fr-tag.tag-audience-industriels {
+  background-color: #fbe0c8;
+  color: #6e3618;
+}
+.fr-tag.tag-audience-agriculteurs {
+  background-color: #d3f0d4;
+  color: #1c4a0e;
+}
+.fr-tag.tag-audience-partenaires {
+  background-color: #f7d2dd;
+  color: #66093b;
+}
+.fr-tag.tag-audience-agents {
+  background-color: #faedb6;
+  color: #5d4900;
+}
+.fr-tag.tag-audience-outremer {
+  background-color: #ffe7c2;
+  color: #553f00;
+}
+.fr-tag.tag-audience--inherited {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* Type pills (DSFR-like) — un par type de page */
 .type-pill {
   display: inline-block;
   padding: 0.1rem 0.6rem;
@@ -302,14 +598,36 @@ details.panel > summary > .panel-count {
   color: #65161a;
 }
 
-/* Deadline pills */
+/* Deadline pills — couleur par échéance, lisible et compactes */
 .deadline-pill {
   display: inline-block;
   padding: 0.1rem 0.6rem;
   border-radius: 4px;
   font-size: 0.78rem;
-  background: var(--background-contrast-warning, #fbeae1);
-  color: var(--text-default-warning, #553f00);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--background-contrast-grey, #eee);
+  color: var(--text-mention-grey, #555);
+}
+.deadline-pill--juin-2026,
+.deadline-pill--juin2026 {
+  background: #fbe0c8;
+  color: #6e3618;
+}
+.deadline-pill--septembre-2026,
+.deadline-pill--septembre2026 {
+  background: #faedb6;
+  color: #5d4900;
+}
+.deadline-pill--decembre-2026,
+.deadline-pill--decembre2026 {
+  background: #cfe5fc;
+  color: #003a8c;
+}
+.deadline-pill--2027 {
+  background: #d3f0d4;
+  color: #1c4a0e;
 }
 
 /* Audience tags */
@@ -326,6 +644,45 @@ details.panel > summary > .panel-count {
   background: var(--background-contrast-grey, #eee);
   color: var(--text-mention-grey, #888);
   font-style: italic;
+}
+
+/* Avatar circulaire (objectifs : axes) */
+.avatar-axis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--text-action-high-blue-france, #000091);
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+/* Pyramide objectifs — pills sémantiques */
+.pyramid-pill {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-right: 0.4rem;
+}
+.pyramid-pill--objectif {
+  background: #ece4f8;
+  color: #3d2475;
+}
+.pyramid-pill--moyen {
+  background: #fdebd0;
+  color: #553f00;
+}
+.pyramid-pill--node {
+  background: #d3f0d4;
+  color: #1c4a0e;
 }
 
 /* Card */
@@ -394,6 +751,80 @@ label.field > span:first-child {
   color: var(--text-mention-grey, #666);
 }
 
+/* Counters pills (roadmap, mesures) — compteur en gros pill */
+.counter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  background: white;
+  border: 1px solid var(--border-default-grey, #ddd);
+  font-size: 0.85rem;
+}
+.counter-pill strong {
+  font-size: 1rem;
+  color: var(--text-action-high-blue-france, #000091);
+}
+
+/* Kanban matrix (roadmap, mesures) */
+.kanban {
+  display: grid;
+  gap: 0.75rem;
+}
+.kanban__col-headers,
+.kanban__row {
+  display: grid;
+  gap: 0.75rem;
+}
+.kanban__col-header {
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 3px solid transparent;
+  background: white;
+  border-radius: 0 0 4px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kanban__col-header--juin-2026 {
+  border-top-color: #d49b22;
+  color: #6e3618;
+}
+.kanban__col-header--septembre-2026 {
+  border-top-color: #c9a900;
+  color: #5d4900;
+}
+.kanban__col-header--decembre-2026 {
+  border-top-color: #0078f3;
+  color: #003a8c;
+}
+.kanban__col-header--2027 {
+  border-top-color: #1c4a0e;
+  color: #1c4a0e;
+}
+.kanban__cell {
+  background: #f7f7f7;
+  border: 1px solid var(--border-default-grey, #eaeaea);
+  border-radius: 4px;
+  padding: 0.5rem;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.kanban__row-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-mention-grey, #666);
+  padding: 0.6rem;
+}
+
 /* Legend (types) */
 .legend {
   display: flex;
@@ -413,4 +844,160 @@ label.field > span:first-child {
   font-size: 0.8rem;
   max-height: 360px;
   border-radius: 4px;
+}
+
+/* Quote / promesse (objectifs page) */
+.promise-callout {
+  border-left: 4px solid var(--text-action-high-blue-france, #000091);
+  background: var(--background-alt-blue-france, #e3e3fd);
+  padding: 0.9rem 1.1rem;
+  font-style: italic;
+  color: var(--text-default-grey, #3a3a3a);
+  margin: 1rem 0 1.5rem;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Project cards (HomePage picker) */
+.project-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-default-grey, #ddd);
+  border-radius: 4px;
+  background: white;
+  margin-bottom: 0.6rem;
+}
+.project-card__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.project-card__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text-action-high-blue-france, #000091);
+}
+.project-card__slug {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.78rem;
+  color: var(--text-mention-grey, #666);
+  background: #f1f1f1;
+  padding: 0.05rem 0.4rem;
+  border-radius: 3px;
+}
+.project-card__meta {
+  font-size: 0.8rem;
+  color: var(--text-mention-grey, #666);
+  margin: 0;
+}
+.project-card__desc {
+  margin: 0;
+  color: var(--text-default-grey, #444);
+}
+.project-card__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+}
+
+/* Tree row hover & visual hierarchy */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+}
+.tree-row:hover {
+  background: var(--background-alt-blue-france, #e3e3fd);
+}
+.tree-row.is-selected {
+  background: var(--background-contrast-info, #e8edff);
+  font-weight: 600;
+}
+
+/* Sub-pages mini cards (maquette) */
+.sub-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+.sub-card {
+  background: white;
+  border: 1px solid var(--border-default-grey, #ddd);
+  border-radius: 4px;
+  padding: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.sub-card__title {
+  font-weight: 600;
+  color: var(--text-action-high-blue-france, #000091);
+  text-decoration: none;
+}
+
+/* Header overrides — supprime le padding excessif natif quand on n'a pas de nav modal */
+.fr-header__service {
+  padding-bottom: 1rem;
+}
+
+/* Subnav (maquette) */
+.subnav {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-default-grey, #ddd);
+  margin-bottom: 1rem;
+}
+.subnav__item {
+  position: relative;
+}
+.subnav__btn {
+  background: none;
+  border: 1px solid transparent;
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-mention-grey, #666);
+  text-decoration: none;
+}
+.subnav__btn:hover {
+  background: var(--background-alt-blue-france, #f3f3ff);
+  color: var(--text-default-grey, #161616);
+}
+.subnav__btn.is-active {
+  background: var(--background-alt-blue-france, #e3e3fd);
+  color: var(--text-action-high-blue-france, #000091);
+  font-weight: 600;
+}
+.subnav__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
+  background: white;
+  border: 1px solid var(--border-default-grey, #ddd);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 220px;
+  padding: 0.3rem 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+}
+.subnav__dropdown a {
+  padding: 0.4rem 0.8rem;
+  text-decoration: none;
+  color: var(--text-default-grey, #161616);
+  font-size: 0.9rem;
+}
+.subnav__dropdown a:hover {
+  background: var(--background-alt-blue-france, #f3f3ff);
 }

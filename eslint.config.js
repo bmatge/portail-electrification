@@ -22,6 +22,11 @@ export default tseslint.config(
       // .vue files : vérifiés par vue-tsc lors du build/typecheck du
       // workspace web ; ESLint vanilla ne sait pas les parser sans plugin.
       '**/*.vue',
+      // venvs Python pour les scripts d'audit (Playwright bundlés Python)
+      '.venv-audit/**',
+      '**/.venv*/**',
+      // sortie des scripts d'audit
+      'audit/screenshots/**',
     ],
   },
   js.configs.recommended,

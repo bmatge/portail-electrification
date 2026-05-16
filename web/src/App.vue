@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { RouterLink, RouterView } from 'vue-router';
+import { RouterView } from 'vue-router';
 import { useAuthStore } from './stores/auth.js';
 import { useSandboxStore } from './stores/sandbox.js';
 import SandboxModal from './components/sandbox/SandboxModal.vue';
 import SandboxBanner from './components/sandbox/SandboxBanner.vue';
-import UserMenu from './components/UserMenu.vue';
+import AppHeader from './components/AppHeader.vue';
+import AppFooter from './components/AppFooter.vue';
+import ConfirmModal from './components/ui/ConfirmModal.vue';
 
 const auth = useAuthStore();
 const sandbox = useSandboxStore();
@@ -17,22 +19,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
-    <header class="app-header">
-      <div class="app-header-inner">
-        <RouterLink to="/" class="app-header-title">L'atelier 🪢</RouterLink>
-        <nav class="app-header-nav" style="flex: 1">
-          <RouterLink to="/">Projets</RouterLink>
-          <RouterLink v-if="auth.isAdmin" to="/admin">Admin</RouterLink>
-        </nav>
-        <UserMenu v-if="auth.user" />
-        <RouterLink v-else class="fr-btn fr-btn--sm" to="/login">Se connecter</RouterLink>
-      </div>
-    </header>
+  <div class="app-shell">
+    <AppHeader />
     <SandboxBanner />
-    <main class="l-container">
+    <main class="fr-container l-container" role="main">
       <RouterView />
     </main>
+    <AppFooter />
     <SandboxModal />
+    <ConfirmModal />
   </div>
 </template>

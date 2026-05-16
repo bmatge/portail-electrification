@@ -56,7 +56,6 @@ async function submit(): Promise<void> {
 }
 
 async function remove(c: Comment): Promise<void> {
-  if (!confirm('Supprimer ce commentaire ?')) return;
   try {
     await deleteComment(props.slug, c.id);
     await load();

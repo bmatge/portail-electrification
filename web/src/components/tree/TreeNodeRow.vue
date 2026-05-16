@@ -39,6 +39,21 @@ const deadlineLabel = computed(() => {
   );
 });
 
+const pageTypeKey = computed(() => {
+  // page_type prend priorité, sinon premier élément de types[]
+  const explicit = props.node.page_type;
+  if (explicit) return explicit;
+  const first = props.node.types?.[0];
+  return first ?? null;
+});
+
+const pageTypeLabel = computed(() => {
+  if (!pageTypeKey.value) return null;
+  return (
+    props.vocab.page_types.find((t) => t.key === pageTypeKey.value)?.label ?? pageTypeKey.value
+  );
+});
+
 function onDragStart(e: DragEvent): void {
   if (!props.canEdit || props.isRoot) return;
   if (!e.dataTransfer) return;
@@ -107,25 +122,36 @@ function onDrop(e: DragEvent): void {
       <span v-if="hasChildren">{{ isCollapsed ? '▸' : '▾' }}</span>
     </button>
     <div class="flat-row__audience">
-      <span
+      <p
         v-for="a in audienceLabels"
         :key="a.key"
-        class="audience-tag"
-        :class="{ 'audience-tag--inherited': !(node.audiences && node.audiences.length) }"
+        class="fr-tag fr-tag--sm"
+        :class="[
+          `tag-audience-${a.key}`,
+          { 'tag-audience--inherited': !(node.audiences && node.audiences.length) },
+        ]"
       >
         {{ a.label }}
-      </span>
+      </p>
     </div>
     <div class="flat-row__text">
+      <p
+        v-if="pageTypeLabel"
+        class="fr-tag fr-tag--sm"
+        :class="`tag-type-${pageTypeKey}`"
+        :title="`Type de page : ${pageTypeLabel}`"
+      >
+        {{ pageTypeLabel }}
+      </p>
       <span class="flat-row__label">{{ node.label }}</span>
     </div>
     <div class="flat-row__tags">
-      <span v-if="deadlineLabel" class="deadline-pill" :class="node.deadline">
+      <p v-if="deadlineLabel" class="fr-tag fr-tag--sm" :class="`tag-deadline-${node.deadline}`">
         {{ deadlineLabel }}
-      </span>
-      <span v-if="(node.blocks ?? []).length > 0" class="blocks-pill">
+      </p>
+      <p v-if="(node.blocks ?? []).length > 0" class="fr-tag fr-tag--sm">
         ▦ {{ (node.blocks ?? []).length }}
-      </span>
+      </p>
     </div>
   </div>
 </template>
@@ -137,23 +163,23 @@ function onDrop(e: DragEvent): void {
   gap: 0.5rem;
   align-items: center;
   padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-default-grey, #eee);
   background: white;
   cursor: pointer;
   user-select: none;
 }
 .flat-row:hover {
-  background: #f7f8ff;
+  background: var(--background-alt-blue-france, #f7f8ff);
 }
 .flat-row.selected {
-  background: #e3e9ff;
-  border-left: 3px solid #000091;
+  background: var(--background-contrast-info, #e3e9ff);
+  border-left: 3px solid var(--text-action-high-blue-france, #000091);
 }
 .flat-row__toggle {
   border: none;
   background: none;
   text-align: right;
-  color: #555;
+  color: var(--text-mention-grey, #555);
   cursor: pointer;
 }
 .flat-row__toggle--placeholder {
@@ -165,16 +191,12 @@ function onDrop(e: DragEvent): void {
   gap: 0.25rem;
   flex-wrap: wrap;
 }
-.audience-tag {
-  background: #d4e2ff;
-  color: #00146b;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-}
-.audience-tag--inherited {
-  background: #eee;
-  color: #555;
+.flat-row__text {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .flat-row__label {
   font-weight: 500;
@@ -183,27 +205,16 @@ function onDrop(e: DragEvent): void {
   display: flex;
   gap: 0.25rem;
 }
-.deadline-pill {
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: #fff3cd;
-  color: #553f00;
-  font-size: 0.75rem;
-}
-.blocks-pill {
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: #e0e0e0;
-  color: #444;
-  font-size: 0.75rem;
-}
+/* Variants colorés sur .fr-tag : voir styles/main.css (besoin d'être
+ * non-scoped pour gagner contre les styles DSFR par défaut). */
+
 .flat-row.drag-over-before {
-  box-shadow: 0 -3px 0 #000091 inset;
+  box-shadow: 0 -3px 0 var(--text-action-high-blue-france, #000091) inset;
 }
 .flat-row.drag-over-after {
-  box-shadow: 0 3px 0 #000091 inset;
+  box-shadow: 0 3px 0 var(--text-action-high-blue-france, #000091) inset;
 }
 .flat-row.drag-over-child {
-  background: #d1e4ff;
+  background: var(--background-contrast-info, #d1e4ff);
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue';
-import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { RouterView, useRoute } from 'vue-router';
 import { useProjectStore } from '../stores/project.js';
 import { useAuthStore } from '../stores/auth.js';
 
@@ -16,15 +16,6 @@ watch(slug, (s) => {
   if (s) void projectStore.load(s);
 });
 
-const tabs = [
-  { name: 'project-tree', label: 'Arborescence' },
-  { name: 'project-roadmap', label: 'Roadmap' },
-  { name: 'project-data', label: 'Modèle de données' },
-  { name: 'project-objectifs', label: 'Objectifs' },
-  { name: 'project-maquette', label: 'Maquette' },
-  { name: 'project-history', label: 'Historique' },
-] as const;
-
 const canUpdate = computed(() => auth.can('project:update', projectStore.project?.id ?? null));
 
 async function toggleVisibility(): Promise<void> {
@@ -35,36 +26,55 @@ async function toggleVisibility(): Promise<void> {
 
 <template>
   <div>
-    <div class="fr-grid-row fr-grid-row--middle" style="gap: 0.75rem; margin-bottom: 0.5rem">
-      <h1 style="margin: 0 0 0; font-size: 1.5rem">
-        {{ projectStore.project?.name ?? slug }}
-      </h1>
-      <span
-        v-if="projectStore.project"
-        class="badge"
-        :class="projectStore.project.is_public ? 'badge-public' : 'badge-private'"
-      >
-        {{ projectStore.project.is_public ? '🌐 Public' : '🔒 Privé' }}
-      </span>
-      <button
-        v-if="projectStore.project && canUpdate"
-        class="fr-btn fr-btn--secondary fr-btn--sm"
-        @click="toggleVisibility"
-      >
-        Basculer en {{ projectStore.project.is_public ? 'privé' : 'public' }}
-      </button>
+    <div class="project-banner">
+      <div class="project-banner__head">
+        <h2 class="project-banner__name">
+          {{ projectStore.project?.name ?? slug }}
+        </h2>
+        <span
+          v-if="projectStore.project"
+          class="badge"
+          :class="projectStore.project.is_public ? 'badge-public' : 'badge-private'"
+        >
+          {{ projectStore.project.is_public ? '🌐 Public' : '🔒 Privé' }}
+        </span>
+        <button
+          v-if="projectStore.project && canUpdate"
+          class="fr-btn fr-btn--secondary fr-btn--sm"
+          @click="toggleVisibility"
+        >
+          Basculer en {{ projectStore.project.is_public ? 'privé' : 'public' }}
+        </button>
+      </div>
+      <p v-if="projectStore.project?.description" class="project-banner__desc">
+        {{ projectStore.project.description }}
+      </p>
     </div>
-    <p v-if="projectStore.project?.description" style="color: #555; margin-top: 0">
-      {{ projectStore.project.description }}
-    </p>
     <p v-if="projectStore.error" class="alert alert-error">
       Erreur de chargement : {{ projectStore.error }}
     </p>
-    <nav class="tabs">
-      <RouterLink v-for="t in tabs" :key="t.name" :to="{ name: t.name, params: { slug } }">
-        {{ t.label }}
-      </RouterLink>
-    </nav>
     <RouterView />
   </div>
 </template>
+
+<style scoped>
+.project-banner {
+  margin-bottom: 1rem;
+}
+.project-banner__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.project-banner__name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.project-banner__desc {
+  margin: 0.3rem 0 0;
+  color: var(--text-mention-grey, #555);
+  font-size: 0.95rem;
+}
+</style>
