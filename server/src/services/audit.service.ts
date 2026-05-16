@@ -17,7 +17,11 @@ export type AuditAction =
   | 'comment.delete'
   | 'data.write'
   | 'auth.identify'
-  | 'auth.logout';
+  | 'auth.logout'
+  | 'admin.user.disable'
+  | 'admin.user.enable'
+  | 'admin.role.grant'
+  | 'admin.role.revoke';
 
 export interface AuditContext {
   readonly actorId: number | null;

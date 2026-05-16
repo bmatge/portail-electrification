@@ -9,6 +9,7 @@ import type { Mailer } from './services/mailer.service.js';
 import { makeAttachUser } from './middleware/attach-user.js';
 import { makeLoadProject } from './middleware/load-project.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { makeAdminRouter } from './routes/admin.routes.js';
 import { makeAuthRouter } from './routes/auth.routes.js';
 import { makeProjectsRouter } from './routes/projects.routes.js';
 import { makeTreeRouter } from './routes/tree.routes.js';
@@ -37,6 +38,7 @@ export function createApp(options: CreateAppOptions): Express {
     res.json({ ok: true });
   });
   app.use('/api', makeAuthRouter(options.k, options.mailer));
+  app.use('/api', makeAdminRouter(options.k));
   app.use('/api', makeProjectsRouter(options.k));
 
   const scoped = Router({ mergeParams: true });
