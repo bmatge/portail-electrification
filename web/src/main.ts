@@ -1,5 +1,10 @@
-// @latelier/web — entrée SPA Vue 3.
-// Phase 0 : stub. Le bootstrap Vue, le router, Pinia et TanStack Query seront
-// ajoutés en Phase 5 (cf. plan de refacto v2).
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import App from './App.vue';
+import { router } from './router/index.js';
+import './styles/main.css';
 
-export const WEB_VERSION = '0.0.0' as const;
+const app = createApp(App);
+app.use(createPinia());
+app.use(router);
+app.mount('#app');

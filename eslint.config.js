@@ -16,8 +16,12 @@ export default tseslint.config(
       'data/**',
       'assets/**',
       'server/node_modules/**',
+      'web/dist/**',
       '*.html',
       'docs/**/*.json',
+      // .vue files : vérifiés par vue-tsc lors du build/typecheck du
+      // workspace web ; ESLint vanilla ne sait pas les parser sans plugin.
+      '**/*.vue',
     ],
   },
   js.configs.recommended,

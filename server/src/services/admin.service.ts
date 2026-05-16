@@ -33,8 +33,8 @@ export async function listUsersWithRoles(k: Kdb): Promise<readonly UserWithRoles
 export interface DisableUserInput {
   readonly userId: number;
   readonly actorId: number;
-  readonly ip?: string;
-  readonly userAgent?: string;
+  readonly ip?: string | undefined;
+  readonly userAgent?: string | undefined;
 }
 
 export async function disableUser(k: Kdb, input: DisableUserInput): Promise<void> {
@@ -70,8 +70,8 @@ export interface GrantRoleInput {
   readonly role: Role;
   readonly projectId: number | null;
   readonly actorId: number;
-  readonly ip?: string;
-  readonly userAgent?: string;
+  readonly ip?: string | undefined;
+  readonly userAgent?: string | undefined;
 }
 
 const VALID_ROLES = new Set<Role>(['admin', 'editor', 'viewer']);

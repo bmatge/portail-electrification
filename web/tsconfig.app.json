@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "types": [],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@latelier/shared": ["../shared/src/index.ts"]
+    },
+    "noEmit": true,
+    "verbatimModuleSyntax": false
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "../shared/src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "../shared/src/**/*.test.ts"]
+}
