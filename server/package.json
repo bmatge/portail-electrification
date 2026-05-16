@@ -1,5 +1,5 @@
 {
-  "name": "latelier-cadrage-site-server",
+  "name": "@latelier/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,9 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "build": "echo \"[server] no build (JS legacy en Phase 0, TS en Phase 1)\"",
+    "typecheck": "echo \"[server] no typecheck (JS legacy en Phase 0, TS en Phase 1)\""
   },
   "engines": {
     "node": ">=20"

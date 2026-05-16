@@ -1,0 +1,11 @@
+{
+  "name": "@latelier/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SPA Vue 3 — ajoutée à partir de la Phase 5 du plan de refacto v2.",
+  "scripts": {
+    "build": "echo \"[web] no build yet (Phase 5)\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

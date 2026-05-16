@@ -1,0 +1,20 @@
+{
+  "name": "@latelier/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Types, schemas Zod, vocab et permissions partagés entre server et web.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  }
+}

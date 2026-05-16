@@ -1,0 +1,22 @@
+node_modules
+**/node_modules
+**/dist
+**/coverage
+data
+*.db
+*.db-wal
+*.db-shm
+package-lock.json
+.husky/_
+.claude/
+
+# Legacy v1 — migré en TypeScript dans les phases 1–7 de la refacto v2.
+# Ne pas reformater massivement pour préserver la lisibilité de l'historique git.
+assets/
+server/src/
+*.html
+docs/bundle-format.md
+docs/bundle-example.json
+docs/bundle-schema.json
+docs/prompt-cadrage.md
+README.md
