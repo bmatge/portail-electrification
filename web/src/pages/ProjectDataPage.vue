@@ -20,6 +20,7 @@ import { useVocabStore, useDrupalStructureStore } from '../stores/data.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import { useConfirm } from '../stores/confirm.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import PageHeader from '../components/ui/PageHeader.vue';
 
 const route = useRoute();
@@ -56,10 +57,7 @@ watch(slug, async (s) => {
   if (s) await Promise.all([vocabStore.hydrate(s), drupalStore.hydrate(s)]);
 });
 
-const canEdit = computed(() => {
-  if (auth.can('data:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('data:write', () => slug.value);
 
 function ensureEditOrModal(): boolean {
   if (canEdit.value) return true;

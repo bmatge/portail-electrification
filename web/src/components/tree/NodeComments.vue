@@ -10,6 +10,7 @@ import {
   type Comment,
 } from '../../api/comments.api.js';
 import { useAuthStore } from '../../stores/auth.js';
+import { useProjectStore } from '../../stores/project.js';
 
 const props = defineProps<{
   slug: string;
@@ -17,6 +18,7 @@ const props = defineProps<{
 }>();
 
 const auth = useAuthStore();
+const projectStore = useProjectStore();
 const comments = ref<readonly Comment[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -38,7 +40,7 @@ async function load(): Promise<void> {
 
 watch(() => [props.slug, props.nodeId], load, { immediate: true });
 
-const canCreate = computed(() => auth.can('comments:create'));
+const canCreate = computed(() => auth.can('comments:create', projectStore.project?.id ?? null));
 
 async function submit(): Promise<void> {
   const body = draft.value.trim();
@@ -69,7 +71,7 @@ function isOwn(c: Comment): boolean {
 }
 
 function canDelete(c: Comment): boolean {
-  return isOwn(c) || auth.can('comments:delete:any');
+  return isOwn(c) || auth.can('comments:delete:any', projectStore.project?.id ?? null);
 }
 
 function formatDate(iso: string): string {

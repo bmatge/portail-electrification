@@ -26,6 +26,7 @@ import { useVocabStore, useMesuresStore, useDrupalStructureStore } from '../stor
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import { useConfirm } from '../stores/confirm.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import { walk, find, updateNode } from '../composables/useTreeEditor.js';
 import ParagraphLive from '../components/maquette/ParagraphLive.vue';
 import MaquetteProperties from '../components/maquette/MaquetteProperties.vue';
@@ -126,10 +127,7 @@ function pathFrom(tree: TreeNode, targetId: string): TreeNode[] {
   return out;
 }
 
-const canEdit = computed(() => {
-  if (auth.can('tree:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('tree:write', () => slug.value);
 
 const vocab = computed<VocabConfig>(() => {
   const d = vocabStore.data as VocabConfig | null;
@@ -646,9 +644,7 @@ const breadcrumb = computed<TreeNode[]>(() => {
           <!-- Carte « N sous-pages dans cette rubrique » avec mini-cards typées -->
           <section v-if="selectedChildren.length" class="panel-card" style="margin-top: 2rem">
             <h3 class="panel-card__title">
-              {{ selectedChildren.length }} sous-page{{
-                selectedChildren.length > 1 ? 's' : ''
-              }}
+              {{ selectedChildren.length }} sous-page{{ selectedChildren.length > 1 ? 's' : '' }}
               dans cette rubrique
             </h3>
             <div class="sub-cards">

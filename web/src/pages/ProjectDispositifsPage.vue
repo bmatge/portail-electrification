@@ -10,6 +10,7 @@ import { useDispositifsStore } from '../stores/data.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import { useConfirm } from '../stores/confirm.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import PageHeader from '../components/ui/PageHeader.vue';
 import InlineEdit from '../components/ui/InlineEdit.vue';
 
@@ -50,10 +51,7 @@ const confirmStore = useConfirm();
 onMounted(() => slug.value && store.hydrate(slug.value));
 watch(slug, (s) => s && store.hydrate(s));
 
-const canEdit = computed(() => {
-  if (auth.can('data:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('data:write', () => slug.value);
 
 const data = computed<DispositifsData>(() => {
   const raw = store.data as DispositifsData | null;

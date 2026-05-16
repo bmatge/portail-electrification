@@ -12,6 +12,7 @@ import { useTreeStore, type TreeNode } from '../stores/tree.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import { useConfirm } from '../stores/confirm.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import PageHeader from '../components/ui/PageHeader.vue';
 import InlineEdit from '../components/ui/InlineEdit.vue';
 
@@ -61,10 +62,7 @@ watch(slug, async (s) => {
   if (s) await Promise.all([store.hydrate(s), treeStore.hydrate(s)]);
 });
 
-const canEdit = computed(() => {
-  if (auth.can('data:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('data:write', () => slug.value);
 
 const data = computed<ObjectifsData>(() => {
   const raw = store.data as ObjectifsData | null;

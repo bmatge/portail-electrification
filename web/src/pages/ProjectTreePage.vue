@@ -12,6 +12,7 @@ import {
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import { useConfirm } from '../stores/confirm.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import {
   find,
   audiencesFor,
@@ -79,10 +80,7 @@ const vocab = computed<VocabConfig>(() => {
 
 const root = computed<TreeNode | null>(() => treeStore.tree);
 
-const canEdit = computed(() => {
-  if (auth.can('tree:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('tree:write', () => slug.value);
 
 const flatList = computed<Array<{ node: TreeNode; depth: number; inherited: readonly string[] }>>(
   () => {

@@ -11,6 +11,7 @@ import { useMesuresStore, useVocabStore } from '../stores/data.js';
 import { useTreeStore } from '../stores/tree.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import PageHeader from '../components/ui/PageHeader.vue';
 import InlineEdit from '../components/ui/InlineEdit.vue';
 
@@ -66,10 +67,7 @@ watch(slug, (s) => {
   }
 });
 
-const canEdit = computed(() => {
-  if (auth.can('data:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('data:write', () => slug.value);
 
 const data = computed<MesuresData>(() => {
   const raw = store.data as MesuresData | null;

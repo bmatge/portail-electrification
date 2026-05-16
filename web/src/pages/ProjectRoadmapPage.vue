@@ -16,6 +16,7 @@ import { useTreeStore, type TreeNode } from '../stores/tree.js';
 import { useVocabStore } from '../stores/data.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
+import { useCanEdit } from '../composables/useCanEdit.js';
 import { audiencesFor, updateNode } from '../composables/useTreeEditor.js';
 import InlineEdit from '../components/ui/InlineEdit.vue';
 import PageHeader from '../components/ui/PageHeader.vue';
@@ -28,10 +29,7 @@ const auth = useAuthStore();
 const sandbox = useSandboxStore();
 const slug = computed(() => String(route.params['slug'] ?? ''));
 
-const canEdit = computed(() => {
-  if (auth.can('tree:write')) return true;
-  return sandbox.isActive(slug.value);
-});
+const canEdit = useCanEdit('tree:write', () => slug.value);
 
 function ensureEdit(): boolean {
   if (canEdit.value) return true;

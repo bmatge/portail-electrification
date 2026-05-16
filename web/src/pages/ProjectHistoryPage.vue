@@ -14,6 +14,7 @@ import {
   type RevisionEntry,
 } from '../api/history.api.js';
 import { useAuthStore } from '../stores/auth.js';
+import { useProjectStore } from '../stores/project.js';
 import { useTreeStore, type TreeNode } from '../stores/tree.js';
 import { useConfirm } from '../stores/confirm.js';
 import PageHeader from '../components/ui/PageHeader.vue';
@@ -22,6 +23,7 @@ const route = useRoute();
 const slug = computed(() => String(route.params['slug'] ?? ''));
 const auth = useAuthStore();
 const treeStore = useTreeStore();
+const projectStore = useProjectStore();
 const confirmStore = useConfirm();
 
 const entries = ref<readonly RevisionEntry[]>([]);
@@ -54,7 +56,7 @@ async function load(): Promise<void> {
 onMounted(load);
 watch(slug, load);
 
-const canRevert = computed(() => auth.can('tree:revert'));
+const canRevert = computed(() => auth.can('tree:revert', projectStore.project?.id ?? null));
 
 const authors = computed(() => {
   const set = new Set<string>();
