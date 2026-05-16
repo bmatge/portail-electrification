@@ -21,6 +21,8 @@ import {
 } from '../stores/data.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
+import DispositifsCatalogPage from './catalogs/DispositifsCatalogPage.vue';
+import MesuresCatalogPage from './catalogs/MesuresCatalogPage.vue';
 
 const route = useRoute();
 const slug = computed(() => String(route.params['slug'] ?? ''));
@@ -340,20 +342,28 @@ function vocabPreview(label: string): string {
       :open="isOpen('dispositifs')"
       @toggle="(e) => onToggle('dispositifs', e)"
     >
-      <summary>Catalogue Dispositifs ({{ dispositifsCount }})</summary>
+      <summary>
+        Catalogue Dispositifs
+        <span
+          class="panel-count count-badge"
+          :class="{ 'count-badge--muted': !dispositifsCount }"
+          >{{ dispositifsCount }}</span
+        >
+      </summary>
       <div class="panel-body">
-        <p style="color: #555; font-size: 0.9rem">
-          Édition complète depuis l'arborescence (panneau détail d'un nœud) — vue lecture rapide
-          ici.
-        </p>
-        <pre class="json-preview">{{ JSON.stringify(dispositifsStore.data, null, 2) }}</pre>
+        <DispositifsCatalogPage :slug="slug" />
       </div>
     </details>
 
     <details class="panel" :open="isOpen('mesures')" @toggle="(e) => onToggle('mesures', e)">
-      <summary>Catalogue Mesures ({{ mesuresCount }})</summary>
+      <summary>
+        Catalogue Mesures
+        <span class="panel-count count-badge" :class="{ 'count-badge--muted': !mesuresCount }">{{
+          mesuresCount
+        }}</span>
+      </summary>
       <div class="panel-body">
-        <pre class="json-preview">{{ JSON.stringify(mesuresStore.data, null, 2) }}</pre>
+        <MesuresCatalogPage :slug="slug" />
       </div>
     </details>
 
@@ -364,6 +374,10 @@ function vocabPreview(label: string): string {
     >
       <summary>Structure CMS (drupal_structure)</summary>
       <div class="panel-body">
+        <p style="color: #555; font-size: 0.9rem">
+          Structure CMS du site cible. Affichage JSON — l'édition complète (taxonomies, blocs,
+          composants) reste à porter en v1.1.
+        </p>
         <pre class="json-preview">{{ JSON.stringify(drupalStore.data, null, 2) }}</pre>
       </div>
     </details>

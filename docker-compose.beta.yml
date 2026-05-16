@@ -1,0 +1,63 @@
+# Overlay docker-compose pour déployer la v2 en **beta** parallèlement à
+# la v1 prod qui continue de tourner sur latelier.bercy.matge.com.
+#
+# La v2 beta vit dans un répertoire distinct sur le VPS (ex:
+# ~/latelier-cadrage-site-beta) avec sa propre DB SQLite (volume nommé
+# `app-data-beta` séparé du `app-data` prod), son propre container, ses
+# propres labels Traefik. Aucune collision avec la prod.
+#
+# Usage sur le VPS :
+#   ssh vps
+#   git clone <repo> ~/latelier-cadrage-site-beta
+#   cd ~/latelier-cadrage-site-beta && git checkout v2
+#   # .env beta avec DOMAIN=latelier-beta.bercy.matge.com
+#   docker compose -f docker-compose.yml -f docker-compose.beta.yml up -d --build
+#
+# Différences clés vs prod v1 :
+# - container_name suffixé `-beta`
+# - volume `app-data-beta` (DB séparée, projets de test)
+# - DOMAIN par défaut `latelier-beta.bercy.matge.com`
+# - PAS de redirection legacy (la v1 garde portail-elec.matge.com → latelier)
+# - routers Traefik suffixés `-beta`
+
+services:
+  app:
+    container_name: latelier-cadrage-site-beta
+    image: latelier-cadrage-site:beta
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/data/app.db
+      - LOG_LEVEL=info
+      # Driver console par défaut (pas de SMTP câblé en beta initial).
+      # À changer en `smtp` quand on aura les credentials.
+      - MAILER_DRIVER=${MAILER_DRIVER:-console}
+    volumes:
+      - app-data-beta:/data
+    labels:
+      # ON OVERRIDE les labels v1 pour ne PAS partager les routers.
+      - traefik.enable=true
+      - traefik.docker.network=ecosystem-network
+      # Router principal beta
+      - traefik.http.routers.latelier-beta.rule=Host(`${DOMAIN:-latelier-beta.bercy.matge.com}`)
+      - traefik.http.routers.latelier-beta.entrypoints=${WEBSECURE_ENTRYPOINT:-websecure}
+      - traefik.http.routers.latelier-beta.tls=true
+      - traefik.http.routers.latelier-beta.tls.certresolver=${CERT_RESOLVER:-letsencrypt}
+      - traefik.http.services.latelier-beta.loadbalancer.server.port=3000
+      # HTTP → HTTPS
+      - traefik.http.routers.latelier-beta-http.rule=Host(`${DOMAIN:-latelier-beta.bercy.matge.com}`)
+      - traefik.http.routers.latelier-beta-http.entrypoints=${WEB_ENTRYPOINT:-web}
+      - traefik.http.routers.latelier-beta-http.middlewares=latelier-beta-https-redirect
+      - traefik.http.middlewares.latelier-beta-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.latelier-beta-https-redirect.redirectscheme.permanent=true
+
+  backup:
+    container_name: latelier-cadrage-site-beta-backup
+    volumes:
+      - app-data-beta:/data:ro
+      - backup-data-beta:/backups
+      - ./ops/backup.sh:/usr/local/bin/backup.sh:ro
+
+volumes:
+  app-data-beta:
+  backup-data-beta:

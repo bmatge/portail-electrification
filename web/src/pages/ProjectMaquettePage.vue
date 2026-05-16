@@ -16,6 +16,7 @@ import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import { walk, updateNode } from '../composables/useTreeEditor.js';
 import ParagraphEditor from '../components/maquette/ParagraphEditor.vue';
+import ParagraphPreview from '../components/maquette/ParagraphPreview.vue';
 
 const route = useRoute();
 const slug = computed(() => String(route.params['slug'] ?? ''));
@@ -180,29 +181,50 @@ function onEditAttempt(): void {
           id : <code>{{ selected.id }}</code>
         </p>
 
-        <ParagraphEditor
-          v-for="(p, i) in selectedParagraphs"
-          :key="p.id"
-          :code="p.code"
-          :data="p.data"
-          :can-edit="canEdit"
-          @update="(data) => updateParagraphData(i, data)"
-          @edit-attempt="onEditAttempt"
-        >
-          <template #header-actions>
-            <button class="btn-outline btn" type="button" @click="moveParagraph(i, -1)">↑</button>
-            <button class="btn-outline btn" type="button" @click="moveParagraph(i, 1)">↓</button>
-            <button class="btn" type="button" @click="removeParagraph(i)">Suppr.</button>
-          </template>
-        </ParagraphEditor>
+        <div v-for="(p, i) in selectedParagraphs" :key="p.id" class="paragraph-row">
+          <div class="paragraph-row__head">
+            <strong>{{ PARAGRAPH_LABELS[p.code] ?? p.code }}</strong>
+            <small style="color: #888">({{ p.code }})</small>
+            <span class="spacer"></span>
+            <button class="fr-btn fr-btn--tertiary fr-btn--sm" @click="moveParagraph(i, -1)">
+              ↑
+            </button>
+            <button class="fr-btn fr-btn--tertiary fr-btn--sm" @click="moveParagraph(i, 1)">
+              ↓
+            </button>
+            <button
+              class="fr-btn fr-btn--tertiary fr-btn--sm"
+              style="color: #ce0500"
+              @click="removeParagraph(i)"
+            >
+              ×
+            </button>
+          </div>
+          <div class="paragraph-row__split">
+            <div class="paragraph-row__editor">
+              <small style="color: #666">📝 Édition</small>
+              <ParagraphEditor
+                :code="p.code"
+                :data="p.data"
+                :can-edit="canEdit"
+                @update="(data) => updateParagraphData(i, data)"
+                @edit-attempt="onEditAttempt"
+              />
+            </div>
+            <div class="paragraph-row__preview">
+              <small style="color: #666">👁 Aperçu DSFR</small>
+              <ParagraphPreview :code="p.code" :data="p.data" />
+            </div>
+          </div>
+        </div>
 
         <div class="toolbar" style="margin-top: 1rem">
-          <select v-model="codeToAdd" class="input">
+          <select v-model="codeToAdd" class="fr-select">
             <option v-for="c in allCodes" :key="c" :value="c">
               {{ PARAGRAPH_LABELS[c] ?? c }}
             </option>
           </select>
-          <button class="btn" type="button" @click="addParagraph">+ Ajouter un paragraph</button>
+          <button class="fr-btn" type="button" @click="addParagraph">+ Ajouter un paragraph</button>
         </div>
       </div>
     </div>
@@ -251,5 +273,33 @@ function onEditAttempt(): void {
   background: #e3e9ff;
   color: #000091;
   font-weight: 500;
+}
+.paragraph-row {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+.paragraph-row__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.75rem;
+}
+.paragraph-row__split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 1100px) {
+  .paragraph-row__split {
+    grid-template-columns: 1fr;
+  }
+}
+.spacer {
+  flex: 1;
 }
 </style>

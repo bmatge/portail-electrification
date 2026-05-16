@@ -3,7 +3,12 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { LEGACY_VOCAB, type VocabConfig } from '@latelier/shared';
 import { useTreeStore, type TreeNode } from '../stores/tree.js';
-import { useVocabStore } from '../stores/data.js';
+import {
+  useVocabStore,
+  useDispositifsStore,
+  useMesuresStore,
+  useObjectifsStore,
+} from '../stores/data.js';
 import { useAuthStore } from '../stores/auth.js';
 import { useSandboxStore } from '../stores/sandbox.js';
 import {
@@ -16,6 +21,7 @@ import {
   updateNode,
   makeNode,
   countNodes,
+  pathTo,
 } from '../composables/useTreeEditor.js';
 import TreeNodeRow from '../components/tree/TreeNodeRow.vue';
 import TreePanel from '../components/tree/TreePanel.vue';
@@ -23,6 +29,9 @@ import TreePanel from '../components/tree/TreePanel.vue';
 const route = useRoute();
 const treeStore = useTreeStore();
 const vocabStore = useVocabStore();
+const dispositifsStore = useDispositifsStore();
+const mesuresStore = useMesuresStore();
+const objectifsStore = useObjectifsStore();
 const auth = useAuthStore();
 const sandbox = useSandboxStore();
 
@@ -30,13 +39,25 @@ const slug = computed(() => String(route.params['slug'] ?? ''));
 
 onMounted(async () => {
   if (slug.value) {
-    await Promise.all([treeStore.hydrate(slug.value), vocabStore.hydrate(slug.value)]);
+    await Promise.all([
+      treeStore.hydrate(slug.value),
+      vocabStore.hydrate(slug.value),
+      dispositifsStore.hydrate(slug.value),
+      mesuresStore.hydrate(slug.value),
+      objectifsStore.hydrate(slug.value),
+    ]);
   }
 });
 
 watch(slug, async (s) => {
   if (s) {
-    await Promise.all([treeStore.hydrate(s), vocabStore.hydrate(s)]);
+    await Promise.all([
+      treeStore.hydrate(s),
+      vocabStore.hydrate(s),
+      dispositifsStore.hydrate(s),
+      mesuresStore.hydrate(s),
+      objectifsStore.hydrate(s),
+    ]);
   }
 });
 
@@ -97,6 +118,70 @@ const selectedNode = computed(() => {
   if (!root.value) return null;
   return find(root.value, selectedId.value)?.node ?? root.value;
 });
+
+// --- Catalogues pour le panel (dispositifs/mesures/objectifs) -------------
+
+interface DispositifLite {
+  id: string;
+  name: string;
+}
+const dispositifsCatalog = computed<DispositifLite[]>(() => {
+  const raw = dispositifsStore.data as { dispositifs?: Array<Record<string, unknown>> } | null;
+  const list = Array.isArray(raw?.dispositifs) ? raw.dispositifs : [];
+  return list.map((d, i) => ({
+    id: String(d['id'] ?? `dispositif-${i}`),
+    name: String(d['name'] ?? d['label'] ?? d['title'] ?? `Dispositif ${i + 1}`),
+  }));
+});
+
+interface MesureLite {
+  id: string;
+  label: string;
+}
+const mesuresCatalog = computed<MesureLite[]>(() => {
+  const raw = mesuresStore.data as { mesures?: Array<Record<string, unknown>> } | null;
+  const list = Array.isArray(raw?.mesures) ? raw.mesures : [];
+  return list.map((m, i) => ({
+    id: String(m['id'] ?? `mesure-${i}`),
+    label: String(m['label'] ?? m['title'] ?? m['name'] ?? `Mesure ${i + 1}`),
+  }));
+});
+
+interface MeanLink {
+  axeName: string;
+  objectiveName: string;
+  meanText: string;
+}
+const meansForSelectedNode = computed<MeanLink[]>(() => {
+  if (!selectedNode.value) return [];
+  const data = objectifsStore.data as {
+    axes?: Array<{
+      name?: string;
+      objectives?: Array<{
+        name?: string;
+        means?: Array<{ text?: string; nodes?: string[] }>;
+      }>;
+    }>;
+  } | null;
+  if (!data || !Array.isArray(data.axes)) return [];
+  const out: MeanLink[] = [];
+  for (const axe of data.axes) {
+    for (const obj of axe.objectives ?? []) {
+      for (const mean of obj.means ?? []) {
+        if (Array.isArray(mean.nodes) && mean.nodes.includes(selectedNode.value.id)) {
+          out.push({
+            axeName: String(axe.name ?? ''),
+            objectiveName: String(obj.name ?? ''),
+            meanText: String(mean.text ?? ''),
+          });
+        }
+      }
+    }
+  }
+  return out;
+});
+
+// --- Actions tree ---------------------------------------------------------
 
 function onSelect(id: string): void {
   selectedId.value = id;
@@ -192,9 +277,70 @@ function onMoveSibling(direction: -1 | 1): void {
   });
 }
 
+function onPromote(): void {
+  requireEditOrModal(() => {
+    if (!root.value || !selectedNode.value) return;
+    const path = pathTo(root.value, selectedNode.value.id);
+    if (!path || path.length < 2) {
+      alert('Ce nœud est déjà au plus haut niveau possible.');
+      return;
+    }
+    // grandparent = path[path.length-2], parent = path[path.length-1]
+    const parent = path[path.length - 1];
+    const grandparent = path[path.length - 2];
+    if (!parent || !grandparent) return;
+    const next = JSON.parse(JSON.stringify(root.value)) as TreeNode;
+    const sub = find(next, selectedNode.value.id);
+    const parentInClone = find(next, parent.id);
+    const grandInClone = find(next, grandparent.id);
+    if (!sub || !parentInClone || !grandInClone) return;
+    parentInClone.node.children = (parentInClone.node.children ?? []).filter(
+      (c) => c.id !== selectedNode.value!.id,
+    );
+    const arr = grandInClone.node.children ?? [];
+    const idx = arr.findIndex((c) => c.id === parent.id);
+    arr.splice(idx + 1, 0, sub.node);
+    grandInClone.node.children = arr;
+    void applyNextTree(next, `Promotion ${selectedNode.value.id}`);
+  });
+}
+
+function onDemote(): void {
+  requireEditOrModal(() => {
+    if (!root.value || !selectedNode.value) return;
+    const sub = find(root.value, selectedNode.value.id);
+    if (!sub?.parent) return;
+    const arr = sub.parent.children ?? [];
+    const idx = arr.findIndex((c) => c.id === selectedNode.value!.id);
+    if (idx <= 0) {
+      alert('Aucun frère précédent — il faut un nœud frère avant celui-ci pour le démouvoir.');
+      return;
+    }
+    const next = JSON.parse(JSON.stringify(root.value)) as TreeNode;
+    const subInClone = find(next, selectedNode.value.id);
+    if (!subInClone?.parent) return;
+    const arrClone = subInClone.parent.children ?? [];
+    const idxClone = arrClone.findIndex((c) => c.id === selectedNode.value!.id);
+    const prevSibling = arrClone[idxClone - 1];
+    if (!prevSibling) return;
+    arrClone.splice(idxClone, 1);
+    prevSibling.children = prevSibling.children ?? [];
+    prevSibling.children.push(subInClone.node);
+    void applyNextTree(next, `Démouvement ${selectedNode.value.id}`);
+  });
+}
+
 function onEditAttempt(): void {
   if (!canEdit.value && !auth.user) sandbox.openModal('edit');
 }
+
+const saveStatus = computed(() => {
+  if (treeStore.saving) return 'saving';
+  if (conflictMessage.value) return 'conflict';
+  if (treeStore.error) return 'error';
+  if (treeStore.dirty) return 'dirty';
+  return 'saved';
+});
 </script>
 
 <template>
@@ -206,25 +352,42 @@ function onEditAttempt(): void {
         <input
           v-model="search"
           type="search"
-          placeholder="Rechercher dans l'arbre…"
-          class="input"
-          style="flex: 1; min-width: 200px"
+          placeholder="🔍 Rechercher dans l'arbre…"
+          class="fr-input"
+          style="flex: 1; min-width: 220px"
         />
-        <select v-model="deadlineFilter" class="input">
+        <select v-model="deadlineFilter" class="fr-select" style="min-width: 180px">
           <option value="all">Toutes échéances</option>
           <option v-for="d in vocab.deadlines" :key="d.key" :value="d.key">{{ d.label }}</option>
           <option value="none">Sans échéance</option>
         </select>
-        <button class="btn" type="button" :disabled="!selectedNode" @click="onAddChild">
+        <button class="fr-btn fr-btn--sm" :disabled="!selectedNode" @click="onAddChild">
           + Sous-rubrique
         </button>
         <span class="spacer"></span>
         <span style="font-size: 0.85rem; color: #555">
-          {{ stats.total }} nœuds · profondeur {{ stats.maxDepth }}
+          {{ stats.total }} nœud{{ stats.total > 1 ? 's' : '' }} · profondeur {{ stats.maxDepth }}
         </span>
-        <span v-if="treeStore.saving" style="color: #555">Sauvegarde…</span>
-        <span v-else-if="treeStore.dirty" style="color: #b88600">●</span>
+        <span class="save-status" :class="`save-status--${saveStatus}`">
+          {{
+            saveStatus === 'saving'
+              ? 'Sauvegarde…'
+              : saveStatus === 'dirty'
+                ? 'Modifications non sauvegardées'
+                : saveStatus === 'saved'
+                  ? 'Enregistré'
+                  : ''
+          }}
+        </span>
       </div>
+
+      <!-- Légende des types -->
+      <div class="legend">
+        <span v-for="t in vocab.page_types" :key="t.key" class="type-pill" :class="`type-${t.key}`">
+          {{ t.label }}
+        </span>
+      </div>
+
       <div v-if="conflictMessage" class="alert alert-warning">{{ conflictMessage }}</div>
       <div
         v-if="treeStore.persistTarget === 'local' && treeStore.localSavedAt"
@@ -233,6 +396,7 @@ function onEditAttempt(): void {
       >
         Modifications locales sauvegardées (bac à sable).
       </div>
+
       <div class="tree-list" role="tree">
         <TreeNodeRow
           v-for="item in filtered"
@@ -252,16 +416,24 @@ function onEditAttempt(): void {
         />
       </div>
     </div>
+
     <div class="tree-side">
       <TreePanel
         :node="selectedNode"
+        :root="root"
         :is-root="selectedNode?.id === root.id"
         :vocab="vocab"
         :can-edit="canEdit"
+        :slug="slug"
+        :dispositifs-catalog="dispositifsCatalog"
+        :mesures-catalog="mesuresCatalog"
+        :means-for-node="meansForSelectedNode"
         @patch="onPatch"
         @add-child="onAddChild"
         @delete-node="onDeleteNode"
         @move-sibling="onMoveSibling"
+        @promote="onPromote"
+        @demote="onDemote"
         @edit-attempt="onEditAttempt"
       />
     </div>
@@ -271,17 +443,17 @@ function onEditAttempt(): void {
 <style scoped>
 .tree-layout {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 400px;
   gap: 1rem;
 }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .tree-layout {
     grid-template-columns: 1fr;
   }
 }
 .tree-list {
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
   background: white;
 }

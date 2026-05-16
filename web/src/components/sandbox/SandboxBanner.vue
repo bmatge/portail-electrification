@@ -1,7 +1,5 @@
 <script setup lang="ts">
 // Bandeau persistant affiché quand un projet est en mode bac à sable.
-// Permet de revenir à la version officielle (purge IndexedDB) et d'exporter
-// le brouillon en JSON conforme à docs/bundle-format.md.
 
 import { ref } from 'vue';
 import { useRoute } from 'vue-router';
@@ -81,16 +79,8 @@ async function discardLocal(): Promise<void> {
   if (!slug) return;
   await clearAllSandboxAreas(slug);
   await sandbox.deactivate(slug);
-  // Recharge en mode API
   await tree.hydrate(slug);
   await roadmap.hydrate(slug);
-  confirming.value = false;
-}
-
-function startConfirm(): void {
-  confirming.value = true;
-}
-function cancelConfirm(): void {
   confirming.value = false;
 }
 </script>
@@ -101,20 +91,32 @@ function cancelConfirm(): void {
       >🧪 <strong>Mode bac à sable</strong> — vos modifications restent dans votre navigateur</span
     >
     <span class="spacer"></span>
-    <button class="btn-outline btn" type="button" :disabled="exporting" @click="exportBundle">
-      {{ exporting ? 'Export…' : 'Exporter mon brouillon' }}
+    <button
+      class="fr-btn fr-btn--secondary fr-btn--sm"
+      type="button"
+      :disabled="exporting"
+      @click="exportBundle"
+    >
+      {{ exporting ? 'Export…' : '⬇ Exporter mon brouillon' }}
     </button>
     <template v-if="!confirming">
-      <button type="button" class="btn-outline btn" @click="startConfirm">
-        Revenir à la version officielle
+      <button type="button" class="fr-btn fr-btn--secondary fr-btn--sm" @click="confirming = true">
+        ↩ Revenir à la version officielle
       </button>
     </template>
     <template v-else>
       <span style="color: #553f00">Confirmer la perte des modifications locales ?</span>
-      <button class="btn" type="button" style="background: #b03a3a" @click="discardLocal">
+      <button
+        class="fr-btn fr-btn--sm"
+        type="button"
+        style="background: #ce0500"
+        @click="discardLocal"
+      >
         Tout effacer
       </button>
-      <button class="btn-outline btn" type="button" @click="cancelConfirm">Annuler</button>
+      <button class="fr-btn fr-btn--tertiary fr-btn--sm" type="button" @click="confirming = false">
+        Annuler
+      </button>
     </template>
   </div>
 </template>

@@ -10,12 +10,60 @@ import { useRoute } from 'vue-router';
 import { LEGACY_VOCAB, type VocabConfig } from '@latelier/shared';
 import { useTreeStore, type TreeNode } from '../stores/tree.js';
 import { useVocabStore } from '../stores/data.js';
-import { audiencesFor } from '../composables/useTreeEditor.js';
+import { useAuthStore } from '../stores/auth.js';
+import { useSandboxStore } from '../stores/sandbox.js';
+import { audiencesFor, updateNode } from '../composables/useTreeEditor.js';
+import InlineEdit from '../components/ui/InlineEdit.vue';
 
 const route = useRoute();
 const treeStore = useTreeStore();
 const vocabStore = useVocabStore();
+const auth = useAuthStore();
+const sandbox = useSandboxStore();
 const slug = computed(() => String(route.params['slug'] ?? ''));
+
+const canEdit = computed(() => {
+  if (auth.can('tree:write')) return true;
+  return sandbox.isActive(slug.value);
+});
+
+function ensureEdit(): boolean {
+  if (canEdit.value) return true;
+  if (!auth.user) sandbox.openModal('edit');
+  else alert("Vous n'avez pas la permission d'éditer.");
+  return false;
+}
+
+async function updateImprovement(
+  nodeId: string,
+  impId: string,
+  field: 'title' | 'description' | 'deadline',
+  value: string,
+): Promise<void> {
+  if (!ensureEdit()) return;
+  if (!treeStore.tree) return;
+  // Clone du tree, find le nœud + sa improvement, modifie, save.
+  const nextTree = JSON.parse(JSON.stringify(treeStore.tree)) as TreeNode;
+  function rec(n: TreeNode): boolean {
+    if (n.id === nodeId) {
+      const imps = Array.isArray(n['improvements'])
+        ? (n['improvements'] as Array<Record<string, unknown>>)
+        : [];
+      const imp = imps.find((it) => it['id'] === impId);
+      if (imp) {
+        imp[field] = value;
+        return true;
+      }
+    }
+    for (const c of n.children ?? []) if (rec(c)) return true;
+    return false;
+  }
+  if (rec(nextTree)) {
+    const finalTree = updateNode(nextTree, nextTree.id, {});
+    treeStore.setTree(finalTree ?? nextTree);
+    await treeStore.save(`Édition improvement ${impId} sur ${nodeId}`);
+  }
+}
 
 onMounted(async () => {
   if (slug.value) {
@@ -184,18 +232,33 @@ const stats = computed(() => {
             :key="card.kind + '-' + card.node.id + '-' + (card.improvement?.id ?? '')"
           >
             <div class="roadmap-card" :class="{ 'roadmap-card--imp': card.kind === 'improvement' }">
-              <strong>
-                {{ card.kind === 'improvement' ? card.improvement?.title : card.node.label }}
-              </strong>
-              <div v-if="card.improvement?.description" style="font-size: 0.8rem; color: #555">
-                {{ card.improvement.description }}
-              </div>
-              <div v-else-if="card.node.tldr" style="font-size: 0.8rem; color: #555">
-                {{ card.node.tldr }}
-              </div>
-              <small v-if="card.kind === 'improvement'" style="color: #888">
-                via {{ card.node.label }}
-              </small>
+              <template v-if="card.kind === 'improvement' && card.improvement">
+                <InlineEdit
+                  :value="card.improvement.title"
+                  :can-edit="canEdit"
+                  placeholder="(sans titre)"
+                  display-class="roadmap-card__title"
+                  @update="(v) => updateImprovement(card.node.id, card.improvement!.id, 'title', v)"
+                  @edit-attempt="ensureEdit"
+                />
+                <InlineEdit
+                  :value="card.improvement.description"
+                  textarea
+                  :rows="2"
+                  :can-edit="canEdit"
+                  placeholder="(description)"
+                  display-class="roadmap-card__desc"
+                  @update="
+                    (v) => updateImprovement(card.node.id, card.improvement!.id, 'description', v)
+                  "
+                  @edit-attempt="ensureEdit"
+                />
+                <small style="color: #888">via {{ card.node.label }}</small>
+              </template>
+              <template v-else>
+                <strong class="roadmap-card__title">{{ card.node.label }}</strong>
+                <div v-if="card.node.tldr" class="roadmap-card__desc">{{ card.node.tldr }}</div>
+              </template>
             </div>
           </template>
         </div>
@@ -243,5 +306,15 @@ const stats = computed(() => {
 }
 .roadmap-card--imp {
   border-left: 3px solid #ff9800;
+}
+.roadmap-card :deep(.roadmap-card__title) {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.15rem;
+}
+.roadmap-card :deep(.roadmap-card__desc) {
+  font-size: 0.8rem;
+  color: #555;
+  display: block;
 }
 </style>

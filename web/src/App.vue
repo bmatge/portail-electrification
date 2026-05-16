@@ -21,22 +21,24 @@ async function handleLogout(): Promise<void> {
 
 <template>
   <div>
-    <header class="l-container" style="display: flex; align-items: center; gap: 1rem">
-      <RouterLink to="/" style="font-weight: 700; font-size: 1.2rem; text-decoration: none">
-        L'atelier 🪢
-      </RouterLink>
-      <nav style="flex: 1">
-        <RouterLink to="/" style="margin-right: 1rem">Projets</RouterLink>
-        <RouterLink v-if="auth.isAdmin" to="/admin">Admin</RouterLink>
-      </nav>
-      <div v-if="auth.user">
-        <span style="margin-right: 0.5rem"
-          >{{ auth.user.display_name }}
-          <small style="color: #888">({{ auth.user.email }})</small></span
-        >
-        <button class="btn btn-outline" @click="handleLogout">Déconnexion</button>
+    <header class="app-header">
+      <div class="app-header-inner">
+        <RouterLink to="/" class="app-header-title">L'atelier 🪢</RouterLink>
+        <nav class="app-header-nav" style="flex: 1">
+          <RouterLink to="/">Projets</RouterLink>
+          <RouterLink v-if="auth.isAdmin" to="/admin">Admin</RouterLink>
+        </nav>
+        <div v-if="auth.user" style="display: flex; align-items: center; gap: 0.75rem">
+          <span style="font-size: 0.9rem">
+            <strong>{{ auth.user.display_name }}</strong>
+            <span v-if="auth.user.email" style="color: #666"> · {{ auth.user.email }}</span>
+          </span>
+          <button class="fr-btn fr-btn--secondary fr-btn--sm" @click="handleLogout">
+            Déconnexion
+          </button>
+        </div>
+        <RouterLink v-else class="fr-btn fr-btn--sm" to="/login">Se connecter</RouterLink>
       </div>
-      <RouterLink v-else class="btn" to="/login">Se connecter</RouterLink>
     </header>
     <SandboxBanner />
     <main class="l-container">
