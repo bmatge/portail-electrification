@@ -13,6 +13,7 @@
     "e2e:install": "playwright install chromium"
   },
   "dependencies": {
+    "@gouvfr/dsfr": "^1.14.4",
     "@latelier/shared": "*",
     "axios": "^1.16.1",
     "idb-keyval": "^6.2.2",
