@@ -15,7 +15,6 @@ export default tseslint.config(
       '**/coverage/**',
       'data/**',
       'assets/**',
-      'server/src/**',
       'server/node_modules/**',
       '*.html',
       'docs/**/*.json',
