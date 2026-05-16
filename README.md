@@ -1,81 +1,133 @@
-# L'atelier 🪢
+# L'atelier 🪢 — refacto v2
 
-Outil interne multi-projets pour cartographier l'arborescence, la roadmap, les ressources et les politiques publiques d'un futur site web institutionnel, avant sa construction dans Drupal.
+Outil interne multi-projets pour cartographier l'arborescence, la roadmap,
+les ressources et politiques publiques d'un portail web. Prod :
+<https://latelier.bercy.matge.com> (legacy 301 :
+<https://portail-elec.matge.com>).
 
-> Code dans GitHub, contexte projet dans le vault Obsidian — fiche projet : `~/Documents/Obsidian/10-Projects/latelier-cadrage-site.md`.
+> Branche `v2` — refacto profonde en cours. Cf. plan complet :
+> `~/.claude/plans/maintenant-qu-on-a-rendu-eventual-abelson.md`. ADR :
+> Obsidian vault → `30-Knowledge/ADR/ADR-010-refacto-v2-typescript-vue-rbac.md`.
 
-- **Production** : <https://latelier.bercy.matge.com>
-- **Démarrage local** : `cd server && npm run dev`
-- **Déploiement VPS** : `./deploy.sh [--no-pull] [--logs]`
-- **Stack** : Node ≥ 20 (ESM) · Express · SQLite (`better-sqlite3`) · HTML/CSS/JS vanilla · Docker + Traefik.
+## Monorepo (npm workspaces)
 
-Pour le détail (architecture, commandes, todo), voir la fiche projet dans le vault.
-
----
-
-## Documentation du format d'import
-
-Le dossier [`docs/`](docs/) documente le **bundle d'import projet** : le JSON qu'on importe via le picker pour amorcer un nouveau projet (ou qu'on récupère via `GET /api/projects/{slug}/export`).
-
-| Fichier | Rôle | Public |
-|---|---|---|
-| [`docs/bundle-format.md`](docs/bundle-format.md) | Spec narrative (vue d'ensemble, contraintes, sections, enums, références croisées) | Humains — **source de vérité** |
-| [`docs/bundle-example.json`](docs/bundle-example.json) | Mini-projet « Portail Aidants » importable tel quel | Humains + outils — exemple canonique |
-| [`docs/bundle-schema.json`](docs/bundle-schema.json) | JSON Schema draft 2020-12 | Outils (validateurs, IDE, génération de typings) |
-| [`docs/prompt-cadrage.md`](docs/prompt-cadrage.md) | Prompt système prêt à coller dans Claude.ai (long + variante courte) | Chefs de projet qui veulent générer un bundle via une IA |
-
-### Hiérarchie des sources de vérité
-
-En cas de divergence entre les fichiers ci-dessus :
-
-1. **Le code applicatif gagne toujours.** Sources canoniques :
-   - Bundle (export/import) : [`server/src/db.js`](server/src/db.js) — `exportProjectBundle()`, `importProjectFromBundle()`, `DEFAULT_DRUPAL_STRUCTURE`.
-   - Enums front (TYPES, DEADLINES, AUDIENCES) : [`assets/script.js`](assets/script.js) (≈ lignes 8-40), répliqués dans [`assets/roadmap.js`](assets/roadmap.js) et [`assets/mesures.js`](assets/mesures.js).
-2. **`bundle-format.md`** est la doc humaine canonique. Si elle contredit `bundle-schema.json`, c'est le `.md` qui décrit l'intention.
-3. **`bundle-schema.json`** est dérivé de `bundle-format.md` ; c'est lui qu'on utilise pour valider mécaniquement.
-4. **`bundle-example.json`** est un test vivant : si on le modifie, il doit toujours valider contre le schema.
-5. **`prompt-cadrage.md`** est dérivé du format + des enums ; il **ne sert pas** à découvrir le format, seulement à le faire produire par une IA.
-
-## Faire évoluer le schéma
-
-Quand on change quelque chose dans le bundle (nouveau champ, enum élargi, contrainte modifiée), suivre cet ordre pour éviter les divergences :
-
-1. **Modifier le code** d'abord — `server/src/db.js` et/ou les enums dans `assets/*.js`. Tester en local : créer un projet, exporter, réimporter.
-2. **Mettre à jour `docs/bundle-format.md`** — la section concernée, les enums en tête de section, les références croisées si elles bougent. Garder le tableau des champs aligné avec le code.
-3. **Mettre à jour `docs/bundle-schema.json`** — répercuter le changement (nouveau `$def`, enum élargi, contrainte). Garder l'ordre des champs cohérent avec le `.md` pour faciliter la relecture.
-4. **Mettre à jour `docs/bundle-example.json`** si nécessaire (au moins un nœud doit illustrer le nouveau champ si c'est un ajout). Re-valider l'exemple :
-
-   ```bash
-   npx ajv-cli@5 validate -s docs/bundle-schema.json -d docs/bundle-example.json --spec=draft2020
-   ```
-
-   Doit afficher `docs/bundle-example.json valid`.
-
-5. **Mettre à jour `docs/prompt-cadrage.md`** — la section « Règles strictes », les enums, la variante courte. Faire l'exercice complet (poser le prompt à une IA et vérifier qu'elle produit un bundle qui passe le validator).
-
-### Quand bumper `version`
-
-Le champ `version` du bundle vaut `1` aujourd'hui. À incrémenter **uniquement** en cas de rupture de rétrocompatibilité — c'est-à-dire si un bundle produit avec l'ancien format ne peut plus s'importer correctement avec le nouveau code (champ renommé, valeur d'enum supprimée, structure réorganisée). Les ajouts purs (nouveau champ optionnel, nouvelle valeur d'enum) restent en `version: 1`.
-
-Si on passe à `version: 2`, prévoir une migration côté `importProjectFromBundle()` pour accepter les anciens bundles (`v1`) et les convertir avant insertion. Documenter la migration dans une ADR (`~/Documents/Obsidian/30-Knowledge/ADR/`).
-
-### Champs legacy
-
-Certains champs du `tree` (`type` singulier, `mesure_plan`, `audience` singulier) sont tolérés en lecture mais ne doivent plus être produits. Si on les supprime un jour de la lecture, c'est un **breaking change** → bump de version + migration.
-
-## Sanity check rapide
-
-Pour valider qu'on n'a rien cassé après une modif du schéma :
-
-```bash
-# 1. JSON valides
-node -e "JSON.parse(require('fs').readFileSync('docs/bundle-example.json'))"
-node -e "JSON.parse(require('fs').readFileSync('docs/bundle-schema.json'))"
-
-# 2. L'exemple respecte le schéma
-npx ajv-cli@5 validate -s docs/bundle-schema.json -d docs/bundle-example.json --spec=draft2020
-
-# 3. (Manuel) Importer l'exemple dans une instance locale et vérifier qu'il s'affiche correctement
-cd server && npm run dev
-# puis ouvrir http://localhost:3000, picker → « Importer un projet », choisir docs/bundle-example.json
 ```
+latelier-cadrage-site/
+├─ shared/   — @latelier/shared : types Zod + RBAC permissions (back+front)
+├─ server/   — @latelier/server : Express + TypeScript strict + Kysely + SQLite
+├─ web/      — @latelier/web    : SPA Vue 3 + Vite + Pinia + vue-router
+├─ docs/     — bundle format + ops (sqlite, restore, v2-cutover)
+├─ ops/      — scripts shell (backup.sh)
+└─ assets/   — legacy v1 (HTML/JS vanilla, sera supprimé après parité SPA)
+```
+
+## Quickstart dev
+
+```sh
+# Install
+npm ci
+
+# Build des workspaces (ordre : shared → server → web)
+npm run build
+
+# Test
+npm test            # vitest run sur tous les workspaces
+npm run lint
+npm run format:check
+npm run typecheck
+
+# Dev (2 terminaux)
+npm run -w @latelier/server dev   # tsx watch :3000
+npm run -w @latelier/web dev      # vite :5173 (proxy /api → :3000)
+```
+
+## API
+
+Toutes les routes sont sous `/api`. Cookie de session `pe_session` (httpOnly,
+SameSite=Lax). Cf. [`docs/bundle-format.md`](docs/bundle-format.md) pour le
+format des bundles d'import projet.
+
+### Auth (v2 magic link)
+
+- `POST /api/auth/magic-link { email }` — 204 (anti-énumération). Envoie un
+  lien magique valide 15 min.
+- `GET /api/auth/callback?token=…` — consomme, crée la session (cookie),
+  redirige 303 vers `/` (ou réponse JSON si `Accept: application/json`).
+- `POST /api/auth/logout` — révoque la session courante. 204.
+- `POST /api/auth/logout-all` — révoque toutes les sessions du user. 204.
+- `GET /api/me` — retourne `{ user: { id, display_name, email, status, roles } }`.
+
+Self-signup ouvert : tout email peut recevoir un magic link et crée un user
+avec rôle `viewer` global. Bloquable via `AUTH_ALLOWED_EMAIL_DOMAINS` (vide
+par défaut). Cf. [shared/src/permissions.ts](shared/src/permissions.ts) pour
+les permissions par rôle.
+
+### Métier
+
+| Méthode | URL | Permission requise |
+|---|---|---|
+| GET | `/api/projects` | `project:read` (global) |
+| POST | `/api/projects` | `project:create` |
+| GET | `/api/projects/:slug` | `project:read` |
+| DELETE | `/api/projects/:slug` | `project:delete:own` (admin = `:any`) |
+| GET | `/api/projects/:slug/export` | `project:export` |
+| POST | `/api/projects/import` | `project:import` |
+| GET | `/api/projects/:slug/tree` | `tree:read` |
+| PUT | `/api/projects/:slug/tree` (If-Match: rev_id) | `tree:write` |
+| GET | `/api/projects/:slug/history` | `tree:read` |
+| GET | `/api/projects/:slug/revisions/:id` | `tree:read` |
+| POST | `/api/projects/:slug/revisions/:id/revert` | `tree:revert` |
+| GET | `/api/projects/:slug/roadmap` | `roadmap:read` |
+| PUT | `/api/projects/:slug/roadmap` (If-Match: rev_id) | `roadmap:write` |
+| GET | `/api/projects/:slug/comments[?node_id=…]` | `comments:read` |
+| POST | `/api/projects/:slug/comments` | `comments:create` |
+| DELETE | `/api/projects/:slug/comments/:id` | `comments:delete:own` (admin = `:any`) |
+| GET | `/api/projects/:slug/data/:key` | `data:read` |
+| PUT | `/api/projects/:slug/data/:key` | `data:write` |
+| GET | `/api/admin/users` | `users:read` |
+| POST | `/api/admin/users/:id/disable` | `users:disable` |
+| POST | `/api/admin/users/:id/enable` | `users:disable` |
+| POST | `/api/admin/users/:id/roles` | `roles:grant` |
+| DELETE | `/api/admin/users/:id/roles` | `roles:revoke` |
+| GET | `/api/admin/audit-log` | `audit:read` |
+
+### Optimistic locking
+
+Les PUT `/tree` et `/roadmap` exigent un header `If-Match: <revision_id>`. Si
+la révision tête a changé entre le GET et le PUT, le serveur répond 409
+`{ error: 'conflict', head: <RevisionSummary> }`. Le client doit recharger.
+
+## Déploiement
+
+`./deploy.sh [--no-pull] [--logs]` — build l'image Docker, restart le
+conteneur, optionnellement suit les logs. Cf. [`docs/ops/v2-cutover.md`](docs/ops/v2-cutover.md)
+pour la procédure de bascule v1 → v2 (~10 min downtime, ré-onboarding via
+magic link).
+
+## Backup & restore
+
+Sidecar `backup` dans `docker-compose.yml` : `sqlite3 .backup` quotidien à
+03:00, rétention 30 jours. Restore documenté dans [`docs/ops/restore.md`](docs/ops/restore.md).
+Caveats SQLite à respecter en prod : [`docs/ops/sqlite.md`](docs/ops/sqlite.md).
+
+## Reporté v1.1
+
+- ProConnect / OIDC (DB schema déjà prêt — `auth_identities.provider IN
+  ('local','proconnect')`)
+- Litestream off-site (CRON local 24h en v1)
+- SMTP réel (driver console en l'attendant)
+- Bundling DSFR local (CSP strict possible une fois fait)
+- Playwright e2e (3 parcours : login / tree / conflict)
+- Éditeur tree visuel + 17 schémas DSFR (cf. plan §Frontend SPA)
+
+## Documentation
+
+- [`docs/bundle-format.md`](docs/bundle-format.md) — format versionné du
+  bundle d'import projet (v1, encore valide en v2)
+- [`docs/bundle-schema.json`](docs/bundle-schema.json) — JSON Schema
+- [`docs/bundle-example.json`](docs/bundle-example.json) — exemple importable
+- [`docs/prompt-cadrage.md`](docs/prompt-cadrage.md) — prompt système Claude.ai
+  pour cadrer un nouveau projet
+- [`docs/ops/sqlite.md`](docs/ops/sqlite.md) — caveats prod SQLite
+- [`docs/ops/restore.md`](docs/ops/restore.md) — procédure de restore
+- [`docs/ops/v2-cutover.md`](docs/ops/v2-cutover.md) — bascule v1 → v2
