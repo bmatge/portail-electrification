@@ -29,33 +29,46 @@ v1 en prod. Comm équipe 48h avant.
    ./deploy.sh --no-pull  # pull manuel ci-dessus, on build seulement
    # ou : docker compose down && git pull && docker compose up -d --build
    ```
-4. **Vérifier les migrations 0005-0009** dans les logs :
+4. **Vérifier les migrations 0005-0010** dans les logs :
    ```sh
    docker compose logs app | grep "migrations appliquées"
    # Attendu : 0005_users_v2.sql, 0006_projects_created_by.sql,
-   # 0007_auth.sql, 0008_rbac.sql, 0009_sessions_v2.sql
+   # 0007_auth.sql, 0008_rbac.sql, 0009_sessions_v2.sql,
+   # 0010_projects_public.sql
    ```
    À ce stade :
    - Les sessions v1 sont invalidées (DROP TABLE par 0009).
    - Les users existants ont `display_name = ancien name`, `email = NULL`.
-5. **Onboarder les users legacy** (rôles + email) :
+   - Tous les projets existants sont en `is_public = 1` (iso-fonctionnel
+     avec la v1, entièrement publique en lecture).
+5. **Onboarder les users legacy** (envoi des magic links) :
+
    ```sh
-   # Variante interactive (à écrire ; cf. ops/seed-invites.ts dans le plan)
-   docker compose exec app node server/dist/ops/seed-invites.js \
-     --file /app/data/invites.json
+   # Driver SMTP réel impératif ici (pas console !)
+   docker compose exec -e MAILER_DRIVER=smtp app \
+     node --experimental-strip-types /app/ops/seed-invites.ts \
+     --base-url=https://latelier.bercy.matge.com \
+     --file=/data/invites.txt
    ```
-   Le format attendu (`invites.json`) :
-   ```json
-   [
-     { "legacy_name": "Bertrand", "email": "bertrand@matge.com", "role": "admin" },
-     { "legacy_name": "Alice", "email": "alice@bercy.gouv.fr", "role": "editor" }
-   ]
+
+   Le format attendu (`invites.txt`, un email par ligne, `#` = commentaire) :
+
    ```
-   Pour chaque entrée, le script :
-   - retrouve l'user par `display_name = legacy_name`
-   - met `email = …`, `status = 'pending'`
-   - accorde le rôle global demandé
-   - envoie un magic link (driver SMTP réel ici, **pas le console mailer**)
+   bertrand@matge.com
+   alice@bercy.gouv.fr
+   # bob@bercy.gouv.fr  # désactivé
+   ```
+
+   Le script enverra un magic link à chaque email — l'utilisateur clique,
+   son compte se crée en `viewer` (self-signup ouvert). Les rôles
+   editor/admin sont à attribuer ensuite via `POST /api/admin/users/:id/roles`
+   ou la page Admin de la SPA.
+
+   **Variables SMTP requises côté docker-compose.yml** : `SMTP_HOST`,
+   `SMTP_PORT`, `SMTP_USER`/`SMTP_PASS` (si auth), `SMTP_FROM`. En dev,
+   utiliser `docker-compose.dev.yml` qui ajoute le sidecar Mailpit
+   (UI http://localhost:8025).
+
 6. **Smoke test** :
    ```sh
    curl -s https://latelier.bercy.matge.com/api/health | jq .
@@ -111,10 +124,22 @@ Cf. `docs/ops/restore.md` pour le détail de la restauration.
   bloqués au login, vérifier que leur magic link n'est pas filtré par leur
   client mail.
 
-## Hors scope cutover (à câbler post-merge)
+## Livré côté cutover
 
-- Mailer SMTP réel (driver `smtp` à câbler — Phase 8 fournit memory/console
-  drivers ; production = console le temps qu'un SMTP soit branché).
-- `ops/seed-invites.ts` (script TS dédié — à écrire avant le cutover réel).
-- Bundling DSFR local (CSP pourra être strict après).
-- Playwright e2e 3 parcours (login / édition tree / conflit lock).
+- ✅ Mailer SMTP réel (driver `smtp` via nodemailer, configurable via
+  env `SMTP_*`).
+- ✅ `ops/seed-invites.ts` — script CLI prêt à utiliser.
+- ✅ DSFR bundlé local (CSP `script-src 'self'` peut rester stricte).
+- ✅ Playwright e2e (scaffold 3 specs : magic-link, sandbox, conflict).
+- ✅ Lecture publique conditionnelle par projet (`is_public`, défaut `1`
+  — iso-fonctionnel avec la v1).
+- ✅ Bac à sable anonyme (modal + bandeau + export bundle, ADR-012).
+
+## Hors scope cutover (v1.1)
+
+- Tests Playwright passés en CI (nécessite stub auth côté server pour
+  les parcours authentifiés).
+- PurgeCSS sur le bundle DSFR (réduction ~80% du CSS attendue).
+- ProConnect / OIDC en provider d'auth (table `auth_identities` déjà
+  prête, intégration localisée).
+- Litestream → S3 pour le backup hors-site.

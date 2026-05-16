@@ -62,17 +62,52 @@ avec rôle `viewer` global. Bloquable via `AUTH_ALLOWED_EMAIL_DOMAINS` (vide
 par défaut). Cf. [shared/src/permissions.ts](shared/src/permissions.ts) pour
 les permissions par rôle.
 
+### Lecture publique conditionnelle + bac à sable anonyme
+
+Chaque projet porte un flag `is_public` (défaut `1`). Si `is_public = 1`,
+toutes les routes `GET` projet (tree/roadmap/data/comments/history) sont
+ouvertes aux visiteurs **non authentifiés**. Si `is_public = 0`, l'auth
+reste requise (permission `*:read` minimum).
+
+Les écritures (`PUT`/`POST`/`DELETE`) restent toujours protégées par
+`authorize('*:write')` — pas d'écriture anonyme côté serveur.
+
+`PATCH /api/projects/:slug { is_public: boolean }` permet à un editor/admin
+du projet de basculer la visibilité.
+
+**Bac à sable anonyme** : un visiteur peut tester des modifications
+localement (IndexedDB) sans toucher au serveur. Modal implicite à la
+première tentative d'édition, bandeau persistant, bouton « Exporter mon
+brouillon » qui produit un bundle JSON ré-importable par un admin. Cf.
+[ADR-012](../../Documents/Obsidian/30-Knowledge/ADR/ADR-012-lecture-publique-et-bac-a-sable-anonyme-local.md).
+
+### Mailer
+
+Quatre drivers via `MAILER_DRIVER` (env) :
+- `memory` : tests (collecte en RAM)
+- `console` : dev sans SMTP (logue stdout)
+- `smtp` : production via nodemailer. Variables : `SMTP_HOST`, `SMTP_PORT`,
+  `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_FROM_NAME`.
+- `noop` : silencieux (bench)
+
+En dev local, un sidecar Mailpit est fourni :
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# UI Mailpit : http://localhost:8025
+```
+
 ### Métier
 
 | Méthode | URL | Permission requise |
 |---|---|---|
-| GET | `/api/projects` | `project:read` (global) |
+| GET | `/api/projects` | public (filtre `is_public` + grants) |
 | POST | `/api/projects` | `project:create` |
-| GET | `/api/projects/:slug` | `project:read` |
+| GET | `/api/projects/:slug` | public si `is_public`, sinon `project:read` |
+| PATCH | `/api/projects/:slug { is_public }` | `project:update` |
 | DELETE | `/api/projects/:slug` | `project:delete:own` (admin = `:any`) |
 | GET | `/api/projects/:slug/export` | `project:export` |
 | POST | `/api/projects/import` | `project:import` |
-| GET | `/api/projects/:slug/tree` | `tree:read` |
+| GET | `/api/projects/:slug/tree` | public si `is_public`, sinon `tree:read` |
 | PUT | `/api/projects/:slug/tree` (If-Match: rev_id) | `tree:write` |
 | GET | `/api/projects/:slug/history` | `tree:read` |
 | GET | `/api/projects/:slug/revisions/:id` | `tree:read` |
