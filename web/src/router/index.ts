@@ -4,12 +4,29 @@ import LoginPage from '../pages/LoginPage.vue';
 import CallbackPage from '../pages/CallbackPage.vue';
 import NotFoundPage from '../pages/NotFoundPage.vue';
 import AdminPage from '../pages/AdminPage.vue';
+import ProjectLayout from '../pages/ProjectLayout.vue';
+import ProjectTreePage from '../pages/ProjectTreePage.vue';
+import ProjectRoadmapPage from '../pages/ProjectRoadmapPage.vue';
+import ProjectDataPage from '../pages/ProjectDataPage.vue';
+import ProjectMaquettePage from '../pages/ProjectMaquettePage.vue';
 import { useAuthStore } from '../stores/auth.js';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: HomePage, meta: { requiresAuth: true } },
   { path: '/login', name: 'login', component: LoginPage },
   { path: '/auth/callback', name: 'callback', component: CallbackPage },
+  {
+    path: '/p/:slug',
+    component: ProjectLayout,
+    meta: { requiresAuth: true },
+    redirect: (to) => ({ name: 'project-tree', params: { slug: to.params['slug'] as string } }),
+    children: [
+      { path: 'arborescence', name: 'project-tree', component: ProjectTreePage },
+      { path: 'roadmap', name: 'project-roadmap', component: ProjectRoadmapPage },
+      { path: 'modele', name: 'project-data', component: ProjectDataPage },
+      { path: 'maquette', name: 'project-maquette', component: ProjectMaquettePage },
+    ],
+  },
   {
     path: '/admin',
     name: 'admin',

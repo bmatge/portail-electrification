@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { listProjects, createProject, type ProjectListItem } from '../api/projects.api.js';
 import { useAuthStore } from '../stores/auth.js';
 
@@ -38,8 +39,10 @@ onMounted(refresh);
     <p v-if="loading">Chargement…</p>
     <ul v-else>
       <li v-for="p in projects" :key="p.id">
-        <strong>{{ p.name }}</strong>
-        <small style="color: #666">({{ p.slug }}) — {{ p.revision_count }} révision(s)</small>
+        <RouterLink :to="`/p/${p.slug}/arborescence`">
+          <strong>{{ p.name }}</strong>
+        </RouterLink>
+        <small style="color: #666"> ({{ p.slug }}) — {{ p.revision_count }} révision(s)</small>
       </li>
     </ul>
 
